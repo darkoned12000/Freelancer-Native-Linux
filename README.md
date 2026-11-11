@@ -1,91 +1,135 @@
-# Freelancer Decomp
+# Freelancer Native Linux (Wayland port)
 
-A reverse-engineered reimplementation of the **Freelancer** (2003) game client and its engine
-DLLs, built from source with a modern Visual Studio. Every module the game loads is built from
-`src/`; no retail binary of the game is loaded except the two third-party DLLs listed below.
+This repository is a **native Linux port effort** based on [Freelancer Decomp](https://github.com/darkoned12000/Freelancer-Native-Linux): a reverse-engineered, behavior-matching reimplementation of the **Freelancer (2003)** client and engine DLLs.
 
-You need your own copy of Freelancer: the game data (`DATA`) is not part of this repository.
+**Goal:** run Freelancer **natively on Linux** (Wayland-first, targeting EndeavourOS/Hyprland + AMD RDNA3/RADV-class GPUs) **without Wine or Proton**, while preserving original game behavior and compatibility with legally obtained game data.
 
-Russian: [README.ru.md](README.ru.md). Documentation: [docs/README.md](docs/README.md).
+> Status: **early bring-up (Phase 0)**. The original Windows build remains the upstream reference; Linux-native runtime is not yet launchable.
 
-## Building and running
+## Project goals & constraints
 
-1. **Clone** this repository.
-2. **Add the game data:** copy the `DATA` folder of an installed Freelancer (or of a mod) into
-   the repository root, next to `src`, so that `DATA\` and `DATA_EXTRA\` sit side by side.
-3. **Add the DirectX 8.1 SDK:** download the
-   [DirectX 8.1 SDK (Final)](https://archive.org/details/dx81sdk_full), install or extract it, and
-   copy its `include` and `lib` folders into a `dx8` folder at the repository root (so that
-   `dx8\include\d3d8.h` and `dx8\lib\d3d8.lib` exist). Only the headers and libraries are used;
-   another location can be given with `/p:Dx8SdkDir=<path>`.
-4. **Build the Release configuration** of `src\Freelancer.sln` (`Release|Win32`) in Visual Studio,
-   or from a Developer Command Prompt:
+- **Native Linux only:** ELF executables/modules, Linux-native platform backends (filesystem, windowing/input, audio, threads/timing/module loading), no Windows compatibility layer.
+- **Preserve behavior first:** keep gameplay/data behavior aligned with the original game wherever possible.
+- **32-bit initially:** retain **x86 (32-bit)** architecture during bring-up to avoid compounding ABI/asm/layout/serialization risks; 64-bit is deferred.
+- **Preserve architecture/interfaces:** keep DACOM and existing engine interfaces/contracts where possible; replace implementations behind a Linux platform layer.
+- **Graphics strategy (phased):**
+  - **Level 1 (first major objective):** native Linux app with compatible D3D8 rendering behavior if feasible (must be validated in a native Linux x86 architecture; not assumed to be a Wine drop-in).
+  - **Level 2 (later):** fully native renderer behind existing interfaces (e.g. Vulkan) only if/when needed.
 
-   ```
-   msbuild src\Freelancer.sln -t:Build -p:Configuration=Release -p:Platform=Win32
-   ```
+See [`assessment.md`](assessment.md) for the detailed technical assessment, subsystem inventory, risks, and refactored plan.
 
-The output goes to `bin\`, which already holds the runtime configuration (`DACOM.INI`,
-`freelancer.ini`, `FLConfigDatabase.txt`, `NewPlayer.fl`, `MPNewCharacter.fl`). Run
-`bin\freelancer.exe` **from the `bin` directory** (the library and data paths are relative to it).
+## Current progress (Phase 0 bring-up scope)
 
-### Requirements
+- [x] Repo cloned and organized for Linux work (`DATA/` canonicalized with `data -> DATA` compatibility symlink).
+- [x] **#3 Path normalization:** deterministic, ASCII case-insensitive path resolution + separator normalization for Linux (`linux/include/linux_port/path_util.*`, `fl_path_resolve`).
+- [x] **#2 Config/boot probe:** `dacom_ini_probe` parses `bin/DACOM.INI`/`bin/freelancer.ini`, emits boot/load-order and component/provider hints, resolves config/data paths, and extracts `.vcxproj` dependency hints.
+- [x] **#1 Platform shims + #1.2 DACOM/ReadFile integration:** Win32/platform shims, Linux-backed file I/O, 32-bit build/runtime validation, guarded upstream `dacom.cpp`/`ReadFile.cpp` wrapper TUs, and integration harnesses with real config/file-backed reads and explicit registration hooks (`linux/build-x86`).
+- [x] **#4 Graphics de-risk spike:** `gfx_env_probe` and SDL3+Vulkan `gfx_wayland_poc` (window + instance/surface + swapchain + 120-frame clear-color present) plus `IRenderPipeline`/`RP8` scope findings. Validated on Wayland/RADV (`AMD Radeon RX 7900 XTX`) in 64-bit and 32-bit (32-bit native Wayland requires 32-bit SDL3/Vulkan/Wayland runtime deps and 32-bit pkg-config resolution at configure time). See `linux/docs/gfx-de-risk-spike.md`, `linux/docs/irenderpipeline-rp8-scope.md`, `linux/docs/build-and-env-status.md`.
 
-- Visual Studio 2022 (platform toolset v143) with the *Desktop development with C++* workload,
-  the *C++ MFC for latest v143 build tools (x86 & x64)* component (used by `FLServer`) and a
-  Windows 10/11 SDK. Everything builds as 32-bit (`Win32`).
-- Debug builds (`bin_debug\`) also need Python 3 on `PATH`: a post-build step copies the runtime
-  configuration from `bin\`.
+## Milestones
 
-### Optional features
+| Milestone | Focus | Acceptance target | Status |
+|---|---|---|---|
+| **M0** | Project foundation | CMake+Ninja Linux build scaffolding, 32-bit toolchain validation, source/build organization, dependency graph from `.vcxproj` | In progress |
+| **M1** | Core platform compatibility | Filesystem/path compat, Win32 shims, logging/diagnostics, timing, threading/sync, module loading; **`DACOM`/`ReadFile` compile or run in harnesses with targeted tests** | Planned |
+| **M2** | DACOM & engine initialization | Linux DACOM/module init model, config/INI loading, preserved registration/composition semantics; **component system initializes and loads core components** | Planned |
+| **M3** | Math & game data | `x86math` portability/behavior validation, core data/config loading without Windows APIs; **assets/configs resolve correctly on case-sensitive FS** | Planned |
+| **M4** | Windowing & input | SDL3-based Wayland-first window/event abstraction, keyboard/mouse/controller, engine adapters; **native Linux window + input/event loop** | Planned |
+| **M5** | Graphics bring-up | Standalone D3D8-compat feasibility PoC (32-bit, RADV) then RP8 subset integration or scoped native Vulkan fallback; **minimal in-engine frame/scene renders and presents** | Planned |
+| **M6** | Gameplay bring-up | Null-audio then real audio backend, XDG config/registry shim, save/load/local SP flow, UI/missions/init; **reach main menu and enter game world** | Planned |
+| **M7** | Native Linux release candidate | Stability/perf/audio verification, fullscreen/windowed/controller, docs/install; **playable native Linux experience with provided game data, no Wine/Proton** | Planned |
 
-Port-only features are build switches in `src/Freelancer.Diagnostics.props` (also on the VS
-property page *Freelancer diagnostics*), or `/p:<Name>=0|1` on the MSBuild command line:
+## Linux bring-up tools (current)
 
-| Property | Default | What it does |
-|---|---|---|
-| `FreelancerWidescreenSupport` | 1 | Widescreen (Hor+) display modes and HUD layout |
-| `FreelancerWalkMode` | 1 | Walking through base rooms as Trent ([docs/walk_mode.md](docs/walk_mode.md)) |
-| `FreelancerRp9` | 0 | `RP9.dll`, a Direct3D 9 renderer with volumetric nebulae ([docs/re/rp9.md](docs/re/rp9.md)); needs the [DirectX SDK (June 2010)](https://www.microsoft.com/en-us/download/details.aspx?id=6812) and `DirectX9` in `bin\DACOM.INI` |
-| `FreelancerBetaLabel` | 0 | The "Beta" label in the corner of the screen |
-| `FreelancerEnableTickProfile` | 0 | On-screen frame profiler |
+Experimental scaffolding lives in [`linux/`](linux/):
 
-## Repository layout
+- `linux/CMakeLists.txt` — CMake entry for helper prototypes/tools/harnesses
+- **Path/config probes:** `fl_path_resolve`, `dacom_ini_probe`
+- **Shim/integration harnesses:** `core_shim_harness`, `abi_module_harness`, `dacom_boot_harness`, `dacom_upstream_compile_probe` (64/32-bit as applicable), plus 32-bit upstream wrapper/integration targets (`fl_upstream_dacom_tu`, `fl_upstream_readfile_tu`, `upstream_dacom_readfile_harness`, `upstream_dacom_integration_harness`, `upstream_dacom_readfile_integration_harness`)
+- **Graphics de-risk (#4):** `gfx_env_probe`, `gfx_wayland_poc` (SDL3+Vulkan; built when usable target SDL3/Vulkan libs are available)
+- **Docs:** `linux/docs/phase0-status.md`, `linux/docs/build-and-env-status.md`, `linux/docs/path-normalization.md`, `linux/docs/dacom-config-probe.md`, `linux/docs/win32-shim-notes.md`, `linux/docs/dacom-readfile-harness-spike.md`, `linux/docs/gfx-de-risk-spike.md`, `linux/docs/irenderpipeline-rp8-scope.md`
 
+### Build & run (to see progress)
+
+> Run commands from the repository root. These are Phase 0 analysis/harness/PoC targets; the full game is not yet buildable or launchable on Linux.
+
+#### 1) 64-bit helper/probe/graphics build (fast host validation)
+
+```bash
+cmake -S linux -B linux/build
+cmake --build linux/build -j
+
+# Path/config probes
+./linux/build/fl_path_resolve bin '..\DATA\solar\solararch.ini'
+./linux/build/dacom_ini_probe bin/DACOM.INI
+
+# Platform/shim probes
+./linux/build/core_shim_harness
+./linux/build/dacom_upstream_compile_probe
+./linux/build/gfx_env_probe
+
+# SDL3+Vulkan presentation PoC (Wayland session; creates a window and presents 120 clear frames)
+./linux/build/gfx_wayland_poc
 ```
-src\          Visual Studio solution (Freelancer.sln) — all source code
-bin\          Release output + the runtime configuration files
-DATA_EXTRA\   the port's own data (RP9 shaders, volumetric.ini), next to the game's DATA
-EBUEula.dll   retail EULA dialog, loaded as ..\EBUEula.dll with ..\EULA.rtf (as the retail game)
-EXE\          gundll.dll — the retail GUN client (multiplayer server list), loaded as ..\exe\gundll.dll
-docs\         documentation (English; Russian translation in docs\ru)
+
+#### 2) 32-bit bring-up build (target ABI for initial port; includes upstream DACOM/ReadFile integration)
+
+Requires a 32-bit/multilib toolchain and 32-bit dev/runtime deps. For graphics PoC targets on Arch/EndeavourOS, ensure 32-bit SDL3/Vulkan/Wayland deps are installed (e.g. `lib32-sdl3`, `lib32-vulkan-icd-loader`/Mesa ICDs, `lib32-wayland`, `lib32-libxkbcommon`, `lib32-libdecor` as needed) and configure with 32-bit pkg-config resolution:
+
+```bash
+# If reconfiguring an existing build dir that cached 64-bit pkg-config results:
+# rm -rf linux/build-x86/CMakeCache.txt linux/build-x86/CMakeFiles
+
+PKG_CONFIG_LIBDIR=/usr/lib32/pkgconfig:/usr/share/pkgconfig \
+  cmake -S linux -B linux/build-x86 -DFL_LINUX_32BIT=ON
+cmake --build linux/build-x86 -j
+
+# Core/path/config/shim checks
+./linux/build-x86/fl_path_resolve bin '..\DATA\solar\solararch.ini'
+./linux/build-x86/dacom_ini_probe bin/DACOM.INI
+./linux/build-x86/core_shim_harness
+./linux/build-x86/dacom_boot_harness
+
+# Upstream DACOM/ReadFile wrapper integration (real config/file-backed reads, explicit registration hooks)
+./linux/build-x86/upstream_dacom_readfile_integration_harness
+
+# 32-bit graphics capability + presentation PoC
+./linux/build-x86/gfx_env_probe
+./linux/build-x86/gfx_wayland_poc
+# If native Wayland backend is unavailable in 32-bit SDL3 on your setup, try:
+# SDL_VIDEODRIVER=x11 ./linux/build-x86/gfx_wayland_poc
 ```
 
-`EBUEula.dll` and `gundll.dll` are the only retail binaries the port uses unchanged: they are
-third-party components of the original game and have not been reimplemented.
+**What to look for:** `fl_path_resolve` prints resolved Linux paths for Windows-style inputs; `dacom_ini_probe` prints boot/config analysis; integration harnesses end with success/`overall: ok` (some library-load failures are expected in this source-only checkout without upstream runtime DLLs); `gfx_wayland_poc` reports device/swapchain and `presented frames: 120/120 (ok)`. See `linux/docs/phase0-status.md` and `linux/docs/build-and-env-status.md` for details.
 
-## License
+## Repository layout (relevant)
 
-The source code of Freelancer Decomp is released into the public domain under
-[The Unlicense](LICENSE). This does not cover third-party code and files in the repository:
-the vendored libraries under `src\` (`src\zlib\vendor`, `src\qhull\vendor`) keep their own
-licenses, and the retail files (`EBUEula.dll`, `EULA.RTF`, `EXE\gundll.dll`) and the game data
-remain the property of their respective owners.
+- `src/` — upstream decomp source and Visual Studio solution (`Freelancer.sln`, `.vcxproj` modules)
+- `bin/` — runtime config/templates (`DACOM.INI`, `freelancer.ini`, `flconfigdatabase.txt`, etc.)
+- `DATA/` — Freelancer game data (user-provided; required at runtime)
+- `DATA_EXTRA/` — port-specific data (e.g. RP9 shaders/volumetric assets)
+- `docs/` — reverse-engineering and format/config documentation
+- `linux/` — native Linux port scaffolding, prototypes, and bring-up docs
+- `assessment.md` — Linux port assessment and roadmap
 
-## Support the project
+## Upstream project (Windows build/reference)
 
-If you would like to support the work on Freelancer Decomp, donations are welcome:
+The upstream *Freelancer Decomp* project builds on Windows (Visual Studio 2022, v143, Win32/x86) using `src/Freelancer.sln`, DirectX SDK dependencies, and outputs to `bin/`. Refer to upstream docs for original build instructions and module details:
+- [docs/README.md](docs/README.md), [docs/MISSION.md](docs/MISSION.md)
+- Russian README: [README.ru.md](README.ru.md)
 
-| Currency (network) | Address |
-|---|---|
-| USDT (BEP20) | `0x3bedb75137d850b8f24a42f488459a6a94489105` |
-| USDT (TRC20) | `TZA2s2A7m8rCuXgDsMJs7XhyoZmX7BBc6j` |
-| Bitcoin (BTC) | `1JooBx2a86hNhqdU7uYiKAfxaHVHBqD1wV` |
-| ETH (ERC20) | `0x3bedb75137d850b8f24a42f488459a6a94489105` |
+## Contributing / development notes
 
-Send only the currency listed on a line, over the network listed next to it.
+- Keep changes **behavior-preserving** and, where possible, **additive/guarded** to avoid breaking the Windows reference build.
+- Maintain a clear separation between original game logic and Linux platform/backend implementations.
+- Prefer tests/harnesses and Windows-vs-Linux behavior comparisons for boot-critical systems (config parsing, path resolution, math, data loading).
 
-## Contacts
+## License & third-party components
 
-- Discord: `@Giperion`
-- Email: [gipdereline@gmail.com](mailto:gipdereline@gmail.com)
+- Project source (Freelancer Decomp) is released under [The Unlicense](LICENSE).
+- Vendored libraries under `src/` (e.g. `src/zlib/vendor`, `src/qhull/vendor`) retain their own licenses.
+- Retail/third-party game binaries and assets are **not** covered by this license and remain property of their respective owners (including game data and any retail DLLs present such as `EBUEula.dll`, `EULA.RTF`, `EXE/gundll.dll`).
+
+## Upstream contacts & support
+
+Original project contacts (see upstream README for donation/support details): Discord `@Giperion`, [gipdereline@gmail.com](mailto:gipdereline@gmail.com). 

@@ -17,15 +17,23 @@
 #include <map>
 #include <new>
 
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
 #pragma comment(lib, "version.lib")
 #pragma comment(lib, "user32.lib")
+#endif
 
 // DACOM manager, built-in INI parser and default diagnostic handler.
 
 // Exported data (dacom.def "FDUMP DATA"), zero until DllMain installs DefaultDump. Defined
 // ahead of every use so this module reaches it directly rather than through the dllimport
 // declaration dacom.h gives every other module.
+#if defined(FL_LINUX_PORT_UPSTREAM_TU) && !defined(_WIN32)
+// Linux wrapper TU: keep FDUMP as a callable function-pointer symbol for upstream code,
+// but avoid C-linkage/Windows-export assumptions.
+void(__cdecl* FDUMP)(int flags, const char* fmt, ...) = nullptr;
+#else
 extern "C" void(__cdecl* FDUMP)(int flags, const char* fmt, ...) = nullptr;
+#endif
 
 namespace
 {

@@ -30,6 +30,7 @@ binasan/
 # Retail game data (supplied by the user, not versioned). The port's own data is tracked in
 # DATA_EXTRA/, next to it.
 DATA/
+data/
 
 # Retail binaries and the Ghidra listings (local reverse-engineering reference, not published).
 # gundll.dll is the one retail DLL the port loads as is, from its retail path ..\exe\gundll.dll.
@@ -76,3 +77,14 @@ Desktop.ini
 
 # Throwaway RE scratch: per-investigation emulators, listing dumps, audit dumps.
 tools/_*
+
+# Linux port bring-up (CMake / local builds)
+linux/build/
+linux/build-*/
+linux/**/CMakeCache.txt
+linux/**/CMakeFiles/
+linux/**/cmake_install.cmake
+linux/**/Makefile
+linux/**/compile_commands.json
+compile_commands.json
+.cache/
