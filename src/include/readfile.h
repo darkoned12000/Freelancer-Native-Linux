@@ -14,6 +14,7 @@
 
 #include <cstddef>
 
+#pragma pack(push, 4)
 // Digital Anvil FileSystem AGGDESC (size 0x30 or 0x34). DALib::OpenData / ReadFile.dll.c.
 struct FFileSystemDesc
 {
@@ -37,6 +38,10 @@ struct FFileSystemDesc
 
 // Callers fill `Size` (0x30 / 0x34 for DOS and UTF, 0x40 for MEM) and the callee reads
 // only that much, so the DOS-sized prefix layout is the invariant that matters.
+#pragma pack(pop)
+// M3 review-fix: explicit 4-byte packing preserves the 32-bit DOS/UTF prefix (0x34)
+// and MEM layout (0x40) across compilers (avoids GCC/Clang padding inflating sizeof).
+
 static_assert(offsetof(FFileSystemDesc, Field30) == 0x30, "DOS/UTF desc prefix is 0x34");
 static_assert(sizeof(FFileSystemDesc) == 0x40, "MEM tail extends the desc to 0x40");
 

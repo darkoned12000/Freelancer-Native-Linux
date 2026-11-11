@@ -192,6 +192,32 @@ if(FL_LINUX_BUILD_TOOLS)
       "${FL_SRC_ROOT}"
     )
     target_compile_definitions(m2_engine_init_harness PRIVATE FL_LINUX_PORT_UPSTREAM_TU=1)
+
+    add_library(fl_upstream_x86math_tu OBJECT tests/upstream_x86math_tu.cpp)
+    target_link_libraries(fl_upstream_x86math_tu PRIVATE fl_linux_port_platform fl_linux_port_path)
+    target_include_directories(fl_upstream_x86math_tu BEFORE PRIVATE
+      "${CMAKE_CURRENT_SOURCE_DIR}/include/linux_port"
+      "${FL_LINUX_INCLUDE_DIR}"
+      "${FL_SRC_ROOT}/include"
+      "${FL_SRC_ROOT}"
+    )
+    target_compile_definitions(fl_upstream_x86math_tu PRIVATE FL_LINUX_PORT_UPSTREAM_TU=1)
+
+    add_executable(m3_math_data_tests
+      tests/m3_math_data_tests.cpp
+      $<TARGET_OBJECTS:fl_upstream_dacom_tu>
+      $<TARGET_OBJECTS:fl_upstream_readfile_tu>
+      $<TARGET_OBJECTS:fl_upstream_x86math_tu>
+    )
+    target_link_libraries(m3_math_data_tests PRIVATE fl_linux_port_platform fl_linux_port_path)
+    target_include_directories(m3_math_data_tests BEFORE PRIVATE
+      "${CMAKE_CURRENT_SOURCE_DIR}/include/linux_port"
+      "${FL_LINUX_INCLUDE_DIR}"
+      "${FL_SRC_ROOT}/include"
+      "${FL_SRC_ROOT}"
+    )
+    target_compile_definitions(m3_math_data_tests PRIVATE FL_LINUX_PORT_UPSTREAM_TU=1)
+
   endif()
 endif()
 

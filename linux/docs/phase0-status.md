@@ -2,6 +2,22 @@
 
 Snapshot of bring-up work for native Linux (Wayland) target.
 
+## M3 — Math and game data (completed, pending review)
+
+**Status:** implemented in working tree for review (not committed). Builds/tests validated on host in 32-bit bring-up targets.
+
+### Completed in M3
+- **`x86math` port/isolation:** added portable Linux 3DMathEngine implementation and explicit registration hook (`linux/src/x86math_portable.cpp`, `linux/tests/upstream_x86math_tu.cpp`) to isolate upstream MSVC/x86 asm/ABI-sensitive behavior while preserving DACOM interface/registration semantics; numeric/behavior checks validated.
+- **Path resolution integrated into data/resource loading flows:** config and `DATA/` asset access exercised via normalized/case-insensitive path resolution and shimmed file APIs on case-sensitive FS; `FileSystem/DOS` instantiated against resolved data root.
+- **Core config/game data loading from `DATA/`:** resolved and read `bin/DACOM.INI`, `bin/freelancer.ini`, and core game data files (e.g. `solar\solararch.ini`, `UNIVERSE\universe.ini`, including BINI content).
+- **Harness/proof:** added 32-bit `m3_math_data_tests` (`linux/tests/m3_math_data_tests.cpp`) covering x86math registration/numerics, path-integrated config/data loading, and consistency/spot checks.
+
+### Validation highlights
+- 32-bit (`linux/build-x86`): `m3_math_data_tests` → **PASS**.
+- Source-only checkout note: external runtime module binaries in `DACOM.INI [Libraries]` remain unavailable; explicit-registration/effective-init handling used with accurate diagnostics (no suppression).
+
+See `linux/docs/m3-math-game-data.md`.
+
 ## M2 — DACOM and engine initialization (completed, pending review)
 
 **Status:** implemented in working tree for review (not committed). Builds/tests validated on host in 32-bit bring-up targets.

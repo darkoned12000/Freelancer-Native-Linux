@@ -94,10 +94,15 @@ Goal: establish tooling, shims, harnesses, and feasibility evidence to reduce ri
 
 **Acceptance target:** Core data/config load without Windows APIs; path resolution behaves correctly on case-sensitive layout.
 
-- [ ] Port/isolate `x86math` (handle MSVC/x86 asm and ABI-sensitive behavior carefully; validate numerics)
-- [ ] Integrate path resolution into data/resource loading flows
-- [ ] Load core Freelancer configuration and game data from `DATA/` on Linux
-- [ ] Behavior/consistency checks (spot comparisons vs expected values/Windows behavior where feasible)
+- [x] Port/isolate `x86math` (handle MSVC/x86 asm and ABI-sensitive behavior carefully; validate numerics)
+  - [x] Added portable Linux bring-up implementation of 3DMathEngine/DACOM registration contract (`linux/src/x86math_portable.cpp`, `linux/tests/upstream_x86math_tu.cpp`) to isolate MSVC/x86 asm/ABI-sensitive upstream behavior behind an explicit, harness-validated path
+  - [x] Numeric/behavior validation via `m3_math_data_tests` (matrix/transform/quaternion/inverse/sqrt-invsqrt checks)
+- [x] Integrate path resolution into data/resource loading flows
+  - [x] Case-insensitive/normalized path resolution used for config and `DATA/` asset access in harnessed load flows; `FileSystem/DOS` instantiated against resolved data root
+- [x] Load core Freelancer configuration and game data from `DATA/` on Linux
+  - [x] `m3_math_data_tests` resolves/reads `bin/DACOM.INI`, `bin/freelancer.ini`, and core game data files from `DATA/` (e.g. `solar\\solararch.ini`, `UNIVERSE\\universe.ini`, including BINI content) via Linux-compatible paths
+- [x] Behavior/consistency checks (spot comparisons vs expected values/Windows behavior where feasible)
+  - [x] Config/content spot checks and resolved-path existence/consistency checks; missing-path failure behavior verified (accurate diagnostics preserved)
 
 ## M4 — Windowing and input
 

@@ -4,7 +4,7 @@ This repository is a **native Linux port effort** based on [Freelancer Decomp](h
 
 **Goal:** run Freelancer **natively on Linux** (Wayland-first, targeting EndeavourOS/Hyprland + AMD RDNA3/RADV-class GPUs) **without Wine or Proton**, while preserving original game behavior and compatibility with legally obtained game data.
 
-> Status: **early bring-up (M2 DACOM and engine initialization completed, pending review)**. The original Windows build remains the upstream reference; Linux-native runtime is not yet launchable.
+> Status: **early bring-up (M3 math and game data completed, pending review)**. The original Windows build remains the upstream reference; Linux-native runtime is not yet launchable.
 
 ## Project goals & constraints
 
@@ -42,6 +42,11 @@ See [`assessment.md`](assessment.md) for the detailed technical assessment, subs
 - [x] Config/INI loading through Linux-compatible paths (`bin/DACOM.INI`, `bin/freelancer.ini`, resolved `data path`) with source-only explicit-registration-aware handling for unavailable external runtime modules.
 - [x] Minimal core component init/load in dependency order proven by 32-bit `m2_engine_init_harness` (component system init, config load, registration/composition, and successful core component instantiation including `FileSystem/DOS`). See [`roadmap.md`](roadmap.md) and `linux/docs/m2-dacom-engine-init.md`.
 
+### M3 — Math and game data (completed, pending review)
+- [x] Portable/isolated Linux `x86math` (3DMathEngine) implementation with explicit DACOM registration and numeric/behavior validation (`linux/src/x86math_portable.cpp`, `linux/tests/upstream_x86math_tu.cpp`, `m3_math_data_tests`).
+- [x] Path resolution integrated into config/data loading flows on case-sensitive layout (resolved `bin` configs and `DATA/` assets, `FileSystem/DOS` instantiated against resolved data root).
+- [x] Core Freelancer configuration and game data loaded from `DATA/` with consistency/spot checks (including BINI data files) via `m3_math_data_tests`. See [`roadmap.md`](roadmap.md) and `linux/docs/m3-math-game-data.md`.
+
 ## Milestones
 
 | Milestone | Focus | Acceptance target | Status |
@@ -49,7 +54,7 @@ See [`assessment.md`](assessment.md) for the detailed technical assessment, subs
 | **M0** | Project foundation | CMake+Ninja Linux build scaffolding, 32-bit toolchain validation, source/build organization, dependency graph from `.vcxproj` | Completed |
 | **M1** | Core platform compatibility | Filesystem/path compat, Win32 shims, logging/diagnostics, timing, threading/sync, module loading; **`DACOM`/`ReadFile` compile or run in harnesses with targeted tests** | Completed (pending review) |
 | **M2** | DACOM & engine initialization | Linux DACOM/module init model, config/INI loading, preserved registration/composition semantics; **component system initializes and loads core components** | Completed (pending review) |
-| **M3** | Math & game data | `x86math` portability/behavior validation, core data/config loading without Windows APIs; **assets/configs resolve correctly on case-sensitive FS** | Planned |
+| **M3** | Math & game data | Portable/isolated `x86math` (3DMathEngine) registration + numeric validation, path-integrated data/resource loading, core config/game data loaded from `DATA/`; **assets/configs resolve correctly on case-sensitive FS** | Completed (pending review) |
 | **M4** | Windowing & input | SDL3-based Wayland-first window/event abstraction, keyboard/mouse/controller, engine adapters; **native Linux window + input/event loop** | Planned |
 | **M5** | Graphics bring-up | Standalone D3D8-compat feasibility PoC (32-bit, RADV) then RP8 subset integration or scoped native Vulkan fallback; **minimal in-engine frame/scene renders and presents** | Planned |
 | **M6** | Gameplay bring-up | Null-audio then real audio backend, XDG config/registry shim, save/load/local SP flow, UI/missions/init; **reach main menu and enter game world** | Planned |
@@ -61,67 +66,72 @@ Experimental scaffolding lives in [`linux/`](linux/):
 
 - `linux/CMakeLists.txt` — CMake entry for helper prototypes/tools/harnesses
 - **Path/config probes:** `fl_path_resolve`, `dacom_ini_probe`
-- **Shim/integration harnesses:** `core_shim_harness`, `abi_module_harness`, `dacom_boot_harness`, `m1_platform_tests`, `dacom_upstream_compile_probe` (64/32-bit as applicable), plus 32-bit upstream wrapper/integration targets (`fl_upstream_dacom_tu`, `fl_upstream_readfile_tu`, `upstream_dacom_readfile_harness`, `upstream_dacom_integration_harness`, `upstream_dacom_readfile_integration_harness`, `m2_engine_init_harness`)
+- **Shim/integration harnesses:** `core_shim_harness`, `abi_module_harness`, `dacom_boot_harness`, `m1_platform_tests`, `dacom_upstream_compile_probe` (64/32-bit as applicable), plus 32-bit upstream wrapper/integration targets (`fl_upstream_dacom_tu`, `fl_upstream_readfile_tu`, `fl_upstream_x86math_tu`, `upstream_dacom_readfile_harness`, `upstream_dacom_integration_harness`, `upstream_dacom_readfile_integration_harness`, `m2_engine_init_harness`, `m3_math_data_tests`)
 - **Graphics de-risk (#4):** `gfx_env_probe`, `gfx_wayland_poc` (SDL3+Vulkan; built when usable target SDL3/Vulkan libs are available)
 - **Docs:** `linux/docs/phase0-status.md`, `linux/docs/build-and-env-status.md`, `linux/docs/path-normalization.md`, `linux/docs/dacom-config-probe.md`, `linux/docs/win32-shim-notes.md`, `linux/docs/dacom-readfile-harness-spike.md`, `linux/docs/gfx-de-risk-spike.md`, `linux/docs/irenderpipeline-rp8-scope.md`
 
 ### Build & run (to see progress)
 
-> Run commands from the repository root. These are Phase 0 analysis/harness/PoC targets; the full game is not yet buildable or launchable on Linux.
+> Run commands from the repository root. These are Phase 0/M1–M3 analysis, harness, and PoC targets; the full game is not yet buildable or launchable on Linux.
 
-#### 1) 64-bit helper/probe/graphics build (fast host validation)
+Requires CMake (3.20+), Ninja, and a C/C++ toolchain (Clang/GCC). The **32-bit** bring-up build (`linux-x86`) also requires a working multilib toolchain and 32-bit runtime/dev dependencies (including 32-bit SDL3/Vulkan/Wayland stacks for graphics targets where applicable; see `linux/docs/build-and-env-status.md`).
+
+#### 1) 64-bit helper/probe/graphics build (preset: `linux-x64`)
 
 ```bash
-cmake -S linux -B linux/build
-cmake --build linux/build -j
+cmake --preset linux-x64 -S linux
+cmake --build --preset linux-x64 -j
 
 # Path/config probes
-./linux/build/fl_path_resolve bin '..\DATA\solar\solararch.ini'
-./linux/build/dacom_ini_probe bin/DACOM.INI
+./linux/linux-x64/fl_path_resolve bin '..\DATA\solar\solararch.ini'
+./linux/linux-x64/dacom_ini_probe bin/DACOM.INI
 
 # Platform/shim probes and M1 tests
-./linux/build/core_shim_harness
-./linux/build/m1_platform_tests
-./linux/build/dacom_upstream_compile_probe
-./linux/build/gfx_env_probe
+./linux/linux-x64/core_shim_harness
+./linux/linux-x64/m1_platform_tests
+./linux/linux-x64/dacom_upstream_compile_probe
+./linux/linux-x64/gfx_env_probe
 
 # SDL3+Vulkan presentation PoC (Wayland session; creates a window and presents 120 clear frames)
-./linux/build/gfx_wayland_poc
+./linux/linux-x64/gfx_wayland_poc
 ```
 
-#### 2) 32-bit bring-up build (target ABI for initial port; includes upstream DACOM/ReadFile integration)
+Build output directory: `linux/linux-x64/`.
 
-Requires a 32-bit/multilib toolchain and 32-bit dev/runtime deps. For graphics PoC targets on Arch/EndeavourOS, ensure 32-bit SDL3/Vulkan/Wayland deps are installed (e.g. `lib32-sdl3`, `lib32-vulkan-icd-loader`/Mesa ICDs, `lib32-wayland`, `lib32-libxkbcommon`, `lib32-libdecor` as needed) and configure with 32-bit pkg-config resolution:
+#### 2) 32-bit bring-up build (preset: `linux-x86`, target ABI for initial port)
 
 ```bash
-# If reconfiguring an existing build dir that cached 64-bit pkg-config results:
-# rm -rf linux/build-x86/CMakeCache.txt linux/build-x86/CMakeFiles
-
-PKG_CONFIG_LIBDIR=/usr/lib32/pkgconfig:/usr/share/pkgconfig \
-  cmake -S linux -B linux/build-x86 -DFL_LINUX_32BIT=ON
-cmake --build linux/build-x86 -j
+cmake --preset linux-x86 -S linux
+cmake --build --preset linux-x86 -j
 
 # Core/path/config/shim checks
-./linux/build-x86/fl_path_resolve bin '..\DATA\solar\solararch.ini'
-./linux/build-x86/dacom_ini_probe bin/DACOM.INI
-./linux/build-x86/core_shim_harness
-./linux/build-x86/m1_platform_tests
-./linux/build-x86/dacom_boot_harness
+./linux/linux-x86/fl_path_resolve bin '..\DATA\solar\solararch.ini'
+./linux/linux-x86/dacom_ini_probe bin/DACOM.INI
+./linux/linux-x86/core_shim_harness
+./linux/linux-x86/m1_platform_tests
+./linux/linux-x86/dacom_boot_harness
 
 # Upstream DACOM/ReadFile wrapper integration (real config/file-backed reads, explicit registration hooks)
-./linux/build-x86/upstream_dacom_readfile_integration_harness
+./linux/linux-x86/upstream_dacom_readfile_integration_harness
 
 # M2 engine init: DACOM component system init, config load, explicit core component load
-./linux/build-x86/m2_engine_init_harness
+./linux/linux-x86/m2_engine_init_harness
+
+# M3 math + game data: x86math registration/numerics, path-integrated config/DATA load
+./linux/linux-x86/m3_math_data_tests
 
 # 32-bit graphics capability + presentation PoC
-./linux/build-x86/gfx_env_probe
-./linux/build-x86/gfx_wayland_poc
+./linux/linux-x86/gfx_env_probe
+./linux/linux-x86/gfx_wayland_poc
 # If native Wayland backend is unavailable in 32-bit SDL3 on your setup, try:
-# SDL_VIDEODRIVER=x11 ./linux/build-x86/gfx_wayland_poc
+# SDL_VIDEODRIVER=x11 ./linux/linux-x86/gfx_wayland_poc
 ```
 
-**What to look for:** `fl_path_resolve` prints resolved Linux paths for Windows-style inputs; `dacom_ini_probe` prints boot/config analysis; integration harnesses end with success/`overall: ok` (some library-load failures are expected in this source-only checkout without upstream runtime DLLs); `gfx_wayland_poc` reports device/swapchain and `presented frames: 120/120 (ok)`. See `linux/docs/phase0-status.md` and `linux/docs/build-and-env-status.md` for details.
+Build output directory: `linux/linux-x86/`. The `linux-x86` configure preset sets `PKG_CONFIG_LIBDIR=/usr/lib32/pkgconfig:/usr/share/pkgconfig` for 32-bit SDL3/Vulkan discovery; you can also prefix the configure command with that environment variable if needed.
+
+**What to look for:** `fl_path_resolve` prints resolved Linux paths for Windows-style inputs; `dacom_ini_probe` prints boot/config analysis; integration/harness targets end with success/`PASS`/`overall: ok` (accurate library-load/config warnings may appear in this source-only checkout without upstream runtime DLLs); `gfx_wayland_poc` reports device/swapchain and `presented frames: 120/120 (ok)`. See `linux/docs/phase0-status.md` and `linux/docs/build-and-env-status.md` for details.
+
+> **Note:** If a build directory was deleted or you need to reconfigure (e.g. switching ABI or after cached pkg-config/toolchain changes), rerun the `cmake --preset ... -S linux` configure step. To force a clean reconfigure, remove the preset build directory (e.g. `linux/linux-x86` or `linux/linux-x64`) or delete its `CMakeCache.txt`/`CMakeFiles` first. Manual `-B` build directories and alternative layouts are documented in `linux/docs/m0-project-foundation.md`.
 
 ## Repository layout (relevant)
 
