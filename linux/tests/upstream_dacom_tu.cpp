@@ -11,6 +11,7 @@
 
 #include <cstdio>
 #include <filesystem>
+#include <fstream>
 #include <string>
 
 namespace {
@@ -88,7 +89,44 @@ extern "C" int fl_upstream_dacom_integration_smoke(const char* ini_path) {
   if (!mgr) return 0;
 
   // Basic manager/config surface (SetINIConfig may partially succeed/fail depending on file IO shims).
-  (void)mgr->SetINIConfig(ini_path ? ini_path : "bin/DACOM.INI", 0);
+  // Source-only checkouts do not ship runtime DLL modules listed in [Libraries]. For this smoke harness
+  // we explicitly register needed components later, so use a filtered config copy without [Libraries]
+  // entries to avoid incorrect auto-load attempts (and resulting load errors).
+  std::string effective_ini = ini_path ? ini_path : "bin/DACOM.INI";
+  std::string temp_ini_path;
+  {
+    std::ifstream in(effective_ini);
+    if (in) {
+      temp_ini_path = (std::filesystem::temp_directory_path() / "fl_dacom_smoke_no_libraries.ini").string();
+      std::ofstream out(temp_ini_path, std::ios::trunc);
+      if (out) {
+        std::string line;
+        bool in_libraries = false;
+        while (std::getline(in, line)) {
+          std::string trimmed = line;
+          while (!trimmed.empty() && (trimmed.front() == ' ' || trimmed.front() == '\t')) trimmed.erase(trimmed.begin());
+          while (!trimmed.empty() && (trimmed.back() == ' ' || trimmed.back() == '\t' || trimmed.back() == '\r')) trimmed.pop_back();
+          if (!trimmed.empty() && trimmed.front() == '[' && trimmed.back() == ']') {
+            in_libraries = (trimmed == "[Libraries]" || trimmed == "[libraries]" || trimmed == "[LIBRARIES]");
+            out << line << "\n";
+            continue;
+          }
+          if (in_libraries) {
+            continue;
+          }
+          out << line << "\n";
+        }
+        if (out.good()) effective_ini = temp_ini_path;
+      }
+    }
+  }
+
+  (void)mgr->SetINIConfig(effective_ini.c_str(), 0);
+
+  if (!temp_ini_path.empty()) {
+    std::error_code ec;
+    std::filesystem::remove(temp_ini_path, ec);
+  }
 
   // Exercise component registration/creation path compiled from upstream source.
   AGGDESC desc{};

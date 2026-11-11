@@ -43,12 +43,15 @@ Goal: establish tooling, shims, harnesses, and feasibility evidence to reduce ri
 
 **Acceptance target:** CMake+Ninja Linux build scaffolding, 32-bit toolchain validation, source/build organization, dependency graph from `.vcxproj`.
 
-- [~] Linux build infrastructure (CMake, 32-bit toolchain flags/multilib validation, warnings) for bring-up targets
-  - [ ] Preferred: dedicated CMake toolchain file(s) for i686/x86_64 targets
-  - [ ] Ninja presets / developer workflow polish (optional)
-- [~] Linux source/build organization (`linux/` bring-up layer, docs) while preserving upstream Windows build
-- [ ] Generate/maintain dependency graph from `src/*.vcxproj` / solution
-- [ ] Define and document minimal boot subset/module order for first executable bring-up
+- [x] Linux build infrastructure (CMake, 32-bit toolchain flags/multilib validation, warnings) for bring-up targets
+  - [x] Dedicated CMake toolchain files for i686/x86_64 targets (`linux/cmake/toolchain-linux-x86.cmake`, `linux/cmake/toolchain-linux-x86_64.cmake`)
+  - [x] Ninja presets / developer workflow polish (`linux/CMakePresets.json`: `linux-x64`, `linux-x86`)
+  - [x] 64-bit and 32-bit build/harness validation documented (`linux/docs/build-and-env-status.md`, `linux/docs/m0-project-foundation.md`)
+- [x] Linux source/build organization (`linux/` bring-up layer, docs, tooling) while preserving upstream Windows build
+- [x] Generate/maintain dependency graph from `src/*.vcxproj` / solution
+  - [x] Generator: `linux/tools/generate_vcxproj_dep_graph.py`
+  - [x] Artifacts: `linux/docs/vcxproj-dependency-graph.json`, `linux/docs/vcxproj-dependency-graph.md`
+- [x] Define and document minimal boot subset/module order for first executable bring-up (`linux/docs/minimal-boot-subset.md`)
 
 ## M1 — Core platform compatibility
 

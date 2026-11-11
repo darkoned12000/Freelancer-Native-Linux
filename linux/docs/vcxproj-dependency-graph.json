@@ -1,0 +1,674 @@
+{
+  "generated_from": "src/**/*.vcxproj",
+  "project_count": 39,
+  "projects": {
+    "Common": {
+      "additional_dependencies": [],
+      "all_dependencies": [
+        "DALib",
+        "dacom",
+        "qhull"
+      ],
+      "depended_on_by": [
+        "Content",
+        "FLServer",
+        "RemoteClient",
+        "RemoteServer",
+        "Server",
+        "freelancer",
+        "rpclocal"
+      ],
+      "path": "Common/Common.vcxproj",
+      "project_references": [
+        "DALib",
+        "dacom",
+        "qhull"
+      ]
+    },
+    "Content": {
+      "additional_dependencies": [
+        "Common",
+        "Server",
+        "dacom"
+      ],
+      "all_dependencies": [
+        "Common",
+        "Server",
+        "dacom"
+      ],
+      "depended_on_by": [],
+      "path": "Content/Content.vcxproj",
+      "project_references": [
+        "Common",
+        "Server"
+      ]
+    },
+    "DALib": {
+      "additional_dependencies": [
+        "dacom",
+        "winmm",
+        "zlib"
+      ],
+      "all_dependencies": [
+        "dacom",
+        "winmm",
+        "zlib"
+      ],
+      "depended_on_by": [
+        "Common",
+        "FLServer",
+        "RemoteClient",
+        "RemoteServer",
+        "Server",
+        "freelancer"
+      ],
+      "path": "DALib/DALib.vcxproj",
+      "project_references": [
+        "dacom",
+        "zlib"
+      ]
+    },
+    "Deformable2": {
+      "additional_dependencies": [
+        "dacom"
+      ],
+      "all_dependencies": [
+        "dacom"
+      ],
+      "depended_on_by": [],
+      "path": "Deformable2/Deformable2.vcxproj",
+      "project_references": [
+        "dacom"
+      ]
+    },
+    "EngBase": {
+      "additional_dependencies": [
+        "dacom"
+      ],
+      "all_dependencies": [
+        "dacom"
+      ],
+      "depended_on_by": [],
+      "path": "EngBase/EngBase.vcxproj",
+      "project_references": [
+        "dacom"
+      ]
+    },
+    "EquipResources": {
+      "additional_dependencies": [],
+      "all_dependencies": [],
+      "depended_on_by": [],
+      "path": "Resources/EquipResources/EquipResources.vcxproj",
+      "project_references": []
+    },
+    "FLServer": {
+      "additional_dependencies": [
+        "Common",
+        "DALib",
+        "RemoteClient",
+        "Server",
+        "dacom",
+        "imm32",
+        "winmm"
+      ],
+      "all_dependencies": [
+        "Common",
+        "DALib",
+        "RemoteClient",
+        "Server",
+        "dacom",
+        "imm32",
+        "serverresources",
+        "winmm"
+      ],
+      "depended_on_by": [],
+      "path": "FLServer/FLServer.vcxproj",
+      "project_references": [
+        "Common",
+        "DALib",
+        "RemoteClient",
+        "Server",
+        "dacom",
+        "serverresources"
+      ]
+    },
+    "InfoCards": {
+      "additional_dependencies": [],
+      "all_dependencies": [],
+      "depended_on_by": [],
+      "path": "Resources/InfoCards/InfoCards.vcxproj",
+      "project_references": []
+    },
+    "MemoryDiagnostics": {
+      "additional_dependencies": [
+        "advapi32",
+        "comdlg32",
+        "gdi32",
+        "ole32",
+        "psapi",
+        "shell32",
+        "user32"
+      ],
+      "all_dependencies": [
+        "advapi32",
+        "comdlg32",
+        "gdi32",
+        "ole32",
+        "psapi",
+        "shell32",
+        "user32"
+      ],
+      "depended_on_by": [],
+      "path": "MemoryDiagnostics/MemoryDiagnostics.vcxproj",
+      "project_references": []
+    },
+    "MiscText": {
+      "additional_dependencies": [],
+      "all_dependencies": [],
+      "depended_on_by": [],
+      "path": "Resources/MiscText/MiscText.vcxproj",
+      "project_references": []
+    },
+    "MiscTextInfo2": {
+      "additional_dependencies": [],
+      "all_dependencies": [],
+      "depended_on_by": [],
+      "path": "Resources/MiscTextInfo2/MiscTextInfo2.vcxproj",
+      "project_references": []
+    },
+    "NameResources": {
+      "additional_dependencies": [],
+      "all_dependencies": [],
+      "depended_on_by": [],
+      "path": "Resources/NameResources/NameResources.vcxproj",
+      "project_references": []
+    },
+    "OfferBribeResources": {
+      "additional_dependencies": [],
+      "all_dependencies": [],
+      "depended_on_by": [],
+      "path": "Resources/OfferBribeResources/OfferBribeResources.vcxproj",
+      "project_references": []
+    },
+    "RP8": {
+      "additional_dependencies": [
+        "d3d8",
+        "d3dx8",
+        "dacom",
+        "ddraw",
+        "legacy_stdio_definitions"
+      ],
+      "all_dependencies": [
+        "d3d8",
+        "d3dx8",
+        "dacom",
+        "ddraw",
+        "legacy_stdio_definitions"
+      ],
+      "depended_on_by": [],
+      "path": "RP8/RP8.vcxproj",
+      "project_references": [
+        "dacom"
+      ]
+    },
+    "RP9": {
+      "additional_dependencies": [
+        "DxErr",
+        "d3d9",
+        "d3dx9",
+        "dacom",
+        "ddraw",
+        "legacy_stdio_definitions",
+        "version"
+      ],
+      "all_dependencies": [
+        "DxErr",
+        "d3d9",
+        "d3dx9",
+        "dacom",
+        "ddraw",
+        "legacy_stdio_definitions",
+        "version"
+      ],
+      "depended_on_by": [],
+      "path": "RP9/RP9.vcxproj",
+      "project_references": [
+        "dacom"
+      ]
+    },
+    "ReadFile": {
+      "additional_dependencies": [
+        "dacom"
+      ],
+      "all_dependencies": [
+        "dacom"
+      ],
+      "depended_on_by": [],
+      "path": "ReadFile/ReadFile.vcxproj",
+      "project_references": [
+        "dacom"
+      ]
+    },
+    "RemoteClient": {
+      "additional_dependencies": [
+        "Common",
+        "DALib",
+        "Server",
+        "dacom",
+        "kernel32",
+        "rpclocal",
+        "user32"
+      ],
+      "all_dependencies": [
+        "Common",
+        "DALib",
+        "Server",
+        "dacom",
+        "kernel32",
+        "rpclocal",
+        "user32"
+      ],
+      "depended_on_by": [
+        "FLServer"
+      ],
+      "path": "RemoteClient/RemoteClient.vcxproj",
+      "project_references": [
+        "Server",
+        "dacom"
+      ]
+    },
+    "RemoteServer": {
+      "additional_dependencies": [
+        "Common",
+        "DALib",
+        "Server",
+        "dacom",
+        "freelancer",
+        "kernel32",
+        "rpclocal",
+        "user32"
+      ],
+      "all_dependencies": [
+        "Common",
+        "DALib",
+        "Server",
+        "dacom",
+        "freelancer",
+        "kernel32",
+        "rpclocal",
+        "user32"
+      ],
+      "depended_on_by": [],
+      "path": "RemoteServer/RemoteServer.vcxproj",
+      "project_references": [
+        "dacom",
+        "freelancer"
+      ]
+    },
+    "RendComp": {
+      "additional_dependencies": [
+        "dacom"
+      ],
+      "all_dependencies": [
+        "dacom"
+      ],
+      "depended_on_by": [],
+      "path": "RendComp/RendComp.vcxproj",
+      "project_references": [
+        "dacom"
+      ]
+    },
+    "Server": {
+      "additional_dependencies": [
+        "Common",
+        "advapi32",
+        "comdlg32",
+        "gdi32",
+        "kernel32",
+        "odbc32",
+        "odbccp32",
+        "ole32",
+        "oleaut32",
+        "shell32",
+        "user32",
+        "uuid",
+        "winspool"
+      ],
+      "all_dependencies": [
+        "Common",
+        "DALib",
+        "advapi32",
+        "comdlg32",
+        "dacom",
+        "gdi32",
+        "kernel32",
+        "odbc32",
+        "odbccp32",
+        "ole32",
+        "oleaut32",
+        "shell32",
+        "user32",
+        "uuid",
+        "winspool"
+      ],
+      "depended_on_by": [
+        "Content",
+        "FLServer",
+        "RemoteClient",
+        "RemoteServer"
+      ],
+      "path": "Server/Server.vcxproj",
+      "project_references": [
+        "DALib",
+        "dacom"
+      ]
+    },
+    "Shading": {
+      "additional_dependencies": [
+        "dacom"
+      ],
+      "all_dependencies": [
+        "dacom"
+      ],
+      "depended_on_by": [],
+      "path": "Shading/Shading.vcxproj",
+      "project_references": [
+        "dacom"
+      ]
+    },
+    "SoundManager": {
+      "additional_dependencies": [
+        "dacom",
+        "dsound",
+        "msacm32",
+        "ole32",
+        "winmm"
+      ],
+      "all_dependencies": [
+        "dacom",
+        "dsound",
+        "msacm32",
+        "ole32",
+        "winmm"
+      ],
+      "depended_on_by": [],
+      "path": "SoundManager/SoundManager.vcxproj",
+      "project_references": [
+        "dacom"
+      ]
+    },
+    "SoundStreamer": {
+      "additional_dependencies": [
+        "dacom",
+        "dsound",
+        "msacm32",
+        "ole32",
+        "winmm"
+      ],
+      "all_dependencies": [
+        "dacom",
+        "dsound",
+        "msacm32",
+        "ole32",
+        "winmm"
+      ],
+      "depended_on_by": [],
+      "path": "SoundStreamer/SoundStreamer.vcxproj",
+      "project_references": [
+        "dacom"
+      ]
+    },
+    "Thorn": {
+      "additional_dependencies": [
+        "dacom"
+      ],
+      "all_dependencies": [
+        "dacom"
+      ],
+      "depended_on_by": [],
+      "path": "Thorn/Thorn.vcxproj",
+      "project_references": [
+        "dacom"
+      ]
+    },
+    "alchemy": {
+      "additional_dependencies": [
+        "dacom"
+      ],
+      "all_dependencies": [
+        "dacom"
+      ],
+      "depended_on_by": [],
+      "path": "alchemy/alchemy.vcxproj",
+      "project_references": [
+        "dacom"
+      ]
+    },
+    "dacom": {
+      "additional_dependencies": [],
+      "all_dependencies": [],
+      "depended_on_by": [
+        "Common",
+        "Content",
+        "DALib",
+        "Deformable2",
+        "EngBase",
+        "FLServer",
+        "RP8",
+        "RP9",
+        "ReadFile",
+        "RemoteClient",
+        "RemoteServer",
+        "RendComp",
+        "Server",
+        "Shading",
+        "SoundManager",
+        "SoundStreamer",
+        "Thorn",
+        "alchemy",
+        "flmaterials",
+        "freelancer",
+        "luaprofile",
+        "rpclocal",
+        "system",
+        "x86math",
+        "ximage"
+      ],
+      "path": "dacom/dacom.vcxproj",
+      "project_references": []
+    },
+    "flmaterials": {
+      "additional_dependencies": [
+        "dacom"
+      ],
+      "all_dependencies": [
+        "dacom"
+      ],
+      "depended_on_by": [],
+      "path": "flmaterials/flmaterials.vcxproj",
+      "project_references": [
+        "dacom"
+      ]
+    },
+    "freelancer": {
+      "additional_dependencies": [
+        "Common",
+        "DALib",
+        "advapi32",
+        "dacom",
+        "gdi32",
+        "imeui",
+        "ole32",
+        "shell32",
+        "user32",
+        "winmm"
+      ],
+      "all_dependencies": [
+        "Common",
+        "DALib",
+        "advapi32",
+        "dacom",
+        "gdi32",
+        "imeui",
+        "ole32",
+        "shell32",
+        "user32",
+        "winmm"
+      ],
+      "depended_on_by": [
+        "RemoteServer"
+      ],
+      "path": "freelancer/freelancer.vcxproj",
+      "project_references": [
+        "Common",
+        "DALib",
+        "dacom",
+        "imeui"
+      ]
+    },
+    "imeui": {
+      "additional_dependencies": [
+        "advapi32",
+        "gdi32",
+        "imm32",
+        "ole32",
+        "user32"
+      ],
+      "all_dependencies": [
+        "advapi32",
+        "gdi32",
+        "imm32",
+        "ole32",
+        "user32"
+      ],
+      "depended_on_by": [
+        "freelancer"
+      ],
+      "path": "imeui/imeui.vcxproj",
+      "project_references": []
+    },
+    "luaprofile": {
+      "additional_dependencies": [
+        "dacom"
+      ],
+      "all_dependencies": [
+        "dacom"
+      ],
+      "depended_on_by": [],
+      "path": "luaprofile/luaprofile.vcxproj",
+      "project_references": [
+        "dacom"
+      ]
+    },
+    "movie": {
+      "additional_dependencies": [
+        "ole32",
+        "user32"
+      ],
+      "all_dependencies": [
+        "ole32",
+        "user32"
+      ],
+      "depended_on_by": [],
+      "path": "movie/movie.vcxproj",
+      "project_references": []
+    },
+    "qhull": {
+      "additional_dependencies": [],
+      "all_dependencies": [],
+      "depended_on_by": [
+        "Common"
+      ],
+      "path": "qhull/qhull.vcxproj",
+      "project_references": []
+    },
+    "resources": {
+      "additional_dependencies": [],
+      "all_dependencies": [],
+      "depended_on_by": [],
+      "path": "Resources/resources/resources.vcxproj",
+      "project_references": []
+    },
+    "rpclocal": {
+      "additional_dependencies": [
+        "Common",
+        "kernel32",
+        "user32"
+      ],
+      "all_dependencies": [
+        "Common",
+        "dacom",
+        "kernel32",
+        "user32"
+      ],
+      "depended_on_by": [
+        "RemoteClient",
+        "RemoteServer"
+      ],
+      "path": "rpclocal/rpclocal.vcxproj",
+      "project_references": [
+        "Common",
+        "dacom"
+      ]
+    },
+    "serverresources": {
+      "additional_dependencies": [],
+      "all_dependencies": [],
+      "depended_on_by": [
+        "FLServer"
+      ],
+      "path": "Resources/serverresources/serverresources.vcxproj",
+      "project_references": []
+    },
+    "system": {
+      "additional_dependencies": [
+        "dacom"
+      ],
+      "all_dependencies": [
+        "dacom"
+      ],
+      "depended_on_by": [],
+      "path": "system/system.vcxproj",
+      "project_references": [
+        "dacom"
+      ]
+    },
+    "x86math": {
+      "additional_dependencies": [
+        "dacom"
+      ],
+      "all_dependencies": [
+        "dacom"
+      ],
+      "depended_on_by": [],
+      "path": "x86math/x86math.vcxproj",
+      "project_references": [
+        "dacom"
+      ]
+    },
+    "ximage": {
+      "additional_dependencies": [
+        "dacom",
+        "user32"
+      ],
+      "all_dependencies": [
+        "dacom",
+        "user32"
+      ],
+      "depended_on_by": [],
+      "path": "ximage/ximage.vcxproj",
+      "project_references": [
+        "dacom"
+      ]
+    },
+    "zlib": {
+      "additional_dependencies": [],
+      "all_dependencies": [],
+      "depended_on_by": [
+        "DALib"
+      ],
+      "path": "zlib/zlib.vcxproj",
+      "project_references": []
+    }
+  }
+}

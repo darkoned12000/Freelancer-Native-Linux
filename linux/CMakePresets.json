@@ -1,0 +1,54 @@
+{
+  "version": 4,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 20,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "linux-base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/${presetName}",
+      "cacheVariables": {
+        "FL_LINUX_BUILD_TOOLS": "ON",
+        "FL_LINUX_BUILD_PHASE0": "OFF"
+      }
+    },
+    {
+      "name": "linux-x64",
+      "displayName": "Linux x86_64 (Ninja)",
+      "description": "64-bit Linux bring-up build (tools/probes/harnesses)",
+      "inherits": "linux-base",
+      "toolchainFile": "${sourceDir}/cmake/toolchain-linux-x86_64.cmake",
+      "cacheVariables": {
+        "FL_LINUX_32BIT": "OFF"
+      }
+    },
+    {
+      "name": "linux-x86",
+      "displayName": "Linux i686/x86 (Ninja, 32-bit)",
+      "description": "32-bit Linux bring-up build (sets PKG_CONFIG_LIBDIR for 32-bit SDL3/Vulkan discovery).",
+      "inherits": "linux-base",
+      "toolchainFile": "${sourceDir}/cmake/toolchain-linux-x86.cmake",
+      "environment": {
+        "PKG_CONFIG_LIBDIR": "/usr/lib32/pkgconfig:/usr/share/pkgconfig"
+      },
+      "cacheVariables": {
+        "FL_LINUX_32BIT": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "linux-x64",
+      "configurePreset": "linux-x64"
+    },
+    {
+      "name": "linux-x86",
+      "configurePreset": "linux-x86"
+    }
+  ],
+  "testPresets": []
+}

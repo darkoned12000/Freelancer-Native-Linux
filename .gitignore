@@ -81,6 +81,8 @@ tools/_*
 # Linux port bring-up (CMake / local builds)
 linux/build/
 linux/build-*/
+linux/linux-x64/
+linux/linux-x86/
 linux/**/CMakeCache.txt
 linux/**/CMakeFiles/
 linux/**/cmake_install.cmake

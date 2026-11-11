@@ -50,7 +50,7 @@ void log_message(LogLevel level, std::string_view message) {
 }
 
 void debug_output(std::string_view message) {
-  // Placeholder equivalent for OutputDebugStringA-style diagnostics.
+  // Placeholder equivalent for OutputDebugStringA-like diagnostics.
   log_message(LogLevel::Debug, message);
 }
 

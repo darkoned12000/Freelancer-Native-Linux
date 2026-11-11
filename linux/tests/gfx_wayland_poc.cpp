@@ -118,11 +118,13 @@ int main(int argc, char** argv) {
     return 4;
   }
 
-  VkApplicationInfo app{VK_STRUCTURE_TYPE_APPLICATION_INFO};
+  VkApplicationInfo app{};
+  app.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
   app.pApplicationName = "FL Linux GFX PoC";
   app.apiVersion = VK_API_VERSION_1_1;
 
-  VkInstanceCreateInfo ici{VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
+  VkInstanceCreateInfo ici{};
+  ici.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
   ici.pApplicationInfo = &app;
   ici.enabledExtensionCount = ext_count;
   ici.ppEnabledExtensionNames = sdl_exts;
@@ -183,14 +185,16 @@ int main(int argc, char** argv) {
   std::vector<uint32_t> unique_q{qi.graphics};
   if (qi.present != qi.graphics) unique_q.push_back(qi.present);
   for (uint32_t qf : unique_q) {
-    VkDeviceQueueCreateInfo qci{VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
+    VkDeviceQueueCreateInfo qci{};
+    qci.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
     qci.queueFamilyIndex = qf;
     qci.queueCount = 1;
     qci.pQueuePriorities = &prio;
     qcis.push_back(qci);
   }
   const char* dev_exts[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
-  VkDeviceCreateInfo dci{VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
+  VkDeviceCreateInfo dci{};
+  dci.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
   dci.queueCreateInfoCount = static_cast<uint32_t>(qcis.size());
   dci.pQueueCreateInfos = qcis.data();
   dci.enabledExtensionCount = 1;
@@ -236,7 +240,8 @@ int main(int argc, char** argv) {
   uint32_t image_count = caps.minImageCount + 1;
   if (caps.maxImageCount > 0 && image_count > caps.maxImageCount) image_count = caps.maxImageCount;
 
-  VkSwapchainCreateInfoKHR sci{VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
+  VkSwapchainCreateInfoKHR sci{};
+  sci.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
   sci.surface = surface;
   sci.minImageCount = image_count;
   sci.imageFormat = sf.format;
@@ -275,7 +280,8 @@ int main(int argc, char** argv) {
   vkGetSwapchainImagesKHR(device, swapchain, &sc_count, images.data());
   std::cout << "[gfx_poc] swapchain images: " << sc_count << " extent=" << extent.width << "x" << extent.height << "\n";
 
-  VkCommandPoolCreateInfo cpci{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
+  VkCommandPoolCreateInfo cpci{};
+  cpci.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
   cpci.queueFamilyIndex = qi.graphics;
   cpci.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
   VkCommandPool cmd_pool = VK_NULL_HANDLE;
@@ -291,15 +297,18 @@ int main(int argc, char** argv) {
     return 12;
   }
 
-  VkCommandBufferAllocateInfo cbai{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+  VkCommandBufferAllocateInfo cbai{};
+  cbai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
   cbai.commandPool = cmd_pool;
   cbai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
   cbai.commandBufferCount = 1;
   VkCommandBuffer cmd = VK_NULL_HANDLE;
   vkAllocateCommandBuffers(device, &cbai, &cmd);
 
-  VkSemaphoreCreateInfo sci_sem{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-  VkFenceCreateInfo fci{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
+  VkSemaphoreCreateInfo sci_sem{};
+  sci_sem.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+  VkFenceCreateInfo fci{};
+  fci.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
   fci.flags = VK_FENCE_CREATE_SIGNALED_BIT;
   VkSemaphore img_sem = VK_NULL_HANDLE, done_sem = VK_NULL_HANDLE;
   VkFence fence = VK_NULL_HANDLE;
@@ -308,11 +317,13 @@ int main(int argc, char** argv) {
   vkCreateFence(device, &fci, nullptr, &fence);
 
   auto record_clear = [&](uint32_t image_index, float t) {
-    VkCommandBufferBeginInfo bi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+    VkCommandBufferBeginInfo bi{};
+    bi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkBeginCommandBuffer(cmd, &bi);
 
-    VkImageMemoryBarrier to_clear{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+    VkImageMemoryBarrier to_clear{}; 
+    to_clear.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     to_clear.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     to_clear.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     to_clear.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
@@ -366,14 +377,16 @@ int main(int argc, char** argv) {
     record_clear(image_index, (frame % 60) / 59.0f);
 
     VkPipelineStageFlags wait_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-    VkSubmitInfo si{VK_STRUCTURE_TYPE_SUBMIT_INFO};
+    VkSubmitInfo si{};
+    si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     si.waitSemaphoreCount = 1; si.pWaitSemaphores = &img_sem; si.pWaitDstStageMask = &wait_stage;
     si.commandBufferCount = 1; si.pCommandBuffers = &cmd;
     si.signalSemaphoreCount = 1; si.pSignalSemaphores = &done_sem;
     vr = vkQueueSubmit(gfx_q, 1, &si, fence);
     if (vr != VK_SUCCESS) { ok = false; break; }
 
-    VkPresentInfoKHR pi{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
+    VkPresentInfoKHR pi{};
+    pi.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     pi.waitSemaphoreCount = 1; pi.pWaitSemaphores = &done_sem;
     pi.swapchainCount = 1; pi.pSwapchains = &swapchain; pi.pImageIndices = &image_index;
     vr = vkQueuePresentKHR(pres_q, &pi);
