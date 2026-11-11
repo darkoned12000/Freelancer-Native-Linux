@@ -108,10 +108,15 @@ Goal: establish tooling, shims, harnesses, and feasibility evidence to reduce ri
 
 **Acceptance target:** Native Linux window created with functioning input/event loop.
 
-- [ ] SDL3-based Wayland-first window/event abstraction (with adapters for engine expectations; avoid fake-`HWND` assumptions)
-- [ ] Keyboard/mouse/controller mapping to expected input semantics
-- [ ] Focus/lifecycle, resize, cursor/grab handling as required by engine
-- [ ] Integrate event loop with engine/frame/update flow
+- [x] SDL3-based Wayland-first window/event abstraction (with adapters for engine expectations; avoid fake-`HWND` assumptions)
+  - [x] Added `fl_port::Window`/`WindowConfig` SDL3 abstraction (`linux/include/linux_port/window_input.h`, `linux/src/window_input.cpp`) with Wayland-first driver preference + fallback, lifecycle/size/title APIs, and stable opaque `adapter_handle()` (not a fake Win32 `HWND`)
+- [x] Keyboard/mouse/controller mapping to expected input semantics
+  - [x] SDL keyboard events mapped to Win32-like virtual-key codes (`sdl_key_to_win_vk`) plus scancode/keycode/modifier/repeat state; mouse button/motion/wheel events and state tracking; SDL gamepad button/axis mapping with normalized axis values and hotplug-aware device handling
+- [x] Focus/lifecycle, resize, cursor/grab handling as required by engine
+  - [x] Focus/mouse-enter/lifecycle/resize/move/minimize/maximize/close events dispatched and tracked; cursor visibility, mouse grab, and relative mouse mode APIs exercised
+- [x] Integrate event loop with engine/frame/update flow
+  - [x] `pump_events(...)` and `run_loop(tick, callbacks, max_frames, max_seconds)` provide event pumping/state update/callback dispatch and per-frame tick integration for harness/engine update flow
+  - [x] Proof: `m4_window_input_harness` creates a native window and runs a functioning input/event loop (PASS on 64-bit Wayland host; 32-bit build when SDL3 usable)
 
 ## M5 — Graphics bring-up (highest technical risk)
 

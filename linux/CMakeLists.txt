@@ -111,6 +111,20 @@ if(FL_LINUX_BUILD_TOOLS)
     target_link_libraries(gfx_env_probe PRIVATE ${FL_VULKAN_PC_LIBRARIES})
   endif()
 
+  # M4 window/input abstraction (SDL3, Wayland-first) and harness.
+  if(FL_SDL3_USABLE)
+    add_library(fl_linux_port_window STATIC src/window_input.cpp)
+    target_link_libraries(fl_linux_port_window PUBLIC fl_linux_port_platform ${FL_SDL3_PC_LIBRARIES})
+    target_include_directories(fl_linux_port_window PUBLIC ${FL_LINUX_INCLUDE_DIR} PRIVATE ${FL_SDL3_PC_INCLUDE_DIRS})
+    target_link_directories(fl_linux_port_window PUBLIC ${FL_SDL3_PC_LIBRARY_DIRS})
+    target_compile_definitions(fl_linux_port_window PUBLIC FL_HAS_SDL3=1)
+
+    add_executable(m4_window_input_harness tests/m4_window_input_harness.cpp)
+    target_link_libraries(m4_window_input_harness PRIVATE fl_linux_port_window fl_linux_port_platform)
+  else()
+    message(STATUS "m4_window_input_harness not built (requires usable 32-bit/target sdl3 libraries)")
+  endif()
+
   # Standalone #4 Wayland/SDL3/Vulkan presentation PoC (scaffold; requires deps)
   if(FL_SDL3_USABLE AND FL_VULKAN_USABLE)
     add_executable(gfx_wayland_poc tests/gfx_wayland_poc.cpp)

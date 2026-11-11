@@ -4,7 +4,7 @@ This repository is a **native Linux port effort** based on [Freelancer Decomp](h
 
 **Goal:** run Freelancer **natively on Linux** (Wayland-first, targeting EndeavourOS/Hyprland + AMD RDNA3/RADV-class GPUs) **without Wine or Proton**, while preserving original game behavior and compatibility with legally obtained game data.
 
-> Status: **early bring-up (M3 math and game data completed, pending review)**. The original Windows build remains the upstream reference; Linux-native runtime is not yet launchable.
+> Status: **early bring-up (M4 windowing and input completed, pending review)**. The original Windows build remains the upstream reference; Linux-native runtime is not yet launchable.
 
 ## Project goals & constraints
 
@@ -47,6 +47,12 @@ See [`assessment.md`](assessment.md) for the detailed technical assessment, subs
 - [x] Path resolution integrated into config/data loading flows on case-sensitive layout (resolved `bin` configs and `DATA/` assets, `FileSystem/DOS` instantiated against resolved data root).
 - [x] Core Freelancer configuration and game data loaded from `DATA/` with consistency/spot checks (including BINI data files) via `m3_math_data_tests`. See [`roadmap.md`](roadmap.md) and `linux/docs/m3-math-game-data.md`.
 
+### M4 — Windowing and input (completed, pending review)
+- [x] SDL3-based Wayland-first window/event abstraction (`linux/include/linux_port/window_input.h`, `linux/src/window_input.cpp`) with stable opaque adapter handle (avoids fake-`HWND` assumptions) and lifecycle/size/title APIs.
+- [x] Keyboard/mouse/controller mapping to expected input semantics (Win32-like VK key mapping helper, mouse button/motion/wheel, SDL gamepad buttons/axes with normalized values and hotplug handling).
+- [x] Focus/lifecycle, resize, cursor visibility, mouse grab, and relative mouse mode handling.
+- [x] Event loop integration with engine/frame/update flow (`pump_events`, `run_loop` tick integration) proven by `m4_window_input_harness` (native window + functioning input/event loop). See [`roadmap.md`](roadmap.md) and `linux/docs/m4-windowing-input.md`.
+
 ## Milestones
 
 | Milestone | Focus | Acceptance target | Status |
@@ -55,7 +61,7 @@ See [`assessment.md`](assessment.md) for the detailed technical assessment, subs
 | **M1** | Core platform compatibility | Filesystem/path compat, Win32 shims, logging/diagnostics, timing, threading/sync, module loading; **`DACOM`/`ReadFile` compile or run in harnesses with targeted tests** | Completed (pending review) |
 | **M2** | DACOM & engine initialization | Linux DACOM/module init model, config/INI loading, preserved registration/composition semantics; **component system initializes and loads core components** | Completed (pending review) |
 | **M3** | Math & game data | Portable/isolated `x86math` (3DMathEngine) registration + numeric validation, path-integrated data/resource loading, core config/game data loaded from `DATA/`; **assets/configs resolve correctly on case-sensitive FS** | Completed (pending review) |
-| **M4** | Windowing & input | SDL3-based Wayland-first window/event abstraction, keyboard/mouse/controller, engine adapters; **native Linux window + input/event loop** | Planned |
+| **M4** | Windowing & input | SDL3-based Wayland-first window/event abstraction, keyboard/mouse/controller, engine adapters; **native Linux window + input/event loop** | Completed (pending review) |
 | **M5** | Graphics bring-up | Standalone D3D8-compat feasibility PoC (32-bit, RADV) then RP8 subset integration or scoped native Vulkan fallback; **minimal in-engine frame/scene renders and presents** | Planned |
 | **M6** | Gameplay bring-up | Null-audio then real audio backend, XDG config/registry shim, save/load/local SP flow, UI/missions/init; **reach main menu and enter game world** | Planned |
 | **M7** | Native Linux release candidate | Stability/perf/audio verification, fullscreen/windowed/controller, docs/install; **playable native Linux experience with provided game data, no Wine/Proton** | Planned |
@@ -67,12 +73,13 @@ Experimental scaffolding lives in [`linux/`](linux/):
 - `linux/CMakeLists.txt` — CMake entry for helper prototypes/tools/harnesses
 - **Path/config probes:** `fl_path_resolve`, `dacom_ini_probe`
 - **Shim/integration harnesses:** `core_shim_harness`, `abi_module_harness`, `dacom_boot_harness`, `m1_platform_tests`, `dacom_upstream_compile_probe` (64/32-bit as applicable), plus 32-bit upstream wrapper/integration targets (`fl_upstream_dacom_tu`, `fl_upstream_readfile_tu`, `fl_upstream_x86math_tu`, `upstream_dacom_readfile_harness`, `upstream_dacom_integration_harness`, `upstream_dacom_readfile_integration_harness`, `m2_engine_init_harness`, `m3_math_data_tests`)
+- **Windowing/input (M4):** `fl_linux_port_window`, `m4_window_input_harness` (SDL3, Wayland-first; built when usable target SDL3 libs are available)
 - **Graphics de-risk (#4):** `gfx_env_probe`, `gfx_wayland_poc` (SDL3+Vulkan; built when usable target SDL3/Vulkan libs are available)
-- **Docs:** `linux/docs/phase0-status.md`, `linux/docs/build-and-env-status.md`, `linux/docs/path-normalization.md`, `linux/docs/dacom-config-probe.md`, `linux/docs/win32-shim-notes.md`, `linux/docs/dacom-readfile-harness-spike.md`, `linux/docs/gfx-de-risk-spike.md`, `linux/docs/irenderpipeline-rp8-scope.md`
+- **Docs:** `linux/docs/phase0-status.md`, `linux/docs/build-and-env-status.md`, `linux/docs/path-normalization.md`, `linux/docs/dacom-config-probe.md`, `linux/docs/win32-shim-notes.md`, `linux/docs/dacom-readfile-harness-spike.md`, `linux/docs/gfx-de-risk-spike.md`, `linux/docs/irenderpipeline-rp8-scope.md`, `linux/docs/m4-windowing-input.md`
 
 ### Build & run (to see progress)
 
-> Run commands from the repository root. These are Phase 0/M1–M3 analysis, harness, and PoC targets; the full game is not yet buildable or launchable on Linux.
+> Run commands from the repository root. These are Phase 0/M1–M4 analysis, harness, and PoC targets; the full game is not yet buildable or launchable on Linux.
 
 Requires CMake (3.20+), Ninja, and a C/C++ toolchain (Clang/GCC). The **32-bit** bring-up build (`linux-x86`) also requires a working multilib toolchain and 32-bit runtime/dev dependencies (including 32-bit SDL3/Vulkan/Wayland stacks for graphics targets where applicable; see `linux/docs/build-and-env-status.md`).
 
@@ -91,6 +98,9 @@ cmake --build --preset linux-x64 -j
 ./linux/linux-x64/m1_platform_tests
 ./linux/linux-x64/dacom_upstream_compile_probe
 ./linux/linux-x64/gfx_env_probe
+
+# M4 windowing/input (native window + functioning input/event loop)
+./linux/linux-x64/m4_window_input_harness
 
 # SDL3+Vulkan presentation PoC (Wayland session; creates a window and presents 120 clear frames)
 ./linux/linux-x64/gfx_wayland_poc
@@ -120,11 +130,15 @@ cmake --build --preset linux-x86 -j
 # M3 math + game data: x86math registration/numerics, path-integrated config/DATA load
 ./linux/linux-x86/m3_math_data_tests
 
+# M4 windowing/input (native window + functioning input/event loop)
+./linux/linux-x86/m4_window_input_harness
+
 # 32-bit graphics capability + presentation PoC
 ./linux/linux-x86/gfx_env_probe
 ./linux/linux-x86/gfx_wayland_poc
 # If native Wayland backend is unavailable in 32-bit SDL3 on your setup, try:
 # SDL_VIDEODRIVER=x11 ./linux/linux-x86/gfx_wayland_poc
+# SDL_VIDEODRIVER=x11 ./linux/linux-x86/m4_window_input_harness
 ```
 
 Build output directory: `linux/linux-x86/`. The `linux-x86` configure preset sets `PKG_CONFIG_LIBDIR=/usr/lib32/pkgconfig:/usr/share/pkgconfig` for 32-bit SDL3/Vulkan discovery; you can also prefix the configure command with that environment variable if needed.

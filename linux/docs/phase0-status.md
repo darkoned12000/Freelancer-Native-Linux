@@ -2,6 +2,23 @@
 
 Snapshot of bring-up work for native Linux (Wayland) target.
 
+## M4 — Windowing and input (completed, pending review)
+
+**Status:** implemented in working tree for review (not committed). Builds/tests validated on host (64-bit and 32-bit presets).
+
+### Completed in M4
+- **SDL3 window/event abstraction (Wayland-first):** added `fl_port::Window` / `WindowConfig` / callbacks and `InputState` (`linux/include/linux_port/window_input.h`, `linux/src/window_input.cpp`) with Wayland-preferred driver selection, fallback, lifecycle/size/title APIs, and a stable opaque adapter handle for engine-facing plumbing (avoids fake-`HWND` assumptions).
+- **Keyboard/mouse/controller mapping:** SDL key events mapped to scancode/keycode/modifiers/repeat and Win32-like virtual-key codes (`sdl_key_to_win_vk`); mouse button/motion/wheel events and state; SDL gamepad buttons/axes with normalized values and hotplug-aware device handling.
+- **Focus/lifecycle/resize/cursor/grab:** focus/mouse-enter/lifecycle/resize/move/minimize/maximize/close handling plus cursor visibility, mouse grab, and relative mouse mode APIs.
+- **Event loop / engine frame-update integration:** `pump_events(...)` and `run_loop(tick, callbacks, max_frames, max_seconds)` provide event pumping/state update/callback dispatch and per-frame tick integration.
+- **Harness/proof:** added `m4_window_input_harness` (`linux/tests/m4_window_input_harness.cpp`, `fl_linux_port_window` library) demonstrating native window creation and a functioning input/event loop.
+
+### Validation highlights
+- 64-bit preset (`linux/linux-x64`): `m4_window_input_harness` → **PASS** (native Wayland window created, lifecycle/resize events observed, event loop ran ~2s with pumped frames, clean shutdown).
+- 32-bit preset (`linux/linux-x86`): `m4_window_input_harness` built and ran → **PASS** on host (runtime requires usable 32-bit SDL3/video backend).
+
+See `linux/docs/m4-windowing-input.md`.
+
 ## M3 — Math and game data (completed, pending review)
 
 **Status:** implemented in working tree for review (not committed). Builds/tests validated on host in 32-bit bring-up targets.
