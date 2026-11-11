@@ -11,6 +11,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -187,15 +188,31 @@ inline DWORD SearchPathA(const char* lpPath, const char* lpFileName, const char*
   // Full Win32 SearchPath semantics (extension appending order, path list parsing nuances) are TODO.
   if (!lpFileName || !lpBuffer || nBufferLength == 0) return 0;
   auto try_resolve_copy = [&](const std::string& candidate) -> DWORD {
-    std::size_t i = 0;
-    while (i < candidate.size() && i + 1 < nBufferLength) { lpBuffer[i] = candidate[i]; ++i; }
-    lpBuffer[i] = '\0';
+    const DWORD needed = static_cast<DWORD>(candidate.size() + 1);
+    if (nBufferLength < needed) {
+      if (nBufferLength > 0) {
+        std::size_t i = 0;
+        while (i < candidate.size() && i + 1 < nBufferLength) { lpBuffer[i] = candidate[i]; ++i; }
+        lpBuffer[i] = '\0';
+      }
+      if (lpFilePart) {
+        char* last = nullptr;
+        if (nBufferLength > 0) {
+          for (char* p = lpBuffer; *p; ++p) if (*p == '\\' || *p == '/') last = p + 1;
+        }
+        *lpFilePart = (last && *last != '\0') ? last : (nBufferLength > 0 ? lpBuffer : nullptr);
+      }
+      SetLastError(0);
+      return needed;
+    }
+    std::memcpy(lpBuffer, candidate.c_str(), needed);
     if (lpFilePart) {
       char* last = nullptr;
       for (char* p = lpBuffer; *p; ++p) if (*p == '\\' || *p == '/') last = p + 1;
-      *lpFilePart = last ? last : lpBuffer;
+      *lpFilePart = (last && *last != '\0') ? last : lpBuffer;
     }
-    return static_cast<DWORD>(i);
+    SetLastError(0);
+    return static_cast<DWORD>(candidate.size());
   };
 
   std::string name = lpFileName;
@@ -240,8 +257,9 @@ inline DWORD SearchPathA(const char* lpPath, const char* lpFileName, const char*
     }
   }
 
-  // Not found: still return normalized candidate (Win32 may return 0 on not found; callers vary).
-  return try_resolve_copy(normalized);
+  // File not found in any searched location (Win32-compatible failure reporting).
+  SetLastError(2); // ERROR_FILE_NOT_FOUND
+  return 0;
 }
 inline void DisableThreadLibraryCalls(HMODULE) {}
 inline void PostQuitMessage(int) {}

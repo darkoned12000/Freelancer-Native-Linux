@@ -78,11 +78,17 @@ Goal: establish tooling, shims, harnesses, and feasibility evidence to reduce ri
 
 **Acceptance target:** Linux harness/executable initializes the component system and loads core components successfully.
 
-- [ ] Port/adapt DACOM component manager/module initialization model for Linux (DllMain-free, explicit registration/lifecycle)
-- [ ] Preserve component registration/composition semantics and interfaces
-- [ ] Config/INI loading through Linux-compatible paths (`bin/DACOM.INI`, `freelancer.ini`)
-- [ ] Load and initialize minimal core component set in dependency order
-- [ ] Harness/executable proving component system init and core component load
+- [x] Port/adapt DACOM component manager/module initialization model for Linux (DllMain-free, explicit registration/lifecycle)
+  - [x] Upstream DACOM wrapper/harness flow uses explicit init hooks in place of DllMain side effects (FDUMP bridge install, explicit registration of DACOM built-ins normally registered at attach, explicit ReadFile registration)
+- [x] Preserve component registration/composition semantics and interfaces
+  - [x] DACOM `CreateInstance`/registration/composition behavior exercised via built-in component creation/use (e.g. `RegExp`) and core module registration paths
+- [x] Config/INI loading through Linux-compatible paths (`bin/DACOM.INI`, `freelancer.ini`)
+  - [x] Resolve/load `bin/DACOM.INI` and `bin/freelancer.ini` through normalized/case-insensitive Linux paths; derive/resolve `data path` and perform file-backed reads via shimmed APIs
+  - [x] Source-only explicit-registration init uses effective DACOM config handling to avoid incorrect auto-load attempts for unavailable external runtime module binaries while preserving config parsing/init intent
+- [x] Load and initialize minimal core component set in dependency order
+  - [x] Dependency-ordered explicit init: DACOM manager acquisition/built-ins -> config load -> ReadFile module registration -> core component creation/probe
+- [x] Harness/executable proving component system init and core component load
+  - [x] Added 32-bit `m2_engine_init_harness` (`linux/tests/m2_engine_init_harness.cpp`) demonstrating DACOM init, config loading, explicit core component registration/load, and Linux-compatible config/file access checks (PASS in source-only checkout)
 
 ## M3 — Math and game data
 

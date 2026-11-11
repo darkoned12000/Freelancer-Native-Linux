@@ -178,6 +178,20 @@ if(FL_LINUX_BUILD_TOOLS)
       "${FL_SRC_ROOT}"
     )
     target_compile_definitions(upstream_dacom_readfile_integration_harness PRIVATE FL_LINUX_PORT_UPSTREAM_TU=1)
+
+    add_executable(m2_engine_init_harness
+      tests/m2_engine_init_harness.cpp
+      $<TARGET_OBJECTS:fl_upstream_dacom_tu>
+      $<TARGET_OBJECTS:fl_upstream_readfile_tu>
+    )
+    target_link_libraries(m2_engine_init_harness PRIVATE fl_linux_port_platform fl_linux_port_path)
+    target_include_directories(m2_engine_init_harness BEFORE PRIVATE
+      "${CMAKE_CURRENT_SOURCE_DIR}/include/linux_port"
+      "${FL_LINUX_INCLUDE_DIR}"
+      "${FL_SRC_ROOT}/include"
+      "${FL_SRC_ROOT}"
+    )
+    target_compile_definitions(m2_engine_init_harness PRIVATE FL_LINUX_PORT_UPSTREAM_TU=1)
   endif()
 endif()
 

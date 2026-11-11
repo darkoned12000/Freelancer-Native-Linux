@@ -1,9 +1,9 @@
-# Linux port scaffolding (M0/M1 bring-up)
+# Linux port scaffolding (M0–M2 bring-up)
 
 This directory holds **Linux-native bring-up scaffolding** for Freelancer Decomp. The upstream project currently builds only on Windows (MSVC/Win32, DirectX). See [`../assessment.md`](../assessment.md), [`../roadmap.md`](../roadmap.md), and [`docs/m0-project-foundation.md`](docs/m0-project-foundation.md).
 
 ## Status
-Scaffolding, probes, harnesses, and de-risk PoCs are in place (Phase 0 baseline + M0 foundation artifacts + M1 core platform compatibility work). The full game is **not** buildable/runnable on Linux yet. Current milestone changes are pending code review (not committed).
+Scaffolding, probes, harnesses, and de-risk PoCs are in place (Phase 0 baseline + M0 foundation artifacts + M1 core platform compatibility + M2 DACOM/engine initialization work). The full game is **not** buildable/runnable on Linux yet. Current milestone changes are pending code review (not committed).
 
 ## Build infrastructure (M0)
 - **CMake:** `CMakeLists.txt`
@@ -16,7 +16,7 @@ Scaffolding, probes, harnesses, and de-risk PoCs are in place (Phase 0 baseline 
 
 ## Source/build organization
 - `include/linux_port/`, `src/` — path normalization, Win32/platform shims, Linux-backed file I/O, module-loading/logging helpers
-- `tests/` — path/config probes, shim/ABI/boot harnesses, upstream DACOM/ReadFile wrapper integration harnesses (32-bit-gated where required), graphics env probe and SDL3+Vulkan PoC
+- `tests/` — path/config probes, shim/ABI/boot harnesses, upstream DACOM/ReadFile wrapper integration harnesses and M2 engine init harness (32-bit-gated where required), graphics env probe and SDL3+Vulkan PoC
 - `tools/` — maintenance scripts (dependency graph generator)
 - `docs/` — Phase 0/M0 status, environment/build notes, de-risk findings, dependency graph, and minimal boot planning
 
@@ -28,7 +28,7 @@ Scaffolding, probes, harnesses, and de-risk PoCs are in place (Phase 0 baseline 
 
 ## Run / see progress
 - 64-bit examples: `./linux/build/fl_path_resolve bin '..\\DATA\\solar\\solararch.ini'`, `./linux/build/dacom_ini_probe bin/DACOM.INI`, `./linux/build/core_shim_harness`, `./linux/build/m1_platform_tests`, `./linux/build/gfx_env_probe`, `./linux/build/gfx_wayland_poc` (or preset build dirs such as `linux/linux-x64/`)
-- 32-bit examples: `./linux/build-x86/core_shim_harness`, `./linux/build-x86/m1_platform_tests`, `./linux/build-x86/dacom_boot_harness`, `./linux/build-x86/upstream_dacom_readfile_integration_harness`, `./linux/build-x86/gfx_env_probe`, `./linux/build-x86/gfx_wayland_poc` (or `linux/linux-x86/`)
+- 32-bit examples: `./linux/build-x86/core_shim_harness`, `./linux/build-x86/m1_platform_tests`, `./linux/build-x86/dacom_boot_harness`, `./linux/build-x86/upstream_dacom_readfile_integration_harness`, `./linux/build-x86/m2_engine_init_harness`, `./linux/build-x86/gfx_env_probe`, `./linux/build-x86/gfx_wayland_poc` (or `linux/linux-x86/`)
 
 ## Notes
 - Keep changes behavior-preserving and preferably additive/guarded so the upstream Windows build remains unaffected.

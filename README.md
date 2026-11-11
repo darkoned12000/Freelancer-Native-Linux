@@ -4,7 +4,7 @@ This repository is a **native Linux port effort** based on [Freelancer Decomp](h
 
 **Goal:** run Freelancer **natively on Linux** (Wayland-first, targeting EndeavourOS/Hyprland + AMD RDNA3/RADV-class GPUs) **without Wine or Proton**, while preserving original game behavior and compatibility with legally obtained game data.
 
-> Status: **early bring-up (M1 core platform compatibility completed, pending review)**. The original Windows build remains the upstream reference; Linux-native runtime is not yet launchable.
+> Status: **early bring-up (M2 DACOM and engine initialization completed, pending review)**. The original Windows build remains the upstream reference; Linux-native runtime is not yet launchable.
 
 ## Project goals & constraints
 
@@ -18,13 +18,29 @@ This repository is a **native Linux port effort** based on [Freelancer Decomp](h
 
 See [`assessment.md`](assessment.md) for the detailed technical assessment, subsystem inventory, risks, and refactored plan.
 
-## Current progress (Phase 0 bring-up scope)
+## Current progress
 
+### Phase 0 — Bring-up foundation / de-risking (completed)
 - [x] Repo cloned and organized for Linux work (`DATA/` canonicalized with `data -> DATA` compatibility symlink).
 - [x] **#3 Path normalization:** deterministic, ASCII case-insensitive path resolution + separator normalization for Linux (`linux/include/linux_port/path_util.*`, `fl_path_resolve`).
 - [x] **#2 Config/boot probe:** `dacom_ini_probe` parses `bin/DACOM.INI`/`bin/freelancer.ini`, emits boot/load-order and component/provider hints, resolves config/data paths, and extracts `.vcxproj` dependency hints.
-- [x] **#1 Platform shims + #1.2 DACOM/ReadFile integration:** Win32/platform shims, Linux-backed file I/O, 32-bit build/runtime validation, guarded upstream `dacom.cpp`/`ReadFile.cpp` wrapper TUs, and integration harnesses with real config/file-backed reads and explicit registration hooks (`linux/build-x86`).
-- [x] **#4 Graphics de-risk spike:** `gfx_env_probe` and SDL3+Vulkan `gfx_wayland_poc` (window + instance/surface + swapchain + 120-frame clear-color present) plus `IRenderPipeline`/`RP8` scope findings. Validated on Wayland/RADV (`AMD Radeon RX 7900 XTX`) in 64-bit and 32-bit (32-bit native Wayland requires 32-bit SDL3/Vulkan/Wayland runtime deps and 32-bit pkg-config resolution at configure time). See `linux/docs/gfx-de-risk-spike.md`, `linux/docs/irenderpipeline-rp8-scope.md`, `linux/docs/build-and-env-status.md`.
+- [x] **#1 Platform shims + #1.2 DACOM/ReadFile integration:** Win32/platform shims, Linux-backed file I/O, 32-bit build/runtime validation, guarded upstream `dacom.cpp`/`ReadFile.cpp` wrapper TUs, and integration harnesses with real config/file-backed reads and explicit registration hooks.
+- [x] **#4 Graphics de-risk spike:** `gfx_env_probe` and SDL3+Vulkan `gfx_wayland_poc` (swapchain + present validation) plus `IRenderPipeline`/`RP8` scope findings. See `linux/docs/gfx-de-risk-spike.md`, `linux/docs/irenderpipeline-rp8-scope.md`, `linux/docs/build-and-env-status.md`.
+
+### M0 — Project foundation (completed)
+- [x] CMake/Ninja presets and dedicated i686/x86_64 toolchains (`CMakePresets.json`, `linux/CMakePresets.json`, `linux/cmake/toolchain-*.cmake`).
+- [x] Vcxproj dependency graph tooling/artifacts (`linux/tools/generate_vcxproj_dep_graph.py`, `linux/docs/vcxproj-dependency-graph.{json,md}`).
+- [x] Minimal boot subset and foundation docs (`linux/docs/m0-project-foundation.md`, `linux/docs/minimal-boot-subset.md`).
+
+### M1 — Core platform compatibility (completed, pending review)
+- [x] Engine-facing path normalization/resolution integration (`GetFullPathNameA`, `_fullpath`, `SearchPathA`, cwd helpers, `_access`/`_mkdir`) and case-insensitive/normalized Linux behavior.
+- [x] Win32 shim fidelity improvements (timing/sync/atomics, pointer-sized types, file/time helpers) and preserved logging/diagnostics/error mapping.
+- [x] Targeted validation expanded with `m1_platform_tests` (path edge cases, file I/O/find, config variants/failure modes, timing/sync/interlocked, module resolution, ABI/layout checks); upstream DACOM/ReadFile harnesses remain runnable.
+
+### M2 — DACOM and engine initialization (completed, pending review)
+- [x] DllMain-free explicit DACOM/init lifecycle hooks (FDUMP bridge, built-in registration, explicit ReadFile registration).
+- [x] Config/INI loading through Linux-compatible paths (`bin/DACOM.INI`, `bin/freelancer.ini`, resolved `data path`) with source-only explicit-registration-aware handling for unavailable external runtime modules.
+- [x] Minimal core component init/load in dependency order proven by 32-bit `m2_engine_init_harness` (component system init, config load, registration/composition, and successful core component instantiation including `FileSystem/DOS`). See [`roadmap.md`](roadmap.md) and `linux/docs/m2-dacom-engine-init.md`.
 
 ## Milestones
 
@@ -32,7 +48,7 @@ See [`assessment.md`](assessment.md) for the detailed technical assessment, subs
 |---|---|---|---|
 | **M0** | Project foundation | CMake+Ninja Linux build scaffolding, 32-bit toolchain validation, source/build organization, dependency graph from `.vcxproj` | Completed |
 | **M1** | Core platform compatibility | Filesystem/path compat, Win32 shims, logging/diagnostics, timing, threading/sync, module loading; **`DACOM`/`ReadFile` compile or run in harnesses with targeted tests** | Completed (pending review) |
-| **M2** | DACOM & engine initialization | Linux DACOM/module init model, config/INI loading, preserved registration/composition semantics; **component system initializes and loads core components** | Planned |
+| **M2** | DACOM & engine initialization | Linux DACOM/module init model, config/INI loading, preserved registration/composition semantics; **component system initializes and loads core components** | Completed (pending review) |
 | **M3** | Math & game data | `x86math` portability/behavior validation, core data/config loading without Windows APIs; **assets/configs resolve correctly on case-sensitive FS** | Planned |
 | **M4** | Windowing & input | SDL3-based Wayland-first window/event abstraction, keyboard/mouse/controller, engine adapters; **native Linux window + input/event loop** | Planned |
 | **M5** | Graphics bring-up | Standalone D3D8-compat feasibility PoC (32-bit, RADV) then RP8 subset integration or scoped native Vulkan fallback; **minimal in-engine frame/scene renders and presents** | Planned |
@@ -45,7 +61,7 @@ Experimental scaffolding lives in [`linux/`](linux/):
 
 - `linux/CMakeLists.txt` — CMake entry for helper prototypes/tools/harnesses
 - **Path/config probes:** `fl_path_resolve`, `dacom_ini_probe`
-- **Shim/integration harnesses:** `core_shim_harness`, `abi_module_harness`, `dacom_boot_harness`, `m1_platform_tests`, `dacom_upstream_compile_probe` (64/32-bit as applicable), plus 32-bit upstream wrapper/integration targets (`fl_upstream_dacom_tu`, `fl_upstream_readfile_tu`, `upstream_dacom_readfile_harness`, `upstream_dacom_integration_harness`, `upstream_dacom_readfile_integration_harness`)
+- **Shim/integration harnesses:** `core_shim_harness`, `abi_module_harness`, `dacom_boot_harness`, `m1_platform_tests`, `dacom_upstream_compile_probe` (64/32-bit as applicable), plus 32-bit upstream wrapper/integration targets (`fl_upstream_dacom_tu`, `fl_upstream_readfile_tu`, `upstream_dacom_readfile_harness`, `upstream_dacom_integration_harness`, `upstream_dacom_readfile_integration_harness`, `m2_engine_init_harness`)
 - **Graphics de-risk (#4):** `gfx_env_probe`, `gfx_wayland_poc` (SDL3+Vulkan; built when usable target SDL3/Vulkan libs are available)
 - **Docs:** `linux/docs/phase0-status.md`, `linux/docs/build-and-env-status.md`, `linux/docs/path-normalization.md`, `linux/docs/dacom-config-probe.md`, `linux/docs/win32-shim-notes.md`, `linux/docs/dacom-readfile-harness-spike.md`, `linux/docs/gfx-de-risk-spike.md`, `linux/docs/irenderpipeline-rp8-scope.md`
 
@@ -94,6 +110,9 @@ cmake --build linux/build-x86 -j
 
 # Upstream DACOM/ReadFile wrapper integration (real config/file-backed reads, explicit registration hooks)
 ./linux/build-x86/upstream_dacom_readfile_integration_harness
+
+# M2 engine init: DACOM component system init, config load, explicit core component load
+./linux/build-x86/m2_engine_init_harness
 
 # 32-bit graphics capability + presentation PoC
 ./linux/build-x86/gfx_env_probe

@@ -15,16 +15,17 @@
 namespace {
 inline FILE* fl_port_fopen_resolved(const char* path, const char* mode) {
   if (!path || !mode) return nullptr;
-  std::string p(path);
-  for (char& c : p) if (c == '\\') c = '/';
-  std::filesystem::path base = std::filesystem::current_path();
+  const std::string normalized = fl_port::normalize_path_separators(path);
+  const std::filesystem::path base = std::filesystem::current_path();
   fl_port::ResolveOptions opts;
   opts.allow_missing_tail = (mode[0] == 'w' || mode[0] == 'a');
-  auto resolved = fl_port::resolve_path_case_insensitive(base, p, opts);
-  if (resolved) return std::fopen(resolved->string().c_str(), mode);
-  if (auto r2 = fl_port::resolve_path_case_insensitive(base, p, {}); r2)
+  if (auto resolved = fl_port::resolve_path_case_insensitive(base, normalized, opts)) {
+    return std::fopen(resolved->string().c_str(), mode);
+  }
+  if (auto r2 = fl_port::resolve_path_case_insensitive(base, normalized, {})) {
     return std::fopen(r2->string().c_str(), mode);
-  return std::fopen(p.c_str(), mode);
+  }
+  return std::fopen(normalized.c_str(), mode);
 }
 }
 #define fopen fl_port_fopen_resolved

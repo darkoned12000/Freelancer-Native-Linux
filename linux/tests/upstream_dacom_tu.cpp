@@ -13,21 +13,22 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <unistd.h>
 
 namespace {
 inline FILE* fl_port_fopen_resolved(const char* path, const char* mode) {
   if (!path || !mode) return nullptr;
-  std::string p(path);
-  for (char& c : p) if (c == '\\') c = '/';
-  std::filesystem::path base = std::filesystem::current_path();
+  const std::string normalized = fl_port::normalize_path_separators(path);
+  const std::filesystem::path base = std::filesystem::current_path();
   fl_port::ResolveOptions opts;
   opts.allow_missing_tail = (mode[0] == 'w' || mode[0] == 'a');
-  auto resolved = fl_port::resolve_path_case_insensitive(base, p, opts);
-  if (resolved) return std::fopen(resolved->string().c_str(), mode);
-  // fallback: try as-is and try relative to cwd normalized
-  if (auto r2 = fl_port::resolve_path_case_insensitive(base, p, {}); r2)
+  if (auto resolved = fl_port::resolve_path_case_insensitive(base, normalized, opts)) {
+    return std::fopen(resolved->string().c_str(), mode);
+  }
+  if (auto r2 = fl_port::resolve_path_case_insensitive(base, normalized, {})) {
     return std::fopen(r2->string().c_str(), mode);
-  return std::fopen(p.c_str(), mode);
+  }
+  return std::fopen(normalized.c_str(), mode);
 }
 }
 #define fopen fl_port_fopen_resolved
@@ -78,12 +79,16 @@ void __cdecl fl_port_fdump_bridge(int flags, const char* fmt, ...) {
 }
 }
 
-// #1.2 integration hooks: exercise upstream DACOM APIs compiled in this TU.
-// These are harness-only helpers (not part of upstream ABI).
-extern "C" int fl_upstream_dacom_integration_smoke(const char* ini_path) {
+extern "C" void fl_upstream_dacom_install_fdump_bridge() {
   if (!FDUMP) {
     FDUMP = &fl_port_fdump_bridge;
   }
+}
+
+// #1.2 integration hooks: exercise upstream DACOM APIs compiled in this TU.
+// These are harness-only helpers (not part of upstream ABI).
+extern "C" int fl_upstream_dacom_integration_smoke(const char* ini_path) {
+  fl_upstream_dacom_install_fdump_bridge();
 
   ICOManager* mgr = DACOM_Acquire();
   if (!mgr) return 0;
@@ -97,7 +102,8 @@ extern "C" int fl_upstream_dacom_integration_smoke(const char* ini_path) {
   {
     std::ifstream in(effective_ini);
     if (in) {
-      temp_ini_path = (std::filesystem::temp_directory_path() / "fl_dacom_smoke_no_libraries.ini").string();
+      temp_ini_path = (std::filesystem::temp_directory_path() /
+                       ("fl_dacom_smoke_no_libraries_" + std::to_string(::getpid()) + ".ini")).string();
       std::ofstream out(temp_ini_path, std::ios::trunc);
       if (out) {
         std::string line;
@@ -130,7 +136,7 @@ extern "C" int fl_upstream_dacom_integration_smoke(const char* ini_path) {
 
   // Exercise component registration/creation path compiled from upstream source.
   AGGDESC desc{};
-  desc.size = 8;
+  desc.size = sizeof(AGGDESC);
   desc.interface_name = "RegExp";
   void* inst = nullptr;
   const GENRESULT gr = mgr->CreateInstance(&desc, &inst);
@@ -146,6 +152,13 @@ extern "C" int fl_upstream_dacom_integration_smoke(const char* ini_path) {
   // Avoid forcing full process-global shutdown in smoke harness; upstream manager
   // lifetime/registration state is process-scoped and still under active bring-up.
   return 1;
+}
+
+extern "C" void fl_upstream_dacom_register_builtin_components() {
+  fl_upstream_dacom_install_fdump_bridge();
+  // DllMain was renamed in this wrapper TU; explicitly register built-ins that
+  // upstream DACOM would register during DLL_PROCESS_ATTACH.
+  RegisterRegExpComponent();
 }
 #pragma GCC diagnostic pop
 #endif

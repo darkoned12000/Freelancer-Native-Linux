@@ -2,6 +2,22 @@
 
 Snapshot of bring-up work for native Linux (Wayland) target.
 
+## M2 — DACOM and engine initialization (completed, pending review)
+
+**Status:** implemented in working tree for review (not committed). Builds/tests validated on host in 32-bit bring-up targets.
+
+### Completed in M2
+- **DllMain-free explicit DACOM/component init lifecycle:** added harness hooks in upstream DACOM wrapper TU for FDUMP bridge installation and explicit registration of DACOM built-ins normally registered at `DLL_PROCESS_ATTACH` (e.g. `RegExp`); retained explicit ReadFile registration hook.
+- **Config/INI loading through Linux-compatible paths:** `m2_engine_init_harness` resolves/loads `bin/DACOM.INI` and `bin/freelancer.ini` (and `data path`) using normalized/case-insensitive path resolution and exercises file-backed access via shimmed APIs.
+- **Minimal core component load/init in dependency order:** demonstrated manager acquisition -> explicit built-in registration -> config load -> built-in component registration/composition proof (`RegExp`) -> explicit ReadFile registration -> core component load/probe and config/file access checks.
+- **Harness proof:** added 32-bit `m2_engine_init_harness` (`linux/tests/m2_engine_init_harness.cpp`, CMake target `m2_engine_init_harness`) proving component system init and core component load in source-only checkout.
+
+### Validation highlights
+- 32-bit (`linux/build-x86`): `m2_engine_init_harness` **PASS**; existing `upstream_dacom_readfile_integration_harness` remains **overall: ok**.
+- Source-only checkout note: external runtime module binaries in `DACOM.INI [Libraries]` are unavailable; M2 uses effective explicit-registration init handling and reports accurate diagnostics (no suppression).
+
+See `linux/docs/m2-dacom-engine-init.md`.
+
 ## M1 — Core platform compatibility (completed, pending review)
 
 **Status:** implemented in working tree for review (not committed). Builds/tests validated on host in 32-bit and 64-bit bring-up targets.
