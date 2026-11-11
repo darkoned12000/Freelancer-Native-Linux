@@ -4,7 +4,7 @@ This repository is a **native Linux port effort** based on [Freelancer Decomp](h
 
 **Goal:** run Freelancer **natively on Linux** (Wayland-first, targeting EndeavourOS/Hyprland + AMD RDNA3/RADV-class GPUs) **without Wine or Proton**, while preserving original game behavior and compatibility with legally obtained game data.
 
-> Status: **early bring-up (Phase 0)**. The original Windows build remains the upstream reference; Linux-native runtime is not yet launchable.
+> Status: **early bring-up (M1 core platform compatibility completed, pending review)**. The original Windows build remains the upstream reference; Linux-native runtime is not yet launchable.
 
 ## Project goals & constraints
 
@@ -30,8 +30,8 @@ See [`assessment.md`](assessment.md) for the detailed technical assessment, subs
 
 | Milestone | Focus | Acceptance target | Status |
 |---|---|---|---|
-| **M0** | Project foundation | CMake+Ninja Linux build scaffolding, 32-bit toolchain validation, source/build organization, dependency graph from `.vcxproj` | In progress |
-| **M1** | Core platform compatibility | Filesystem/path compat, Win32 shims, logging/diagnostics, timing, threading/sync, module loading; **`DACOM`/`ReadFile` compile or run in harnesses with targeted tests** | Planned |
+| **M0** | Project foundation | CMake+Ninja Linux build scaffolding, 32-bit toolchain validation, source/build organization, dependency graph from `.vcxproj` | Completed |
+| **M1** | Core platform compatibility | Filesystem/path compat, Win32 shims, logging/diagnostics, timing, threading/sync, module loading; **`DACOM`/`ReadFile` compile or run in harnesses with targeted tests** | Completed (pending review) |
 | **M2** | DACOM & engine initialization | Linux DACOM/module init model, config/INI loading, preserved registration/composition semantics; **component system initializes and loads core components** | Planned |
 | **M3** | Math & game data | `x86math` portability/behavior validation, core data/config loading without Windows APIs; **assets/configs resolve correctly on case-sensitive FS** | Planned |
 | **M4** | Windowing & input | SDL3-based Wayland-first window/event abstraction, keyboard/mouse/controller, engine adapters; **native Linux window + input/event loop** | Planned |
@@ -45,7 +45,7 @@ Experimental scaffolding lives in [`linux/`](linux/):
 
 - `linux/CMakeLists.txt` — CMake entry for helper prototypes/tools/harnesses
 - **Path/config probes:** `fl_path_resolve`, `dacom_ini_probe`
-- **Shim/integration harnesses:** `core_shim_harness`, `abi_module_harness`, `dacom_boot_harness`, `dacom_upstream_compile_probe` (64/32-bit as applicable), plus 32-bit upstream wrapper/integration targets (`fl_upstream_dacom_tu`, `fl_upstream_readfile_tu`, `upstream_dacom_readfile_harness`, `upstream_dacom_integration_harness`, `upstream_dacom_readfile_integration_harness`)
+- **Shim/integration harnesses:** `core_shim_harness`, `abi_module_harness`, `dacom_boot_harness`, `m1_platform_tests`, `dacom_upstream_compile_probe` (64/32-bit as applicable), plus 32-bit upstream wrapper/integration targets (`fl_upstream_dacom_tu`, `fl_upstream_readfile_tu`, `upstream_dacom_readfile_harness`, `upstream_dacom_integration_harness`, `upstream_dacom_readfile_integration_harness`)
 - **Graphics de-risk (#4):** `gfx_env_probe`, `gfx_wayland_poc` (SDL3+Vulkan; built when usable target SDL3/Vulkan libs are available)
 - **Docs:** `linux/docs/phase0-status.md`, `linux/docs/build-and-env-status.md`, `linux/docs/path-normalization.md`, `linux/docs/dacom-config-probe.md`, `linux/docs/win32-shim-notes.md`, `linux/docs/dacom-readfile-harness-spike.md`, `linux/docs/gfx-de-risk-spike.md`, `linux/docs/irenderpipeline-rp8-scope.md`
 
@@ -63,8 +63,9 @@ cmake --build linux/build -j
 ./linux/build/fl_path_resolve bin '..\DATA\solar\solararch.ini'
 ./linux/build/dacom_ini_probe bin/DACOM.INI
 
-# Platform/shim probes
+# Platform/shim probes and M1 tests
 ./linux/build/core_shim_harness
+./linux/build/m1_platform_tests
 ./linux/build/dacom_upstream_compile_probe
 ./linux/build/gfx_env_probe
 
@@ -88,6 +89,7 @@ cmake --build linux/build-x86 -j
 ./linux/build-x86/fl_path_resolve bin '..\DATA\solar\solararch.ini'
 ./linux/build-x86/dacom_ini_probe bin/DACOM.INI
 ./linux/build-x86/core_shim_harness
+./linux/build-x86/m1_platform_tests
 ./linux/build-x86/dacom_boot_harness
 
 # Upstream DACOM/ReadFile wrapper integration (real config/file-backed reads, explicit registration hooks)

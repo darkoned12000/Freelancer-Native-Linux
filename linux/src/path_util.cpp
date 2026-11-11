@@ -30,7 +30,7 @@ char ascii_lower_char(unsigned char c) {
 std::string to_lower_ascii(std::string_view s) {
   std::string out;
   out.reserve(s.size());
-  for (unsigned char c : s) out.push_back(ascii_lower_char(c));
+  for (char ch : s) out.push_back(ascii_lower_char(static_cast<unsigned char>(ch)));
   return out;
 }
 

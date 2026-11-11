@@ -1,3 +1,24 @@
+# Bring-up status
+
+Snapshot of bring-up work for native Linux (Wayland) target.
+
+## M1 — Core platform compatibility (completed, pending review)
+
+**Status:** implemented in working tree for review (not committed). Builds/tests validated on host in 32-bit and 64-bit bring-up targets.
+
+### Completed in M1
+- **Filesystem/path normalization in engine-facing call paths:** improved Win32/MSVCRT-facing APIs to normalize Windows-style inputs and resolve case-insensitively where appropriate (`GetFullPathNameA`, `_fullpath`, `SearchPathA`, `GetCurrentDirectoryA`/`SetCurrentDirectoryA`, `_access`, `_mkdir`) alongside existing Linux-backed `CreateFileA`/`ReadFile`/find/attributes path handling.
+- **Win32 shim fidelity:** added/refined common primitives (`Interlocked*`, `GetTickCount64`/`timeGetTime`/`SleepEx`, `DosDateTimeToFileTime`) and retained behavior-focused shims for timing, recursive critical sections, and basic event semantics.
+- **Logging/diagnostics/error mapping:** preserved FDUMP/platform logging bridge and `GetLastError`/errno-derived Win32-style failure reporting for common shimmed file/path operations; harness diagnostics clarified for expected missing runtime module binaries in source-only checkouts.
+- **Module loading strategy:** kept explicit/static-registration-first bring-up model while refining case-insensitive module path resolution/mapping and dlopen/dlsym/dlclose error reporting.
+- **DACOM/ReadFile targeted validation:** 32-bit upstream wrapper integration harnesses continue to build/run; added `linux/tests/m1_platform_tests.cpp` (CMake target `m1_platform_tests`) covering path edge cases, file I/O + wildcard find behavior, config variants/failure modes, timing/synchronization/interlocked behavior, module resolution candidates, and ABI-sensitive layout checks.
+
+### Validation highlights
+- 32-bit (`linux/build-x86`): `m1_platform_tests` PASS, `core_shim_harness` ok, `dacom_boot_harness` ok, `upstream_dacom_readfile_integration_harness` `overall: ok` (DACOM `[Libraries]` auto-load omitted in smoke config by design for source-only/explicit-registration context; module binaries not shipped).
+- 64-bit (`linux/linux-x64`): `m1_platform_tests` PASS and core bring-up targets build/run as applicable.
+
+---
+
 # Phase 0 status
 
 Snapshot of initial bring-up work for native Linux (Wayland) target (plan refactored after external review).

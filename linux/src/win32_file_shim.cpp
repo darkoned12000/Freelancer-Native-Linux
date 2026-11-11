@@ -89,8 +89,6 @@ HandleState* take_handle(HANDLE h, HandleKind kind) {
   return s;
 }
 
-bool is_sep(char c) { return c == '/' || c == '\\'; }
-
 std::filesystem::path resolve_input_path(const char* path, bool allow_missing_tail = false) {
   if (!path || !*path) return {};
   fl_port::ResolveOptions opts;
@@ -124,6 +122,16 @@ bool match_wildcard(const std::string& pattern, const std::string& name) {
   return pi == pattern.size();
 }
 
+FILETIME unix_time_to_filetime_value(std::time_t t) {
+  const unsigned long long intervals_per_sec = 10000000ULL;
+  const unsigned long long epoch_diff_sec = 11644473600ULL;
+  const unsigned long long ft = (static_cast<unsigned long long>(t) + epoch_diff_sec) * intervals_per_sec;
+  FILETIME out{};
+  out.dwLowDateTime = static_cast<DWORD>(ft & 0xFFFFFFFFu);
+  out.dwHighDateTime = static_cast<DWORD>((ft >> 32) & 0xFFFFFFFFu);
+  return out;
+}
+
 void fill_find_data(const std::filesystem::path& full, WIN32_FIND_DATAA* out) {
   if (!out) return;
   std::memset(out, 0, sizeof(*out));
@@ -137,6 +145,14 @@ void fill_find_data(const std::filesystem::path& full, WIN32_FIND_DATAA* out) {
     if (ec) sz = 0;
     out->nFileSizeLow = static_cast<DWORD>(sz & 0xFFFFFFFFu);
     out->nFileSizeHigh = static_cast<DWORD>((static_cast<unsigned long long>(sz) >> 32) & 0xFFFFFFFFu);
+  }
+  if (!ec) {
+    struct stat sb {};
+    if (::stat(full.string().c_str(), &sb) == 0) {
+      out->ftCreationTime = unix_time_to_filetime_value(sb.st_ctime);
+      out->ftLastAccessTime = unix_time_to_filetime_value(sb.st_atime);
+      out->ftLastWriteTime = unix_time_to_filetime_value(sb.st_mtime);
+    }
   }
   const std::string name = full.filename().string();
   std::strncpy(out->cFileName, name.c_str(), MAX_PATH - 1);
@@ -280,9 +296,15 @@ DWORD GetFileAttributesA(const char* lpFileName) {
 }
 
 BOOL GetFileTime(HANDLE hFile, FILETIME* lpCreationTime, FILETIME* lpLastAccessTime, FILETIME* lpLastWriteTime) {
-  (void)hFile; (void)lpCreationTime; (void)lpLastAccessTime; (void)lpLastWriteTime;
-  SetLastError(50);
-  return FALSE;
+  HandleState* st = get_handle(hFile, HandleKind::File);
+  if (!st || st->file.fd < 0) { SetLastError(6); return FALSE; }
+  struct stat sb {};
+  if (::fstat(st->file.fd, &sb) != 0) { SetLastError(errno_to_win32(errno)); return FALSE; }
+  if (lpCreationTime) *lpCreationTime = unix_time_to_filetime_value(sb.st_ctime);
+  if (lpLastAccessTime) *lpLastAccessTime = unix_time_to_filetime_value(sb.st_atime);
+  if (lpLastWriteTime) *lpLastWriteTime = unix_time_to_filetime_value(sb.st_mtime);
+  SetLastError(0);
+  return TRUE;
 }
 
 HANDLE FindFirstFileA(const char* lpFileName, WIN32_FIND_DATAA* lpFindFileData) {
@@ -345,47 +367,59 @@ BOOL FindClose(HANDLE hFindFile) {
 
 HANDLE CreateFileMappingA(HANDLE hFile, void* /*lpFileMappingAttributes*/, DWORD flProtect,
                           DWORD dwMaximumSizeHigh, DWORD dwMaximumSizeLow, const char* /*lpName*/) {
-  HandleState* fs = get_handle(hFile, HandleKind::File);
-  if (!fs || fs->file.fd < 0) { SetLastError(6); return nullptr; }
+  int dupfd = -1;
   size_t size = 0;
-  if (dwMaximumSizeLow == 0 && dwMaximumSizeHigh == 0) {
-    struct stat sb {};
-    if (::fstat(fs->file.fd, &sb) == 0 && sb.st_size > 0) size = static_cast<size_t>(sb.st_size);
-  } else {
+  if (hFile == INVALID_HANDLE_VALUE || hFile == reinterpret_cast<HANDLE>(static_cast<intptr_t>(-1))) {
+    // Pagefile-backed (anonymous) mapping.
     const unsigned long long sz = (static_cast<unsigned long long>(dwMaximumSizeHigh) << 32) |
                                   static_cast<unsigned long long>(dwMaximumSizeLow);
+    if (sz == 0) { SetLastError(87); return nullptr; }
     size = static_cast<size_t>(sz);
+  } else {
+    HandleState* fs = get_handle(hFile, HandleKind::File);
+    if (!fs || fs->file.fd < 0) { SetLastError(6); return nullptr; }
+    if (dwMaximumSizeLow == 0 && dwMaximumSizeHigh == 0) {
+      struct stat sb {};
+      if (::fstat(fs->file.fd, &sb) == 0 && sb.st_size > 0) size = static_cast<size_t>(sb.st_size);
+    } else {
+      const unsigned long long sz = (static_cast<unsigned long long>(dwMaximumSizeHigh) << 32) |
+                                    static_cast<unsigned long long>(dwMaximumSizeLow);
+      size = static_cast<size_t>(sz);
+    }
+    dupfd = ::dup(fs->file.fd);
+    if (dupfd < 0) { SetLastError(errno_to_win32(errno)); return nullptr; }
   }
-  int dupfd = ::dup(fs->file.fd);
-  if (dupfd < 0) { SetLastError(errno_to_win32(errno)); return nullptr; }
   auto* ms = new HandleState();
   ms->kind = HandleKind::Mapping;
   ms->mapping.fd = dupfd;
   ms->mapping.size = size;
-  ms->mapping.writable = (flProtect == 0x04 /* PAGE_READWRITE */);
+  ms->mapping.writable = (flProtect == 0x04 /* PAGE_READWRITE */) || (flProtect == 0x08 /* PAGE_WRITECOPY */);
   SetLastError(0);
   return new_handle(ms);
 }
 
-void* MapViewOfFile(HANDLE hFileMappingObject, DWORD /*dwDesiredAccess*/, DWORD dwFileOffsetHigh,
+void* MapViewOfFile(HANDLE hFileMappingObject, DWORD dwDesiredAccess, DWORD dwFileOffsetHigh,
                     DWORD dwFileOffsetLow, size_t dwNumberOfBytesToMap) {
   HandleState* ms = get_handle(hFileMappingObject, HandleKind::Mapping);
   if (!ms) { SetLastError(6); return nullptr; }
-  const off_t offset = static_cast<off_t>((static_cast<unsigned long long>(dwFileOffsetHigh) << 32) | dwFileOffsetLow);
-  size_t len = dwNumberOfBytesToMap ? dwNumberOfBytesToMap : (ms->mapping.size > (size_t)offset ? ms->mapping.size - (size_t)offset : 0);
+  const unsigned long long off64 = (static_cast<unsigned long long>(dwFileOffsetHigh) << 32) | dwFileOffsetLow;
+  const off_t offset = static_cast<off_t>(off64);
+  size_t len = dwNumberOfBytesToMap ? dwNumberOfBytesToMap : (ms->mapping.size > static_cast<size_t>(off64) ? ms->mapping.size - static_cast<size_t>(off64) : 0);
   if (len == 0) { SetLastError(87); return nullptr; }
-  int prot = PROT_READ | (ms->mapping.writable ? PROT_WRITE : 0);
-  void* addr = ::mmap(nullptr, len, prot, MAP_SHARED, ms->mapping.fd, offset);
+  const bool want_write = (dwDesiredAccess & 0x0002u /* FILE_MAP_WRITE */) != 0 ||
+                          (dwDesiredAccess & 0x000Fu /* FILE_MAP_ALL_ACCESS mask-ish */) == 0x000Fu;
+  int prot = PROT_READ;
+  if (ms->mapping.writable && want_write) prot |= PROT_WRITE;
+  int flags = (ms->mapping.fd < 0) ? (MAP_SHARED | MAP_ANONYMOUS) : MAP_SHARED;
+  void* addr = ::mmap(nullptr, len, prot, flags, ms->mapping.fd, offset);
   if (addr == MAP_FAILED) { SetLastError(errno_to_win32(errno)); return nullptr; }
   auto* vs = new HandleState();
   vs->kind = HandleKind::View;
   vs->view.addr = addr;
   vs->view.size = len;
-  // Track view by registering as mapping-view handle? Upstream passes view pointer to UnmapViewOfFile.
-  // Store in global map keyed by view address for UnmapViewOfFile lookup.
   {
     std::lock_guard<std::mutex> lock(g_handles_mutex);
-    g_handles[addr] = vs; // special: keyed by mapped address for UnmapViewOfFile
+    g_handles[addr] = vs; // keyed by mapped address for UnmapViewOfFile
   }
   SetLastError(0);
   return addr;
@@ -432,3 +466,125 @@ BOOL CloseHandle(HANDLE hObject) {
 }
 
 #endif // !_WIN32
+
+#if defined(_WIN32)
+#else
+
+#include <chrono>
+#include <ctime>
+
+DWORD GetCurrentDirectoryA(DWORD nBufferLength, char* lpBuffer) {
+  if (!lpBuffer || nBufferLength == 0) { SetLastError(87); return 0; }
+  std::error_code ec;
+  auto cwd = std::filesystem::current_path(ec);
+  if (ec) { SetLastError(errno_to_win32(errno)); return 0; }
+  std::string s = cwd.string();
+  // Preserve Windows-style separators less important than correctness; return normalized POSIX-ish.
+  if (s.size() + 1 > nBufferLength) {
+    SetLastError(122); // ERROR_INSUFFICIENT_BUFFER
+    return static_cast<DWORD>(s.size() + 1);
+  }
+  std::memcpy(lpBuffer, s.c_str(), s.size() + 1);
+  SetLastError(0);
+  return static_cast<DWORD>(s.size());
+}
+
+BOOL SetCurrentDirectoryA(const char* lpPathName) {
+  if (!lpPathName) { SetLastError(87); return FALSE; }
+  fl_port::ResolveOptions opts;
+  opts.allow_missing_tail = false;
+  const std::string normalized = fl_port::normalize_path_separators(lpPathName);
+  std::filesystem::path p(normalized);
+  std::filesystem::path target = p;
+  if (!p.is_absolute()) {
+    auto r = fl_port::resolve_path_case_insensitive(std::filesystem::current_path(), p.string(), opts);
+    if (r) target = *r;
+    else target = std::filesystem::current_path() / p;
+  } else {
+    auto r = fl_port::resolve_path_case_insensitive(p.root_path(), p.relative_path().string(), opts);
+    if (r) target = *r;
+  }
+  std::error_code ec;
+  std::filesystem::current_path(target, ec);
+  if (ec) { SetLastError(errno_to_win32(ec.value() ? ec.value() : errno)); return FALSE; }
+  SetLastError(0);
+  return TRUE;
+}
+
+BOOL DosDateTimeToFileTime(WORD wFatDate, WORD wFatTime, FILETIME* lpFileTime) {
+  if (!lpFileTime) { SetLastError(87); return FALSE; }
+  std::tm tm{};
+  tm.tm_sec = (wFatTime & 0x1F) * 2;
+  tm.tm_min = (wFatTime >> 5) & 0x3F;
+  tm.tm_hour = (wFatTime >> 11) & 0x1F;
+  tm.tm_mday = wFatDate & 0x1F;
+  tm.tm_mon = ((wFatDate >> 5) & 0x0F) - 1;
+  tm.tm_year = ((wFatDate >> 9) & 0x7F) + 80; // since 1980
+  tm.tm_isdst = -1;
+  const std::time_t t = std::mktime(&tm);
+  if (t == static_cast<std::time_t>(-1)) {
+    lpFileTime->dwLowDateTime = 0; lpFileTime->dwHighDateTime = 0;
+    SetLastError(87);
+    return FALSE;
+  }
+  // Convert Unix epoch (1970) to Windows FILETIME epoch (1601) in 100ns units.
+  const unsigned long long intervals_per_sec = 10000000ULL;
+  const unsigned long long epoch_diff_sec = 11644473600ULL;
+  const unsigned long long ft = (static_cast<unsigned long long>(t) + epoch_diff_sec) * intervals_per_sec;
+  lpFileTime->dwLowDateTime = static_cast<DWORD>(ft & 0xFFFFFFFFu);
+  lpFileTime->dwHighDateTime = static_cast<DWORD>((ft >> 32) & 0xFFFFFFFFu);
+  SetLastError(0);
+  return TRUE;
+}
+
+DWORD GetFullPathNameA(const char* lpFileName, DWORD nBufferLength, char* lpBuffer, char** lpFilePart) {
+  if (!lpFileName) { SetLastError(87); return 0; }
+
+  fl_port::ResolveOptions opts;
+  opts.allow_missing_tail = true;
+  const std::string normalized = fl_port::normalize_path_separators(lpFileName);
+  std::filesystem::path p(normalized);
+  std::filesystem::path full;
+  if (p.is_absolute()) {
+    auto r = fl_port::resolve_path_case_insensitive(p.root_path(), p.relative_path().string(), opts);
+    full = r ? r->lexically_normal() : p.lexically_normal();
+  } else {
+    auto r = fl_port::resolve_path_case_insensitive(std::filesystem::current_path(), p.string(), opts);
+    full = r ? r->lexically_normal() : (std::filesystem::current_path() / p).lexically_normal();
+  }
+
+  std::string out = full.string();
+  // Some engine code may prefer backslashes; but returning POSIX path is safer on Linux.
+  // Keep as-is for compatibility with our path resolution users.
+  const DWORD needed = static_cast<DWORD>(out.size() + 1);
+  if (!lpBuffer || nBufferLength < needed) {
+    SetLastError(0);
+    return needed; // required buffer size including null terminator
+  }
+  std::memcpy(lpBuffer, out.c_str(), needed);
+
+  if (lpFilePart) {
+    char* last = nullptr;
+    for (char* q = lpBuffer; *q; ++q) {
+      if (*q == '/' || *q == '\\') last = q + 1;
+    }
+    *lpFilePart = (last && *last != '\0') ? last : nullptr;
+  }
+  SetLastError(0);
+  return static_cast<DWORD>(out.size());
+}
+
+char* _fullpath(char* absPath, const char* relPath, size_t maxLength) {
+  if (!relPath) { SetLastError(87); return nullptr; }
+  const size_t sz = maxLength ? maxLength : MAX_PATH;
+  char* target = absPath ? absPath : static_cast<char*>(std::malloc(sz));
+  if (!target) { SetLastError(8); return nullptr; }
+  const DWORD need = GetFullPathNameA(relPath, static_cast<DWORD>(sz), target, nullptr);
+  if (need == 0 || need >= sz) {
+    if (!absPath) std::free(target);
+    return nullptr;
+  }
+  return target;
+}
+
+#endif

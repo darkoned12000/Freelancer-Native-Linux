@@ -57,14 +57,22 @@ Goal: establish tooling, shims, harnesses, and feasibility evidence to reduce ri
 
 **Acceptance target:** `DACOM` and `ReadFile` compile (or run in harnessed form) and pass standalone tests for targeted behavior.
 
-- [~] Filesystem/path normalization integration into engine-facing call paths (beyond harness/probe)
-- [~] Win32 compatibility shims (types, calling conventions/COM macros as needed, APIs) refined for behavior fidelity
-- [~] Logging/diagnostics and error mapping aligned with expected engine behavior
-- [ ] Timing primitives (`QueryPerformance*`, ticks, sleeps) with required semantics
-- [~] Threading/synchronization primitives (behavior-faithful where required)
-- [~] Dynamic module loading strategy (static-link/explicit init now; `.so`/`dlopen`/`dlsym` + registration/init later as needed)
-- [~] `DACOM`/`ReadFile` harnessed compile/run with targeted tests
-  - [ ] Expand tests/fixtures for path edge cases, config variants, failure modes, and ABI-sensitive behavior
+- [x] Filesystem/path normalization integration into engine-facing call paths (beyond harness/probe)
+  - [x] Engine-facing Win32/MSVCRT path APIs improved to normalize separators/drive prefixes and resolve case-insensitively on Linux (`GetFullPathNameA`, `_fullpath`, `SearchPathA`, `GetCurrentDirectoryA`/`SetCurrentDirectoryA`, `_access`, `_mkdir`) while preserving existing Linux-backed file I/O shim behavior
+  - [x] Path resolution behavior exercised for edge cases (backslashes, mixed case, `..`/`.`, drive-prefix stripping, missing-tail handling, cache reset)
+- [x] Win32 compatibility shims (types, calling conventions/COM macros as needed, APIs) refined for behavior fidelity
+  - [x] Added/refined common primitives used by upstream code paths (`Interlocked*`, `GetTickCount64`/`timeGetTime`/`SleepEx`, `DosDateTimeToFileTime`, directory/path helpers) and improved stub behavior where needed
+- [x] Logging/diagnostics and error mapping aligned with expected engine behavior
+  - [x] FDUMP/platform logging bridge retained; file/path shim operations continue to set/report `GetLastError`/errno-derived Win32-style failure codes for common cases
+- [x] Timing primitives (`QueryPerformance*`, ticks, sleeps) with required semantics
+  - [x] Monotonic steady-clock-backed `GetTickCount`/`GetTickCount64`/`timeGetTime`, `Sleep`/`SleepEx` (non-alertable wait completion), and `QueryPerformanceCounter`/`QueryPerformanceFrequency`
+- [x] Threading/synchronization primitives (behavior-faithful where required)
+  - [x] Recursive critical sections, basic event create/set/reset/wait/close semantics, and unified `CloseHandle` handling for event handles (sufficient for current bring-up scope)
+- [x] Dynamic module loading strategy (static-link/explicit init now; `.so`/`dlopen`/`dlsym` + registration/init later as needed)
+  - [x] Case-insensitive module path resolution with `.dll`/no-ext/`.so` candidate mapping, `dlopen`/`dlsym`/`dlclose` wrappers with last-error reporting; harness diagnostics clarified for source-only checkouts (no runtime module binaries)
+- [x] `DACOM`/`ReadFile` harnessed compile/run with targeted tests
+  - [x] Existing 32-bit upstream DACOM/ReadFile integration harnesses continue to compile/run (`upstream_dacom_readfile_integration_harness` overall ok in source-only checkout with explicit registration and empty `[Libraries]` smoke config)
+  - [x] Added `m1_platform_tests` covering path edge cases, file I/O + find/wildcard behavior, config variant/failure-mode reads, timing/synchronization/interlocked primitives, module resolution candidates, and ABI-sensitive layout checks (validated in 64-bit and 32-bit builds)
 
 ## M2 — DACOM and engine initialization
 

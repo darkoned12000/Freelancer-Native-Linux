@@ -11,11 +11,16 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
+#include <optional>
+#include <string>
 
 #if !defined(_WIN32)
 #include <sys/types.h>
 #include <unistd.h>
 #endif
+
+#include "linux_port/path_util.h"
 
 #ifndef WINAPI
 #  if defined(__i386__) || defined(__i386) || defined(i386)
@@ -126,6 +131,16 @@ using LPCSTR = const char*;
 using FARPROC = void (*)();
 using SIZE_T = std::size_t;
 
+using DWORD_PTR = std::uintptr_t;
+using ULONG_PTR = std::uintptr_t;
+using LONG_PTR  = std::intptr_t;
+using INT_PTR   = std::intptr_t;
+using UINT_PTR  = std::uintptr_t;
+
+// Win32 last-error accessors (implemented in linux file shim/platform shims).
+DWORD GetLastError();
+void SetLastError(DWORD err);
+
 #ifndef APIENTRY
 #  define APIENTRY
 #endif
@@ -166,18 +181,67 @@ inline BOOL GetVersionExA(OSVERSIONINFOA* vi) {
   return 1;
 }
 inline HMODULE GetModuleHandleA(const char*) { return nullptr; }
-inline DWORD SearchPathA(const char*, const char* lpFileName, const char*, DWORD nBufferLength, char* lpBuffer, char** lpFilePart) {
+inline DWORD SearchPathA(const char* lpPath, const char* lpFileName, const char* lpExtension,
+                          DWORD nBufferLength, char* lpBuffer, char** lpFilePart) {
+  // Engine-facing shim: perform minimal search with normalization/case-insensitive resolution.
+  // Full Win32 SearchPath semantics (extension appending order, path list parsing nuances) are TODO.
   if (!lpFileName || !lpBuffer || nBufferLength == 0) return 0;
-  // Minimal stub: copy filename as-is (no path search). Callers may treat 0 as failure.
-  std::size_t i = 0;
-  while (lpFileName[i] && i + 1 < nBufferLength) { lpBuffer[i] = lpFileName[i]; ++i; }
-  lpBuffer[i] = '\0';
-  if (lpFilePart) {
-    char* last = nullptr;
-    for (char* p = lpBuffer; *p; ++p) if (*p == '\\' || *p == '/') last = p + 1;
-    *lpFilePart = last ? last : lpBuffer;
+  auto try_resolve_copy = [&](const std::string& candidate) -> DWORD {
+    std::size_t i = 0;
+    while (i < candidate.size() && i + 1 < nBufferLength) { lpBuffer[i] = candidate[i]; ++i; }
+    lpBuffer[i] = '\0';
+    if (lpFilePart) {
+      char* last = nullptr;
+      for (char* p = lpBuffer; *p; ++p) if (*p == '\\' || *p == '/') last = p + 1;
+      *lpFilePart = last ? last : lpBuffer;
+    }
+    return static_cast<DWORD>(i);
+  };
+
+  std::string name = lpFileName;
+  std::string normalized = fl_port::normalize_path_separators(name);
+  std::filesystem::path p(normalized);
+  auto try_base = [&](const std::filesystem::path& base, const std::string& rel) -> std::optional<std::string> {
+    fl_port::ResolveOptions opts; opts.allow_missing_tail = false;
+    if (auto r = fl_port::resolve_path_case_insensitive(base, rel, opts)) return r->string();
+    return std::nullopt;
+  };
+
+  if (p.is_absolute() || normalized.find('/') != std::string::npos) {
+    if (auto r = try_base(p.is_absolute() ? p.root_path() : std::filesystem::current_path(),
+                          p.is_absolute() ? p.relative_path().string() : normalized)) {
+      return try_resolve_copy(*r);
+    }
+  } else {
+    // Try explicit path dir first if provided, then current directory.
+    if (lpPath && *lpPath) {
+      std::filesystem::path base(fl_port::normalize_path_separators(lpPath));
+      if (auto r = try_base(base, normalized)) return try_resolve_copy(*r);
+    }
+    if (auto r = try_base(std::filesystem::current_path(), normalized)) return try_resolve_copy(*r);
   }
-  return static_cast<DWORD>(i);
+
+  // Extension fallback (simple): append lpExtension if file has no extension and ext provided.
+  if (lpExtension && *lpExtension && p.extension().empty()) {
+    std::string ext = lpExtension;
+    if (!ext.empty() && ext[0] != '.') ext = "." + ext;
+    std::string with_ext = normalized + ext;
+    std::filesystem::path pe(with_ext);
+    if (pe.is_absolute() || with_ext.find('/') != std::string::npos) {
+      if (auto r = try_base(pe.is_absolute() ? pe.root_path() : std::filesystem::current_path(),
+                            pe.is_absolute() ? pe.relative_path().string() : with_ext)) {
+        return try_resolve_copy(*r);
+      }
+    } else {
+      if (lpPath && *lpPath) {
+        if (auto r = try_base(std::filesystem::path(fl_port::normalize_path_separators(lpPath)), with_ext)) return try_resolve_copy(*r);
+      }
+      if (auto r = try_base(std::filesystem::current_path(), with_ext)) return try_resolve_copy(*r);
+    }
+  }
+
+  // Not found: still return normalized candidate (Win32 may return 0 on not found; callers vary).
+  return try_resolve_copy(normalized);
 }
 inline void DisableThreadLibraryCalls(HMODULE) {}
 inline void PostQuitMessage(int) {}
@@ -327,6 +391,47 @@ inline bool IsEqualGUID(REFGUID rguid1, REFGUID rguid2) { return rguid1 == rguid
 #endif
 #ifndef IsEqualCLSID
 #  define IsEqualCLSID(rclsid1, rclsid2) IsEqualGUID(rclsid1, rclsid2)
+#endif
+
+// Common atomic intrinsics used by upstream code (MSVC Interlocked* API family).
+#if defined(__clang__) || defined(__GNUC__)
+inline long InterlockedIncrement(volatile long* value) {
+  return __atomic_add_fetch(value, 1L, __ATOMIC_SEQ_CST);
+}
+inline long InterlockedDecrement(volatile long* value) {
+  return __atomic_sub_fetch(value, 1L, __ATOMIC_SEQ_CST);
+}
+inline long InterlockedExchange(volatile long* target, long value) {
+  return __atomic_exchange_n(target, value, __ATOMIC_SEQ_CST);
+}
+inline long InterlockedCompareExchange(volatile long* destination, long exchange, long comparand) {
+  long expected = comparand;
+  __atomic_compare_exchange_n(destination, &expected, exchange, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+  return expected;
+}
+inline void* InterlockedCompareExchangePointer(void* volatile* destination, void* exchange, void* comparand) {
+  void* expected = comparand;
+  __atomic_compare_exchange_n(destination, &expected, exchange, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+  return expected;
+}
+inline void* InterlockedExchangePointer(void* volatile* target, void* value) {
+  return __atomic_exchange_n(target, value, __ATOMIC_SEQ_CST);
+}
+#else
+inline long InterlockedIncrement(volatile long* value) { return ++(*value); }
+inline long InterlockedDecrement(volatile long* value) { return --(*value); }
+inline long InterlockedExchange(volatile long* target, long value) { long old = *target; *target = value; return old; }
+inline long InterlockedCompareExchange(volatile long* destination, long exchange, long comparand) {
+  long old = *destination;
+  if (old == comparand) *destination = exchange;
+  return old;
+}
+inline void* InterlockedCompareExchangePointer(void* volatile* destination, void* exchange, void* comparand) {
+  void* old = *destination;
+  if (old == comparand) *destination = exchange;
+  return old;
+}
+inline void* InterlockedExchangePointer(void* volatile* target, void* value) { void* old = *target; *target = value; return old; }
 #endif
 
 // SEH placeholders for non-Windows bring-up (no structured exception semantics).

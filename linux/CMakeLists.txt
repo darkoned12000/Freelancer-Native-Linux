@@ -68,6 +68,9 @@ if(FL_LINUX_BUILD_TOOLS)
   add_executable(dacom_boot_harness tests/dacom_boot_harness.cpp)
   target_link_libraries(dacom_boot_harness PRIVATE fl_linux_port_platform fl_linux_port_path)
 
+  add_executable(m1_platform_tests tests/m1_platform_tests.cpp)
+  target_link_libraries(m1_platform_tests PRIVATE fl_linux_port_platform fl_linux_port_path)
+
   add_executable(dacom_upstream_compile_probe tests/dacom_upstream_compile_probe.cpp)
   target_link_libraries(dacom_upstream_compile_probe PRIVATE fl_linux_port_platform fl_linux_port_path)
 

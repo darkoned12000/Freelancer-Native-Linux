@@ -3,6 +3,7 @@
 ## 64-bit host/tool builds (validated)
 - Default CMake config in `linux/build`: `FL_LINUX_32BIT=OFF`, tools built and run successfully.
 - Verified targets: `fl_path_resolve`, `dacom_ini_probe`, `core_shim_harness`, `abi_module_harness`, `dacom_boot_harness`, `dacom_upstream_compile_probe`.
+- M1 validation (2026-04-11): `m1_platform_tests` added and passes in 64-bit and 32-bit bring-up builds (path edge cases, file I/O/find, config variant/failure-mode reads, timing/sync/interlocked primitives, module resolution candidates, ABI-sensitive layout checks). Core shim/boot harnesses and 32-bit upstream DACOM/ReadFile integration harnesses remain runnable (`upstream_dacom_readfile_integration_harness` overall ok in source-only checkout).
 
 ## 32-bit bring-up build (validated compile/link)
 - Host has working 32-bit compiler toolchain (`gcc -m32`/`clang -m32` succeed).

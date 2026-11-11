@@ -140,32 +140,15 @@ struct SECURITY_ATTRIBUTES {
 };
 using LPSECURITY_ATTRIBUTES = SECURITY_ATTRIBUTES*;
 
-inline BOOL DosDateTimeToFileTime(WORD, WORD, FILETIME* lpFileTime) {
-  if (lpFileTime) { lpFileTime->dwLowDateTime = 0; lpFileTime->dwHighDateTime = 0; }
-  return FALSE;
-}
+BOOL DosDateTimeToFileTime(WORD wFatDate, WORD wFatTime, FILETIME* lpFileTime);
 
-inline DWORD GetFullPathNameA(const char* lpFileName, DWORD nBufferLength, char* lpBuffer, char** lpFilePart) {
-  if (!lpFileName || !lpBuffer || nBufferLength == 0) return 0;
-  DWORD i = 0;
-  while (lpFileName[i] && i + 1 < nBufferLength) { lpBuffer[i] = lpFileName[i]; ++i; }
-  lpBuffer[i] = '\0';
-  if (lpFilePart) {
-    char* last = nullptr;
-    for (char* p = lpBuffer; *p; ++p) if (*p == '\\' || *p == '/') last = p + 1;
-    *lpFilePart = last ? last : lpBuffer;
-  }
-  return i;
-}
+DWORD GetFullPathNameA(const char* lpFileName, DWORD nBufferLength, char* lpBuffer, char** lpFilePart);
 
-inline char* _fullpath(char* absPath, const char* relPath, size_t maxLength) {
-  if (!relPath) return nullptr;
-  size_t sz = maxLength ? maxLength : MAX_PATH;
-  char* target = absPath ? absPath : static_cast<char*>(std::malloc(sz));
-  if (!target) return nullptr;
-  GetFullPathNameA(relPath, static_cast<DWORD>(sz), target, nullptr);
-  return target;
-}
+char* _fullpath(char* absPath, const char* relPath, size_t maxLength);
+
+// Common MSVCRT/Win32 path helpers used by engine-facing code paths.
+DWORD GetCurrentDirectoryA(DWORD nBufferLength, char* lpBuffer);
+BOOL SetCurrentDirectoryA(const char* lpPathName);
 
 inline int _snprintf(char* buffer, size_t count, const char* format, ...) {
   if (!buffer || count == 0) return -1;

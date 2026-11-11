@@ -90,7 +90,7 @@ int main(int argc, char** argv) {
       ++i;
       auto resolved = fl_port::resolve_module_path(e.first, bin);
       std::cout << "  " << i << ". " << e.first
-                << " | resolve=" << (resolved ? resolved->string() : "<missing>")
+                << " | resolve=" << (resolved ? resolved->string() : "<missing: no runtime module binary in search dir>")
                 << " | init=TODO(explicit/static registration, preserve order)\n";
     }
   }

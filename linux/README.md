@@ -3,7 +3,7 @@
 This directory holds **Linux-native bring-up scaffolding** for Freelancer Decomp. The upstream project currently builds only on Windows (MSVC/Win32, DirectX). See [`../assessment.md`](../assessment.md), [`../roadmap.md`](../roadmap.md), and [`docs/m0-project-foundation.md`](docs/m0-project-foundation.md).
 
 ## Status
-Scaffolding, probes, harnesses, and de-risk PoCs are in place (Phase 0 baseline + M0 foundation artifacts). The full game is **not** buildable/runnable on Linux yet.
+Scaffolding, probes, harnesses, and de-risk PoCs are in place (Phase 0 baseline + M0 foundation artifacts + M1 core platform compatibility work). The full game is **not** buildable/runnable on Linux yet. Current milestone changes are pending code review (not committed).
 
 ## Build infrastructure (M0)
 - **CMake:** `CMakeLists.txt`
@@ -27,8 +27,8 @@ Scaffolding, probes, harnesses, and de-risk PoCs are in place (Phase 0 baseline 
 - **M0 foundation summary:** `docs/m0-project-foundation.md`
 
 ## Run / see progress
-- 64-bit examples: `./linux/build/fl_path_resolve bin '..\\DATA\\solar\\solararch.ini'`, `./linux/build/dacom_ini_probe bin/DACOM.INI`, `./linux/build/gfx_env_probe`, `./linux/build/gfx_wayland_poc` (or preset build dirs such as `linux/linux-x64/`)
-- 32-bit examples: `./linux/build-x86/core_shim_harness`, `./linux/build-x86/dacom_boot_harness`, `./linux/build-x86/upstream_dacom_readfile_integration_harness`, `./linux/build-x86/gfx_env_probe`, `./linux/build-x86/gfx_wayland_poc` (or `linux/linux-x86/`)
+- 64-bit examples: `./linux/build/fl_path_resolve bin '..\\DATA\\solar\\solararch.ini'`, `./linux/build/dacom_ini_probe bin/DACOM.INI`, `./linux/build/core_shim_harness`, `./linux/build/m1_platform_tests`, `./linux/build/gfx_env_probe`, `./linux/build/gfx_wayland_poc` (or preset build dirs such as `linux/linux-x64/`)
+- 32-bit examples: `./linux/build-x86/core_shim_harness`, `./linux/build-x86/m1_platform_tests`, `./linux/build-x86/dacom_boot_harness`, `./linux/build-x86/upstream_dacom_readfile_integration_harness`, `./linux/build-x86/gfx_env_probe`, `./linux/build-x86/gfx_wayland_poc` (or `linux/linux-x86/`)
 
 ## Notes
 - Keep changes behavior-preserving and preferably additive/guarded so the upstream Windows build remains unaffected.
