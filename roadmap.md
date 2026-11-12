@@ -132,18 +132,24 @@ Goal: establish tooling, shims, harnesses, and feasibility evidence to reduce ri
 - [x] Render/present a minimal in-engine target/frame
   - [x] `m5_graphics_harness` creates native window, initializes backend, presents 120/120 frames (PASS on 64-bit and 32-bit presets)
 
-## M6 — Gameplay bring-up
+## M6 — Gameplay bring-up (harness-prototyped)
 
 **Acceptance target:** Reach main menu and enter the game world.
+
+**Status note:** M6 deliverables below are completed at the *harness/subsystem* level.
+NullAudioBackend and XdgConfig are real, reusable shims. The "reach main menu" and
+"enter game world" milestones are harness-prototyped (simulated boot sequence in
+`m6_boot_harness`) — full engine client wiring (RendComp/Shading/UI, rpclocal)
+is follow-on work in M8/M11.
 
 - [x] Null-audio backend (early unblock), then real audio backend integration
   - [x] Added `fl_port::NullAudioBackend` (`linux/include/linux_port/audio_backend.h`, `linux/src/audio_backend.cpp`) providing no-op audio init/playback/update that unblocks boot/menu audio calls
 - [x] XDG-backed registry/config/save shim and persistence behavior
   - [x] Added `fl_port::XdgConfig` (`linux/include/linux_port/xdg_config.h`, `linux/src/xdg_config.cpp`) resolving XDG directories with defaults; INI key/value read/write; registry-style read/write mapped to config files; save file helpers
 - [~] Local/server/single-player flow (`rpclocal`/related) as required for boot
-  - [~] Boot harness demonstrates config/registry load sequence; rpclocal integration is a follow-on for full client wiring
+  - [~] Boot harness demonstrates config/registry load sequence; rpclocal integration is a follow-on for full client wiring (M11)
 - [~] UI/input wiring and mission/game initialization flow
-  - [~] Boot harness wires window (M4), render (M5), audio, and config into a cohesive boot sequence with frame loop; full engine client wiring (RendComp/Shading/UI) is follow-on
+  - [~] Boot harness wires window (M4), render (M5), audio, and config into a cohesive boot sequence with frame loop; full engine client wiring (RendComp/Shading/UI) is follow-on (M11)
 - [x] Reach main menu (harness-prototyped)
   - [x] `m6_boot_harness` reaches "Main menu ready" state (PASS on 64-bit and 32-bit) — simulated, not actual game client
 - [x] Enter game world (target loop milestone) (harness-prototyped)
@@ -151,17 +157,62 @@ Goal: establish tooling, shims, harnesses, and feasibility evidence to reduce ri
 
 ## M7 — Native Linux release candidate (bring-up/harness scope)
 
-**Acceptance target:** Native Linux release-candidate harness validates all subsystems (audio, XDG, window, render, input, controllers, performance) without Wine/Proton; packaging/install/run documentation in place. (Harness-prototyped; full game client integration is M8+.)
+**Acceptance target:** Native Linux release-candidate harness validates all subsystems (audio, XDG, window, render, input, controllers, performance) without Wine/Proton; packaging/install/run documentation in place.
+
+**Status note:** M7 is completed at the *harness/subsystem* level. The acceptance target of a
+"playable native Linux experience" is not yet met — that requires M8+ (game client
+compilation and full engine integration). M7 validates that all platform subsystems
+are ready to support the game client once it is compiled for Linux.
 
 ## M8 — Game client compilation (native ELF)
 
-**Acceptance target:** The Freelancer game client (`src/freelancer`) compiles and links as a native Linux ELF executable against the Linux platform shims.
+**Acceptance target:** The Freelancer game client (`src/freelancer`) compiles and links as a native Linux ELF executable against the Linux platform shims, and reaches a controlled early boot point.
 
-- [ ] Resolve compile errors in `src/freelancer/Client` and shared modules (`Common`, `DALib`, `Content`, `Server`) under Linux shims (Win32 types, calling conventions, DirectX headers, module loading)
-- [ ] Provide compile-time shims for remaining Win32/DirectX APIs used by client code (GDI, DirectInput, DirectShow/MCI movie stubs, registry, shell)
-- [ ] Link client against `fl_linux_port_*` libraries and upstream guarded TUs
-- [ ] Produce a runnable `freelancer` ELF binary (may crash/exit early) and capture first-failure diagnostics
-- [ ] Harness/executable proving client module loads and reaches `main()` initialization
+**Status note:** This is the transition from isolated harnesses to the real engine client.
+Treat it as a multi-stage siege. Sub-phases M8.0–M8.6 are tracked below.
+
+- [ ] **M8.0 — Preparation & inventory**
+  - [ ] Generate/refresh full dependency graph of client and immediate dependencies (freelancer + Content, Common, EngBase, system, RP8/RendComp/Shading, SoundManager, etc.)
+  - [ ] Identify every remaining Win32/MSVC/COM/resource/registry/DirectX call site not yet covered by shims
+  - [ ] Decide static-link vs hybrid (static first for first successful binary)
+  - [ ] Create dedicated CMake target `freelancer_linux_client` starting with minimal translation units
+- [ ] **M8.1 — Minimal linkable client skeleton**
+  - [ ] Create Linux entry point replacing/wrapping `WinMain`
+  - [ ] Pull in absolute minimum objects for process start + DACOM acquisition
+  - [ ] Wire explicit DACOM/ReadFile/x86math registration hooks
+  - [ ] Stub/no-op every not-yet-implemented call (movies, EULA, registry writes, etc.)
+  - [ ] Resolve path resolution, logging (FDUMP bridge), basic timing/threading
+  - [ ] Acceptance: binary links and reaches entry point without crashing
+- [ ] **M8.2 — Core engine initialization**
+  - [ ] Drive real initialization sequence used by original client
+  - [ ] Make `bin/DACOM.INI` + `freelancer.ini` + `DATA/` loading work end-to-end through client code paths
+  - [ ] Resolve remaining path/search-path/BINI loading issues appearing only under full client
+  - [ ] Acceptance: DACOM component system initializes, core components created, config/DATA loading succeeds
+- [ ] **M8.3 — Window + input + render hookup**
+  - [ ] Replace/adapt original window creation and message pump to use `fl_port::Window`
+  - [ ] Map client input expectations onto SDL3 → VK mapping
+  - [ ] Connect client render init path to `fl_port::RenderPipeline` (or thin adapter satisfying `IRenderPipeline`)
+  - [ ] Get stable frame loop running (even if clear-only)
+  - [ ] Acceptance: client creates native window, processes input, calls render backend for clear+present
+- [ ] **M8.4 — Audio / config / persistence unblock**
+  - [ ] Ensure null-audio backend satisfies every call the client makes during boot/menu
+  - [ ] Confirm XDG config/registry/save shim is used for early settings/save calls
+  - [ ] Stub/bypass remaining blockers (DirectShow movies, IME, etc.)
+- [ ] **M8.5 — Reach main menu / controlled state**
+  - [ ] Fix remaining crashes, missing symbols, behavioral differences one by one
+  - [ ] Add minimal diagnostics/early-out points to pinpoint boot failures
+  - [ ] Document every intentional stub or behavioral deviation
+  - [ ] Acceptance: native client starts, initializes engine, opens window, reaches main menu (or equivalent stable in-engine state)
+- [ ] **M8.6 — Stabilization & handoff to M9**
+  - [ ] Clean up CMake so full client build is reproducible
+  - [ ] Expand test surface (automated smoke test launching binary, checking log lines / window creation)
+  - [ ] Re-evaluate 32-bit vs 64-bit pressure
+  - [ ] Document known stubs/deviations list
+
+**Risk hotspots:** hidden global constructors/static init order; remaining COM/QueryInterface usage assuming Windows apartment or vtable layouts; resource loading (.rc/string tables/cursors); code assuming HWND is a real window handle or classic Win32 message pump; float/math edge cases only under full client; 32-bit library availability.
+
+**Artifacts to produce:** `linux/docs/m8-client-integration.md` (living doc), `freelancer_linux` CMake target as single source of truth, smoke-test script, known-stubs/deviations list.
+
 
 ## M9 — Full render pipeline (D3D8 compat or native)
 

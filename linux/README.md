@@ -28,7 +28,7 @@ Scaffolding, probes, harnesses, and de-risk PoCs are in place (Phase 0 baseline 
 - `tests/` — path/config probes, shim/ABI/boot harnesses, upstream DACOM/ReadFile wrapper integration harnesses, M2 engine init harness, M3 math/data harness, M4 window/input harness, M5 graphics harness (32-bit-gated where required), graphics env probe and SDL3+Vulkan PoC
 - `src/` — Linux-port implementation helpers (e.g. portable x86math bring-up implementation, window/input backend, render backend)
 - `tools/` — maintenance scripts (dependency graph generator)
-- `docs/` — Phase 0/M0–M4 status, environment/build notes, de-risk findings, dependency graph, and minimal boot planning
+- `docs/` — Phase 0/M0–M8+ status, environment/build notes, de-risk findings, dependency graph, minimal boot planning, and M8 client integration living doc
 
 ## M0 planning artifacts
 - **Dependency graph (from `src/**/*.vcxproj`):** `docs/vcxproj-dependency-graph.md`, `docs/vcxproj-dependency-graph.json`

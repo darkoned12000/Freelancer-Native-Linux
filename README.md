@@ -4,7 +4,7 @@ This repository is a **native Linux port effort** based on [Freelancer Decomp](h
 
 **Goal:** run Freelancer **natively on Linux** (Wayland-first, targeting EndeavourOS/Hyprland + AMD RDNA3/RADV-class GPUs) **without Wine or Proton**, while preserving original game behavior and compatibility with legally obtained game data.
 
-> Status: **early bring-up (M7 native Linux release candidate completed, pending review)**. The original Windows build remains the upstream reference; Linux-native runtime is not yet launchable.
+> Status: **early bring-up (M0–M7 completed, pending review)**. M8+ (game client compilation and full engine integration) is the next phase. The original Windows build remains the upstream reference; Linux-native runtime is not yet launchable.
 
 ## Project goals & constraints
 
