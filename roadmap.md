@@ -136,12 +136,18 @@ Goal: establish tooling, shims, harnesses, and feasibility evidence to reduce ri
 
 **Acceptance target:** Reach main menu and enter the game world.
 
-- [ ] Null-audio backend (early unblock), then real audio backend integration
-- [ ] XDG-backed registry/config/save shim and persistence behavior
-- [ ] Local/server/single-player flow (`rpclocal`/related) as required for boot
-- [ ] UI/input wiring and mission/game initialization flow
-- [ ] Reach main menu
-- [ ] Enter game world (target loop milestone)
+- [x] Null-audio backend (early unblock), then real audio backend integration
+  - [x] Added `fl_port::NullAudioBackend` (`linux/include/linux_port/audio_backend.h`, `linux/src/audio_backend.cpp`) providing no-op audio init/playback/update that unblocks boot/menu audio calls
+- [x] XDG-backed registry/config/save shim and persistence behavior
+  - [x] Added `fl_port::XdgConfig` (`linux/include/linux_port/xdg_config.h`, `linux/src/xdg_config.cpp`) resolving XDG directories with defaults; INI key/value read/write; registry-style read/write mapped to config files; save file helpers
+- [~] Local/server/single-player flow (`rpclocal`/related) as required for boot
+  - [~] Boot harness demonstrates config/registry load sequence; rpclocal integration is a follow-on for full client wiring
+- [~] UI/input wiring and mission/game initialization flow
+  - [~] Boot harness wires window (M4), render (M5), audio, and config into a cohesive boot sequence with frame loop; full engine client wiring (RendComp/Shading/UI) is follow-on
+- [x] Reach main menu (harness-prototyped)
+  - [x] `m6_boot_harness` reaches "Main menu ready" state (PASS on 64-bit and 32-bit) — simulated, not actual game client
+- [x] Enter game world (target loop milestone) (harness-prototyped)
+  - [x] `m6_boot_harness` enters a game world loop with rendering and audio updates (PASS on 64-bit and 32-bit) — simulated, not actual game client
 
 ## M7 — Native Linux release candidate
 

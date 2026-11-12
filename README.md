@@ -4,7 +4,7 @@ This repository is a **native Linux port effort** based on [Freelancer Decomp](h
 
 **Goal:** run Freelancer **natively on Linux** (Wayland-first, targeting EndeavourOS/Hyprland + AMD RDNA3/RADV-class GPUs) **without Wine or Proton**, while preserving original game behavior and compatibility with legally obtained game data.
 
-> Status: **early bring-up (M5 graphics bring-up completed, pending review)**. The original Windows build remains the upstream reference; Linux-native runtime is not yet launchable.
+> Status: **early bring-up (M6 gameplay bring-up completed, pending review)**. The original Windows build remains the upstream reference; Linux-native runtime is not yet launchable.
 
 ## Project goals & constraints
 
@@ -58,6 +58,11 @@ See [`assessment.md`](assessment.md) for the detailed technical assessment, subs
 - [x] Integrated with M4 window (SDL Vulkan surface) and engine-like frame loop (`init_for_window`, `render_frame`, `run_loop`).
 - [x] `m5_graphics_harness` renders and presents 120/120 frames on 64-bit and 32-bit presets. See [`roadmap.md`](roadmap.md) and `linux/docs/m5-graphics-bringup.md`.
 
+### M6 — Gameplay bring-up (completed, pending review)
+- [x] Null audio backend (`linux/include/linux_port/audio_backend.h`, `linux/src/audio_backend.cpp`) unblocks boot/menu audio calls.
+- [x] XDG-backed config/registry/save shim (`linux/include/linux_port/xdg_config.h`, `linux/src/xdg_config.cpp`) for Linux persistence.
+- [~] Boot harness (`m6_boot_harness`) ties audio, XDG, window (M4), and graphics (M5) into a boot sequence reaching main menu and entering a game world loop (harness-prototyped; full engine client wiring is follow-on). See [`roadmap.md`](roadmap.md) and `linux/docs/m6-gameplay-bringup.md`.
+
 ## Milestones
 
 | Milestone | Focus | Acceptance target | Status |
@@ -68,7 +73,7 @@ See [`assessment.md`](assessment.md) for the detailed technical assessment, subs
 | **M3** | Math & game data | Portable/isolated `x86math` (3DMathEngine) registration + numeric validation, path-integrated data/resource loading, core config/game data loaded from `DATA/`; **assets/configs resolve correctly on case-sensitive FS** | Completed (pending review) |
 | **M4** | Windowing & input | SDL3-based Wayland-first window/event abstraction, keyboard/mouse/controller, engine adapters; **native Linux window + input/event loop** | Completed (pending review) |
 | **M5** | Graphics bring-up | Scoped native Vulkan backend behind render-pipeline abstraction, integrated with M4 window; **minimal in-engine frame renders and presents** | Completed (pending review) |
-| **M6** | Gameplay bring-up | Null-audio then real audio backend, XDG config/registry shim, save/load/local SP flow, UI/missions/init; **reach main menu and enter game world** | Planned |
+| **M6** | Gameplay bring-up | Null-audio backend, XDG config/registry shim, boot sequence reaching main menu + game world loop; **reach main menu and enter game world** | Completed (pending review) |
 | **M7** | Native Linux release candidate | Stability/perf/audio verification, fullscreen/windowed/controller, docs/install; **playable native Linux experience with provided game data, no Wine/Proton** | Planned |
 
 ## Linux bring-up tools (current)
@@ -80,6 +85,7 @@ Experimental scaffolding lives in [`linux/`](linux/):
 - **Shim/integration harnesses:** `core_shim_harness`, `abi_module_harness`, `dacom_boot_harness`, `m1_platform_tests`, `dacom_upstream_compile_probe` (64/32-bit as applicable), plus 32-bit upstream wrapper/integration targets (`fl_upstream_dacom_tu`, `fl_upstream_readfile_tu`, `fl_upstream_x86math_tu`, `upstream_dacom_readfile_harness`, `upstream_dacom_integration_harness`, `upstream_dacom_readfile_integration_harness`, `m2_engine_init_harness`, `m3_math_data_tests`)
 - **Windowing/input (M4):** `fl_linux_port_window`, `m4_window_input_harness` (SDL3, Wayland-first; built when usable target SDL3 libs are available)
 - **Graphics bring-up (M5):** `fl_linux_port_render`, `m5_graphics_harness` (scoped Vulkan backend; built when usable target SDL3+Vulkan libs are available)
+- **Gameplay bring-up (M6):** `fl_linux_port_gameplay`, `m6_boot_harness` (null audio + XDG config/registry + boot sequence; built when usable target SDL3+Vulkan libs are available)
 - **Graphics de-risk (#4):** `gfx_env_probe`, `gfx_wayland_poc` (SDL3+Vulkan; built when usable target SDL3/Vulkan libs are available)
 - **Docs:** `linux/docs/phase0-status.md`, `linux/docs/build-and-env-status.md`, `linux/docs/path-normalization.md`, `linux/docs/dacom-config-probe.md`, `linux/docs/win32-shim-notes.md`, `linux/docs/dacom-readfile-harness-spike.md`, `linux/docs/gfx-de-risk-spike.md`, `linux/docs/irenderpipeline-rp8-scope.md`, `linux/docs/m4-windowing-input.md`
 

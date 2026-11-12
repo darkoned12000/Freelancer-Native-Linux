@@ -2,6 +2,22 @@
 
 Snapshot of bring-up work for native Linux (Wayland) target.
 
+## M6 — Gameplay bring-up (completed, pending review)
+
+**Status:** implemented in working tree for review (not committed). Builds/tests validated on host (64-bit and 32-bit presets).
+
+### Completed in M6
+- **Null audio backend:** added `fl_port::NullAudioBackend` (`linux/include/linux_port/audio_backend.h`, `linux/src/audio_backend.cpp`) providing no-op audio init/playback/update that unblocks boot/menu audio calls.
+- **XDG-backed config/registry/save shim:** added `fl_port::XdgConfig` (`linux/include/linux_port/xdg_config.h`, `linux/src/xdg_config.cpp`) resolving XDG directories with defaults; INI key/value read/write; registry-style read/write mapped to config files; save file helpers.
+- **Boot harness/proof:** added `m6_boot_harness` (`linux/tests/m6_boot_harness.cpp`, `fl_linux_port_gameplay` library) tying null audio, XDG config, window (M4), and graphics (M5) into a boot sequence reaching main menu and entering a game world loop (harness-prototyped; full engine client wiring is follow-on).
+
+### Validation highlights
+- 64-bit preset (`linux/linux-x64`): `m6_boot_harness` → **PASS** (reached main menu, entered game world loop).
+- 32-bit preset (`linux/linux-x86`): `m6_boot_harness` → **PASS**.
+- M1–M5 harnesses remain passing on both presets.
+
+See `linux/docs/m6-gameplay-bringup.md`.
+
 ## M5 — Graphics bring-up (completed, pending review)
 
 **Status:** implemented in working tree for review (not committed). Builds/tests validated on host (64-bit and 32-bit presets).

@@ -125,6 +125,11 @@ if(FL_LINUX_BUILD_TOOLS)
     message(STATUS "m4_window_input_harness not built (requires usable 32-bit/target sdl3 libraries)")
   endif()
 
+  # M6 gameplay bring-up (null audio + XDG config/registry + boot harness).
+  add_library(fl_linux_port_gameplay STATIC src/audio_backend.cpp src/xdg_config.cpp)
+  target_link_libraries(fl_linux_port_gameplay PUBLIC fl_linux_port_platform fl_linux_port_path)
+  target_include_directories(fl_linux_port_gameplay PUBLIC ${FL_LINUX_INCLUDE_DIR})
+
   # M5 graphics bring-up (scoped Vulkan backend behind IRenderPipeline).
   if(FL_SDL3_USABLE AND FL_VULKAN_USABLE)
     add_library(fl_linux_port_render STATIC src/render_pipeline.cpp)
@@ -150,6 +155,24 @@ if(FL_LINUX_BUILD_TOOLS)
     target_compile_definitions(m5_graphics_harness PRIVATE FL_HAS_SDL3=1 FL_HAS_VULKAN=1)
   else()
     message(STATUS "m5_graphics_harness not built (requires usable target sdl3 and vulkan libraries)")
+  endif()
+
+  # M6 boot harness (null audio + XDG + window + render).
+  if(FL_SDL3_USABLE AND FL_VULKAN_USABLE)
+    add_executable(m6_boot_harness tests/m6_boot_harness.cpp)
+    target_link_libraries(m6_boot_harness PRIVATE
+      fl_linux_port_gameplay fl_linux_port_render fl_linux_port_window
+      fl_linux_port_platform fl_linux_port_path
+      ${FL_SDL3_PC_LIBRARIES} ${FL_VULKAN_PC_LIBRARIES})
+    target_include_directories(m6_boot_harness BEFORE PRIVATE
+      "${CMAKE_CURRENT_SOURCE_DIR}/include/linux_port"
+      ${FL_LINUX_INCLUDE_DIR}
+      "${FL_SRC_ROOT}/include"
+      "${FL_SRC_ROOT}"
+      ${FL_SDL3_PC_INCLUDE_DIRS} ${FL_VULKAN_PC_INCLUDE_DIRS})
+    target_compile_definitions(m6_boot_harness PRIVATE FL_HAS_SDL3=1 FL_HAS_VULKAN=1)
+  else()
+    message(STATUS "m6_boot_harness not built (requires usable target sdl3 and vulkan libraries)")
   endif()
 
   # Standalone #4 Wayland/SDL3/Vulkan presentation PoC (scaffold; requires deps)
