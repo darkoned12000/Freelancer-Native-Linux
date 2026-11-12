@@ -163,23 +163,24 @@ Inventory method: targeted `rg` scans of `src/freelancer` and key dependency mod
 
 ## M8.7 — Upstream client/library integration & M8.2 completion gate (in progress)
 
-Roadmap **M8.7** is the pre-M9 gate to complete open M8.2 items by linking/invoking real upstream client/library init paths. Progress in this iteration:
+Roadmap **M8.7** is the pre-M9 gate to complete open M8.2 items by linking/invoking real upstream client/library init paths.
 
-- **DALib core (upstream-derived integration, linked):**
-  - `linux/src/dalib_core_bringup.cpp` upgraded to a more complete upstream-derived DALib core TU: defines DALib subsystem globals and error hooks (`FatalErrorFn`/`CriticalWarningFn`), implements retail-equivalent `DALib::OpenData`/`CloseData`, and provides `DALib::Startup`/`Shutdown` API stubs with upstream-compatible signatures for incremental integration.
-  - `freelancer_linux_client` now invokes `DALib::Startup(...)` and `DALib::OpenData`/`CloseData` through DALib API paths during bring-up init/config/data flow (data-path exercised via linked DALib core TU); full upstream `Startup`/`Shutdown` subsystem init (SystemContainer/engine/audio/render/DirectPlay/CDP networking) remains unported.
-- **Upstream bootstrap/init integration scaffold (guarded):**
-  - Added `linux/src/m87_upstream_bootstrap.cpp` (`fl_m87_try_invoke_upstream_bootstrap`) and wired `linux_client_main.cpp` to attempt guarded upstream bootstrap/init invocation with diagnostics and controlled fallback when upstream `src/freelancer` init TUs are unavailable.
-- **M8.7 upstream integration probes/scaffolding (CMake, EXCLUDE_FROM_ALL):**
-  - Added `fl_m87_dalib_upstream_core_probe` target + stub headers/wrapper (`linux/include/m87_dalib_stubs/*`, `linux/src/dalib_upstream_core_m87.cpp`) to iterate on compiling upstream `src/DALib/DALib.cpp` for Linux core bring-up.
-  - Added `fl_m87_common_ini_probe` target to probe `src/Common/common_ini.cpp` portability/build blockers under Linux 32-bit compile flags.
-- **Validation:** `freelancer_linux_client` builds in `linux/build-x86` and `linux/scripts/smoke_freelancer_client_m85.sh` passes (boot/init, DALib upstream API data-path checks, IFileSystem probe, M8.4 unblocks, window+render, controlled main-menu state, clean shutdown).
+### Phase 2 (DALib core) progress
+- **Real upstream DALib core TU linked:** `freelancer_linux_client` now compiles and links upstream `src/DALib/DALib.cpp` (32-bit, `FL_LINUX_PORT_DALIB_CORE_ONLY`, `DALIB_EXPORTS`) instead of a separate hand-written bring-up DALib implementation.
+  - Upstream globals/error hooks and retail `DALib::OpenData`/`CloseData` implementations are used directly.
+  - Core-only guards exclude heavy/non-portable includes and init/teardown paths (`alchemy.h`, `soundmanager.h`, `soundstreamer.h`, `system.h`, `<unknwn.h>`, full `Startup`/`Shutdown`, `DllMain`) while providing Linux bring-up stubs for `DALib::Startup`/`DALib::Shutdown` so the upstream API surface remains linkable.
+  - `linux_client_main.cpp` continues to invoke `DALib::Startup(...)` and `DALib::OpenData`/`CloseData` through upstream DALib API paths; config/DATA/IFileSystem bring-up checks run against the upstream DALib core TU.
+- **Validation:** rebuilt `freelancer_linux_client` in `linux/build-x86` and `linux/scripts/smoke_freelancer_client_m85.sh` passes (boot/init, DALib upstream API data-path checks, IFileSystem probe, M8.4 unblocks, window+render, controlled main-menu state, clean shutdown).
+
+### Other M8.7 progress (phase 1, retained)
+- **Upstream bootstrap/init integration scaffold (guarded):** `linux/src/m87_upstream_bootstrap.cpp` (`fl_m87_try_invoke_upstream_bootstrap`) wired into `linux_client_main.cpp` with diagnostics/fallback when upstream `src/freelancer` init TUs are unavailable.
+- **M8.7 integration probes/scaffolding (CMake, EXCLUDE_FROM_ALL):** `fl_m87_dalib_upstream_core_probe` now validates upstream `src/DALib/DALib.cpp` core-only compilation; `fl_m87_common_ini_probe` probes `src/Common/common_ini.cpp` portability/build blockers.
 
 ### Remaining blockers to complete M8.7 / close M8.2
-- **DALib (full upstream):** `src/DALib/DALib.cpp` Startup/Shutdown depends on SystemContainer/engine/sound/streamer/alchemy/render/network interfaces and DirectPlay/CDP paths not yet Linux-portable; requires guarded ports/stubs for subsystem init and networking-heavy TUs.
-- **Common / EngBase / system:** selected early-init TUs require Win32/MSVC/COM/CRT/packing/ABI compatibility work (e.g. `__declspec` import/export semantics, `_itoa`/CRT differences, x87/inline-asm guards, struct size/layout parity, registry/time/thread/file APIs). No minimal upstream subset is linked into `freelancer_linux_client` yet.
+- **DALib (full upstream startup/shutdown):** `DALib::Startup`/`Shutdown` still depend on SystemContainer/engine/render/audio/streamer/alchemy/fx and DirectPlay/CDP networking subsystems not yet Linux-portable; core-only stubs/guards must be incrementally replaced as dependencies are ported.
+- **Common / EngBase / system:** selected early-init TUs require Win32/MSVC/COM/CRT/packing/ABI compatibility work (e.g. `__declspec` import/export semantics, CRT differences, x87/inline-asm guards, struct layout parity, platform API shims). No minimal upstream subset is linked into `freelancer_linux_client` yet.
 - **Upstream client bootstrap (`src/freelancer`):** `Client/main.cpp` and `engine_init.cpp` have extensive transitive dependencies (Win32 windowing/resources, IME, game states/UI/sound/render/data subsystems, DirectShow/movie/EULA/resource DLLs) and need guarded Linux build wrappers, stubs, and incremental symbol resolution before they can replace bring-up flow.
-- **M8.2 closure:** `DACOM.INI`/`freelancer.ini`/`DATA` and BINI/INI/search-path behavior are exercised through linked DALib core API and bring-up probes, but **not yet** fully driven/validated through compiled upstream Common/client init TUs; M8.2 remains `[~]` pending successful upstream TU linkage and runtime validation.
+- **M8.2 closure:** `DACOM.INI`/`freelancer.ini`/`DATA` and INI/BINI/search-path behavior are exercised through the linked upstream DALib core TU and bring-up probes, but **not yet** fully driven/validated through compiled upstream Common/client init TUs; M8.2 remains `[~]` pending successful upstream TU linkage and runtime validation.
 
 ## Known stubs / deviations
 
@@ -225,8 +226,8 @@ This list documents intentional stubs, bring-up substitutions, and behavioral de
   - 32-bit (`linux-x86` preset / `FL_LINUX_32BIT=ON`): DACOM/ReadFile/x86math upstream wrapper TUs + M8.2–M8.5 bring-up flow (window/input/render hooks when SDL3/Vulkan available)
   - 64-bit/tools presets (`FL_LINUX_32BIT=OFF`): fallback stub target for preset compatibility
 - Upstream TU config helper: `fl_upstream_tu_iface` INTERFACE target in `linux/CMakeLists.txt` (shared include dirs/defs for guarded 32-bit upstream wrapper consumers; hidden visibility/exported hook policy for wrapper TUs)
-- Entry/stub/shim sources: `linux/src/linux_client_main.cpp` (M8.2–M8.7 init flow, DALib::Startup/OpenData/CloseData upstream API calls, guarded upstream bootstrap hook attempt, M8.3 hookup, M8.4 unblocks, M8.5 diagnostics/controlled-state flow), `linux/src/dalib_core_bringup.cpp` (upstream-derived DALib core TU: globals/error hooks + OpenData/CloseData + Startup/Shutdown bring-up stubs), `linux/src/m87_upstream_bootstrap.cpp` (guarded upstream client bootstrap/init integration scaffold), `linux/src/linux_client_stubs.cpp`, `linux/include/linux_port/win32_user.h`, `linux/include/linux_port/win32_registry.h`
-- M8.7 integration probes/scaffolding: `linux/src/dalib_upstream_core_m87.cpp`, `linux/include/m87_dalib_stubs/*`, CMake EXCLUDE_FROM_ALL targets `fl_m87_dalib_upstream_core_probe` and `fl_m87_common_ini_probe`
+- Entry/stub/shim sources: `linux/src/linux_client_main.cpp` (M8.2–M8.7 init flow, DALib::Startup/OpenData/CloseData upstream API calls, guarded upstream bootstrap hook attempt, M8.3 hookup, M8.4 unblocks, M8.5 diagnostics/controlled-state flow), `src/DALib/DALib.cpp` (upstream DALib TU linked in core-only mode for M8.7 phase 2 via `FL_LINUX_PORT_DALIB_CORE_ONLY`), `linux/src/m87_upstream_bootstrap.cpp` (guarded upstream client bootstrap/init integration scaffold), `linux/src/linux_client_stubs.cpp`, `linux/include/linux_port/win32_user.h`, `linux/include/linux_port/win32_registry.h`
+- M8.7 integration probes/scaffolding: `fl_m87_dalib_upstream_core_probe` (upstream `src/DALib/DALib.cpp` core-only compile probe), `fl_m87_common_ini_probe` (`src/Common/common_ini.cpp`), `linux/src/dalib_upstream_core_m87.cpp`, `linux/include/m87_dalib_stubs/*` (experimental probe artifacts)
 - Dependency graph: `linux/docs/vcxproj-dependency-graph.json`, `linux/docs/vcxproj-dependency-graph.md` (refreshed in M8.0)
 - Smoke-test script: `linux/scripts/smoke_freelancer_client_m85.sh` (expanded M8.5/M8.6 bring-up validation: boot/init, window+render, M8.4 unblocks, controlled main-menu state, presented frames, shutdown/cleanup; auto-detects `linux/linux-x86` or `linux/build-x86`; display/32-bit SDL3/Vulkan dependent)
 - Known-stubs/deviations list: (this document, "Known stubs / deviations" section)

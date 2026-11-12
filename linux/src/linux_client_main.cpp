@@ -4,6 +4,7 @@
 
 #include <dacom.h>
 #include <readfile.h>
+#include <DALib.h>
 
 #include <chrono>
 #include <cstdlib>
@@ -34,15 +35,6 @@ extern "C" void fl_upstream_dacom_register_builtin_components();
 extern "C" int  fl_upstream_readfile_integration_register();
 extern "C" int  fl_upstream_x86math_integration_register();
 #endif
-
-namespace DALib {
-extern ICOManager* Dacom;
-extern IFileSystem* Data;
-bool __cdecl Startup(HWND hwnd, const char* ini_path);
-void __cdecl OpenData(const char* DataPath);
-void __cdecl CloseData();
-void __cdecl Shutdown(HWND hwnd);
-}
 
 // M8.7 guarded upstream bootstrap integration hook (implemented in linux/src/m87_upstream_bootstrap.cpp).
 // Returns 1 if real upstream bootstrap/init path was invoked, 0 if not available in this build.
@@ -418,7 +410,7 @@ int main(int argc, char** argv) {
     std::cerr << "[FAIL][ConfigAndData] DALib::OpenData failed\n";
     return 7;
   }
-  fl_port::log_message(fl_port::LogLevel::Info, "M8.7: DALib::OpenData succeeded via upstream-derived DALib core TU (DALib::Data filesystem ready)");
+  fl_port::log_message(fl_port::LogLevel::Info, "M8.7: DALib::OpenData succeeded via upstream DALib core TU (DALib::Data filesystem ready)");
 
   // M8.7: attempt guarded upstream client bootstrap/init integration hook (no-op/fallback in current build).
   {
@@ -467,7 +459,7 @@ int main(int argc, char** argv) {
     // Try parent-mounted filesystem first (upstream DALib/Common pattern), then root manager fallback.
     bool stream_ok = false;
     {
-      auto try_stream_read = [&](IComponentFactory* factory, const char* label, const std::string& path) -> bool {
+      auto try_stream_read = [&](auto* factory, const char* label, const std::string& path) -> bool {
         if (!factory) return false;
         void* child_inst = nullptr;
         FFileSystemDesc child_desc{};
@@ -510,37 +502,7 @@ int main(int argc, char** argv) {
         auto resolved_file = fl_port::resolve_path_case_insensitive(data_root, "solar\\solararch.ini");
         if (resolved_file) {
           // Fallback via root manager (resolved absolute path)
-          void* child_inst = nullptr;
-          FFileSystemDesc child_desc{};
-          child_desc.Size = 0x34;
-          child_desc.ComponentName = "FileSystem";
-          child_desc.Implementation = "DOS";
-          const std::string child_path = resolved_file->string();
-          child_desc.Path = child_path.c_str();
-          child_desc.Access = GENERIC_READ;
-          child_desc.ShareMode = FILE_SHARE_READ;
-          child_desc.Creation = OPEN_EXISTING;
-          child_desc.Flags = 0;
-          child_desc.Extra = 0;
-          child_desc.Field30 = 0xFFFFFFFFu;
-          const GENRESULT gr_child = mgr->CreateInstance((AGGDESC*)&child_desc, &child_inst);
-          if (gr_child == GR_OK && child_inst) {
-            if (auto* child_fs = reinterpret_cast<IFileSystem*>(child_inst)) {
-              char sbuf[64] = {};
-              unsigned long bytes_read = 0;
-              const int rd = child_fs->Read(0, sbuf, sizeof(sbuf) - 1, &bytes_read, 0);
-              stream_ok = (rd != 0 || bytes_read > 0);
-              fl_port::log_message(stream_ok ? fl_port::LogLevel::Info : fl_port::LogLevel::Warning,
-                                   std::string("IFileSystem stream Read (mgr-resolved, solar\\solararch.ini, handle=0): rd=") +
-                                       std::to_string(rd) + " bytes=" + std::to_string(bytes_read));
-              child_fs->Release();
-            } else {
-              reinterpret_cast<IDAComponent*>(child_inst)->Release();
-            }
-          } else {
-            fl_port::log_message(fl_port::LogLevel::Warning,
-                                 std::string("IFileSystem stream test [mgr-resolved]: CreateInstance failed gr=") + std::to_string((int)gr_child));
-          }
+          stream_ok = try_stream_read(mgr, "mgr-resolved", resolved_file->string());
         } else {
           fl_port::log_message(fl_port::LogLevel::Warning,
                                "IFileSystem stream test: could not resolve solar\\solararch.ini for fallback");
@@ -551,6 +513,7 @@ int main(int argc, char** argv) {
       fl_port::log_message(fl_port::LogLevel::Error, "M8.5 early-out [IFileSystemProbe]: stream read verification failed");
       std::cerr << "[FAIL][IFileSystemProbe] IFileSystem stream read verification failed\n";
       if (DALib::Data) { DALib::CloseData(); data_fs = nullptr; }
+      DALib::Shutdown(nullptr);
       return 9;
     }
   }
@@ -591,6 +554,7 @@ int main(int argc, char** argv) {
     DALib::CloseData();
     data_fs = nullptr;
   }
+  DALib::Shutdown(nullptr);
 
   if (!data_ok) {
     fl_port::log_message(fl_port::LogLevel::Error, "M8.5 early-out [ConfigAndData]: core config/DATA loading checks failed");
@@ -832,13 +796,14 @@ int main(int argc, char** argv) {
     // Boot-to-menu transition (bring-up equivalent): simulate resource/UI init steps,
     // then enter a stable "main menu" controlled state loop with input + render + audio.
     boot_checkpoint(BootPhase::MainMenu, "entering boot-to-menu transition (bring-up controlled state)");
+    rp.set_clear_color(0.06f, 0.07f, 0.12f, 1.0f); // initial boot-phase clear color (set once)
     (void)audio.play_sound("ui/menu_ready", 0.8f, false);
     audio.update();
 
     window.run_loop([&](std::uint64_t frame_index, double /*dt_ms*/) {
       if (close_requested || render_error) return false;
 
-      // Controlled-state visuals (clear-only renderer): vary clear color by phase
+      // Controlled-state visuals (clear-only renderer): transition clear color once on menu reach
       const bool in_menu = frame_index >= static_cast<std::uint64_t>(boot_frames);
       if (in_menu && !main_menu_reached) {
         main_menu_reached = true;
@@ -847,8 +812,6 @@ int main(int argc, char** argv) {
                              "M8.5: reached main menu (equivalent stable in-engine bring-up state)");
         std::cout << "freelancer_linux_client (M8.5): reached main menu (controlled bring-up state)\n";
         (void)audio.play_sound("music/menu_theme_loop", 0.5f, true);
-      } else if (!in_menu) {
-        rp.set_clear_color(0.06f, 0.07f, 0.12f, 1.0f);
       }
       audio.update();
 

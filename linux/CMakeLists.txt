@@ -329,13 +329,14 @@ if(FL_LINUX_BUILD_TOOLS)
     )
     target_link_libraries(m3_math_data_tests PRIVATE fl_linux_port_platform fl_linux_port_path fl_upstream_tu_iface)
 
-    # M8.1–M8.5 — Linux client bring-up executable (32-bit): entry + stubs + upstream
-    # DACOM/ReadFile/x86math wrapper TUs. Full upstream src/freelancer/DALib/Common engine
-    # TU linkage is not yet complete; M8.2 makes incremental progress by exercising
-    # DALib OpenData/CloseData code paths via a minimal Linux bring-up implementation.
+    # M8.1–M8.7 — Linux client bring-up executable (32-bit): entry + stubs + upstream
+    # DACOM/ReadFile/x86math wrapper TUs. M8.7 phase 2 compiles upstream src/DALib/DALib.cpp
+    # as a core-only TU (OpenData/CloseData/data-path + globals/hooks; Startup/Shutdown
+    # subsystem init guarded pending porting) and links it into freelancer_linux_client.
     if(FL_LINUX_BUILD_CLIENT)
-      add_library(fl_dalib_core_bringup OBJECT src/dalib_core_bringup.cpp)
+      add_library(fl_dalib_core_bringup OBJECT "${FL_SRC_ROOT}/DALib/DALib.cpp")
       target_link_libraries(fl_dalib_core_bringup PRIVATE fl_linux_port_platform fl_upstream_tu_iface)
+      target_compile_definitions(fl_dalib_core_bringup PRIVATE FL_LINUX_PORT_DALIB_CORE_ONLY DALIB_EXPORTS)
 
       add_executable(freelancer_linux_client
         src/linux_client_main.cpp
@@ -368,21 +369,15 @@ if(FL_LINUX_BUILD_TOOLS)
       # M8.7 integration probes (EXCLUDE_FROM_ALL): compile experiments for upstream
       # DALib/Common/freelancer TUs. These targets are not part of normal builds and may
       # fail while porting; use --target <name> to iterate on blockers.
-      add_library(fl_m87_dalib_upstream_core_probe OBJECT EXCLUDE_FROM_ALL
-        src/dalib_upstream_core_m87.cpp
-      )
-      target_link_libraries(fl_m87_dalib_upstream_core_probe PRIVATE fl_linux_port_platform fl_upstream_tu_iface)
-      target_include_directories(fl_m87_dalib_upstream_core_probe BEFORE PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}/include/m87_dalib_stubs"
-      )
-      target_compile_definitions(fl_m87_dalib_upstream_core_probe PRIVATE DALIB_EXPORTS)
-
       add_library(fl_m87_common_ini_probe OBJECT EXCLUDE_FROM_ALL
         "${FL_SRC_ROOT}/Common/common_ini.cpp"
       )
       target_link_libraries(fl_m87_common_ini_probe PRIVATE fl_linux_port_platform fl_upstream_tu_iface)
       target_compile_definitions(fl_m87_common_ini_probe PRIVATE COMMON_EXPORTS DALIB_EXPORTS)
-      target_compile_options(fl_m87_common_ini_probe PRIVATE -fdeclspec -fms-extensions -w)
+      target_compile_options(fl_m87_common_ini_probe PRIVATE -fms-extensions -w)
+      if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        target_compile_options(fl_m87_common_ini_probe PRIVATE -fdeclspec)
+      endif()
 
       # Opt-in smoke test (requires display + 32-bit SDL3/Vulkan runtime/data files in repo checkout)
       if(BUILD_TESTING)
