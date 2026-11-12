@@ -966,6 +966,13 @@ bool RenderPipeline::render_frame(float /*t_seconds*/) {
   return true;
 }
 
+void RenderPipeline::set_clear_color(float r, float g, float b, float a) {
+  config_.clear_r = r;
+  config_.clear_g = g;
+  config_.clear_b = b;
+  config_.clear_a = a;
+}
+
 int RenderPipeline::swapchain_image_count() const {
   return vk_ ? static_cast<int>(vk_->swapchain_images.size()) : 0;
 }

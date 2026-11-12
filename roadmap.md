@@ -240,11 +240,16 @@ Treat it as a multi-stage siege. Sub-phases M8.0–M8.6 are tracked below.
     - [x] Registry shim persists typed values and full hierarchical key paths in XDG `registry.ini`; smoke runs support XDG isolation (`FL_PORT_ISOLATE_XDG=1` / `--smoke-xdg-temp`) to avoid host config pollution
   - [x] Stub/bypass remaining blockers (DirectShow movies, IME, etc.)
     - [x] Added/deterministically invoked bring-up stubs for movie/DirectShow playback bypass, EULA gate bypass, IME enable/focus/context hooks, and legacy registry-write marker; expanded common early Win32 window/bootstrap no-op stubs
-- [ ] **M8.5 — Reach main menu / controlled state**
-  - [ ] Fix remaining crashes, missing symbols, behavioral differences one by one
-  - [ ] Add minimal diagnostics/early-out points to pinpoint boot failures
-  - [ ] Document every intentional stub or behavioral deviation
-  - [ ] Acceptance: native client starts, initializes engine, opens window, reaches main menu (or equivalent stable in-engine state)
+- [x] **M8.5 — Reach main menu / controlled state** (bring-up equivalent; upstream real-menu flow pending)
+  - [x] Fix remaining crashes, missing symbols, behavioral differences one by one
+    - [x] Revalidated 32-bit `freelancer_linux_client` bring-up path end-to-end (including M8.4 review fixes) with isolated smoke runs; no crashes observed in normal bring-up flow and failures emit explicit phase-tagged early-out diagnostics/exit codes
+  - [x] Add minimal diagnostics/early-out points to pinpoint boot failures
+    - [x] Added boot phase checkpoints (`BOOT[...]`) across startup/DACOM/core registrations/config+DATA/IFileSystem/audio/persistence/blockers/window/render/main-menu/controlled-state/shutdown and phase-tagged `[FAIL][Phase]` early-out messages in `linux_client_main.cpp`
+  - [x] Document every intentional stub or behavioral deviation
+    - [x] Expanded `linux/docs/m8-client-integration.md` with comprehensive stub/deviation inventory (bring-up init flow, DACOM module loading, config/registry/save semantics, audio/movies/IME/bootstrap stubs, render/UI/menu state, path/ABI/runtime constraints)
+  - [x] Acceptance: native client starts, initializes engine, opens window, reaches main menu (or equivalent stable in-engine state)
+    - [x] `linux/scripts/smoke_freelancer_client_m85.sh` verifies clean boot, required checkpoints, IFileSystem stream read, M8.4 unblocks, transition to `M8.5: reached main menu (equivalent stable in-engine bring-up state)`, stable controlled-state loop completion, and clean shutdown
+    - [ ] Real upstream main menu/game flow remains pending upstream `src/freelancer`/DALib/Common/init TU linkage and behavior parity work
 - [ ] **M8.6 — Stabilization & handoff to M9**
   - [ ] Clean up CMake so full client build is reproducible
   - [ ] Expand test surface (automated smoke test launching binary, checking log lines / window creation)

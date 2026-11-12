@@ -169,6 +169,9 @@ class RenderPipeline : public IComponentFactory {
   // Resize handling (recreate swapchain).
   bool resize(int w, int h);
 
+  // Dynamic clear color (used by render_frame clear pass).
+  void set_clear_color(float r, float g, float b, float a = 1.0f);
+
   // Status for diagnostics.
   std::string last_error() const { return last_error_; }
   int swapchain_image_count() const;

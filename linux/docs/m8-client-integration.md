@@ -1,6 +1,6 @@
 # M8 — Game client integration (living document)
 
-**Status:** M8.4 completed for bring-up client path (null audio, XDG config/registry/save unblock, and movie/IME blockers stubbed/bypassed; M8.3 window/input/render hookup remains validated). M8.2 remains `[~]` pending upstream client/library TU linkage and validation through real client code paths.  
+**Status:** M8.5 completed for bring-up client path as an equivalent controlled main-menu/in-engine state (boot diagnostics/early-outs, stable window+input+render loop, M8.4 unblocks, documented stubs/deviations). Real upstream main-menu/game flow and full M8.2 acceptance remain pending upstream client/library TU linkage and validation through real client code paths.  
 **Acceptance target:** The Freelancer game client (`src/freelancer`) compiles and links as a native Linux ELF and reaches a controlled early boot point (M8.5).
 
 ## Overview
@@ -128,21 +128,58 @@ Inventory method: targeted `rg` scans of `src/freelancer` and key dependency mod
 - **Runtime validation:** rebuilt and ran 32-bit `linux/build-x86/freelancer_linux_client --smoke-xdg-temp` successfully; M8.4 checks (including REG_SZ/REG_DWORD round-trip), IFileSystem stream read, and M8.3 window/input/render clear+present loop complete with clean exit and isolated XDG cleanup.
 
 
+## M8.5 — Reach main menu / controlled state (bring-up equivalent completed)
+
+- **Boot diagnostics & early-out points:** `linux_client_main.cpp` now emits phase checkpoints (`BOOT[Startup|DacomInit|CoreRegistrations|ConfigAndData|IFileSystemProbe|AudioUnblock|PersistenceUnblock|BlockerStubs|WindowCreate|RenderInit|MainMenu|ControlledState|Shutdown]`) and phase-tagged failure diagnostics (`[FAIL][Phase]`, `M8.5 early-out ...`) with stable exit codes for bring-up failure localization.
+- **Crash/symbol/behavioral validation (bring-up scope):** rebuilt and reran 32-bit `freelancer_linux_client` (including isolated smoke runs) through M8.2–M8.5 bring-up flow; no crashes or missing-symbol runtime failures observed in the validated bring-up path. Upstream client TU linkage remains the primary source of future crash/symbol/ABI issues.
+- **Controlled main-menu/in-engine state:** after M8.2–M8.4 bring-up initialization/unblocks and M8.3 window+render hookup, the client performs a boot-to-menu transition and enters a stable controlled in-engine loop (event pumping, input callbacks, audio updates, continuous clear+present frames). It logs and prints `M8.5: reached main menu (equivalent stable in-engine bring-up state)` and completes a bounded stable-state loop before clean shutdown. Boot-to-menu visual transition now uses dynamic render clear-color updates (`RenderPipeline::set_clear_color`) during the loop.
+- **Acceptance (bring-up equivalent):** native client starts, initializes bring-up engine/core subsystems, opens a native window, processes input, renders/presents frames, and reaches a documented equivalent stable main-menu/controlled in-engine state. This is **not** the real upstream Freelancer menu/UI flow (upstream client/menu TUs not yet linked).
+- **M8.5 review fixes:** isolated XDG temp cleanup is RAII-managed for all early-exit paths; IFileSystem stream verification now prefers parent-mounted `data_fs->CreateInstance` (upstream-style) with root-manager fallback and fails `[IFileSystemProbe]` explicitly if stream read cannot be verified; smoke script auto-detects `linux/linux-x86` then `linux/build-x86` and prints environment hints for `WindowCreate`/`RenderInit` failures (exit 20/21).
+- **Smoke test:** `linux/scripts/smoke_freelancer_client_m85.sh` runs `freelancer_linux_client --smoke-xdg-temp` and verifies required checkpoints/logs, IFileSystem stream read, M8.4 unblocks, main-menu controlled-state reach/completion, and clean exit.
+
+
 ## Known stubs / deviations
 
-- `freelancer_linux_client` (M8.3 bring-up): implements window/input/render hookup in bring-up client path, but does not yet compile/link upstream `src/freelancer`/`DALib`/`Common` init/UI/render code paths or call upstream `WinMain`/`InitializeEngine`; no real menu/game boot flow yet.
-- `linux_client_main.cpp` still contains temporary bring-up init/helper logic (INI parsing, config/data checks) pending replacement by real upstream client/library code paths; new simulation logic should be frozen.
-- `linux_client_main.cpp` uses an effective `DACOM.INI` with `[Libraries]` entries removed for source-only explicit-registration bring-up (external runtime module binaries not shipped); differs from retail auto-load behavior.
-- `linux_client_stubs.cpp`: movie/DirectShow playback, IME, EULA, and common Win32 bootstrap stubs are intentional bring-up bypasses/placeholders (logged, deterministic, non-fidelity); additional stubs/shims will be required as upstream TUs are linked.
-- Upstream wrapper TU symbols are now hidden by default in the client build (explicit hooks exported) to avoid ELF interposition issues with dlopened graphics drivers; revisit symbol/export policy as upstream modules are integrated.
-- `win32_registry.h` provides XDG-backed bring-up persistence for basic Reg* create/set/open/query/close flows with typed storage (`sz`/`dword`/`hex`/`expand_sz`) and full hierarchical key sections in `registry.ini`; still not full Win32 registry semantics (enumeration/security/atomicity/complete type coverage/ACL semantics) and requires audit as upstream client code paths are linked.
-- (To be expanded as M8 progresses.)
+This list documents intentional stubs, bring-up substitutions, and behavioral deviations in the current `freelancer_linux_client` path (M8.1–M8.5). Items remain until replaced/validated against real upstream client/library code paths.
+
+### Client integration / boot flow
+- `freelancer_linux_client` does **not** yet compile/link upstream `src/freelancer`, `DALib`, or `Common` client/library TUs and does **not** call upstream `WinMain`/`InitializeEngine`/real menu/game state code.
+- M8.5 "main menu" acceptance is satisfied by an **equivalent controlled stable in-engine bring-up state** (boot transition + stable render/input/audio loop) rather than the real Freelancer UI/menu system.
+- `linux/src/linux_client_main.cpp` contains temporary bring-up init/helper logic (DACOM/config/data probing, XDG/registry/audio unblock checks, controlled-state loop) pending replacement by upstream client/library initialization and game-flow code. New simulation-only init logic should remain frozen except for diagnostics/bring-up unblock needs.
+
+### DACOM / module loading / config
+- Uses an effective `DACOM.INI` with `[Libraries]` entries removed for source-only explicit-registration bring-up (external runtime module binaries not shipped/auto-loaded); differs from retail auto-load behavior.
+- Core registrations are explicit and bring-up-scoped (DACOM built-ins, ReadFile, x86math wrapper hooks) rather than full retail module discovery/load.
+- `IFileSystem`/config/DATA checks are bring-up validation probes (selected files/paths/stream read), not full coverage of all client asset/search-path/BINI behaviors.
+
+### Audio / persistence / config
+- `fl_port::NullAudioBackend` satisfies boot/menu-style audio calls in bring-up path (init/play/stop/update/volume/shutdown) but produces no real audio output/mixing/streaming/spatialization.
+- `fl_port::XdgConfig` and XDG-backed `win32_registry.h` provide bring-up persistence for early settings/save flows (INI config, `registry.ini` typed values, state save path checks), not full Windows registry or all client config semantics.
+- `win32_registry.h` scope/fidelity: typed `sz`/`dword`/`hex`/`expand_sz` storage, basic create/open/query/set/close, `(Default)` mapping, full hierarchical key sections, `WINAPI` signatures, thread-safe handles; **not** full Win32 registry semantics (enumeration, key/value deletion, security/ACLs, atomicity/transactions, complete type coverage, handle rights semantics).
+- Smoke runs can isolate XDG dirs (`FL_PORT_ISOLATE_XDG=1` / `--smoke-xdg-temp`) and clean up temp state; normal runs use standard XDG locations.
+
+### Movies / IME / UI / window bootstrap
+- Movie/DirectShow playback is stubbed/bypassed (`fl_stub_movie_*`, `fl_stub_directshow_playback`); no video/audio playback, codecs, timing, or synchronization.
+- IME support is stubbed (`fl_stub_ime_*`) with no real text composition/candidate UI/input-method integration.
+- EULA/intro gating and legacy registry-write markers are bypassed/no-op for bring-up.
+- Additional Win32 window/bootstrap APIs are no-op or simplified (`ShowCursor` count semantics, `SetForegroundWindow`/`SetFocus`/`GetFocus`/`GetForegroundWindow`/`IsWindow`/`ShowWindow`/`EnableWindow`/`UpdateWindow`/`DestroyWindow` stubs), not full Win32 behavior.
+
+### Render / input / presentation
+- Render path is the existing bring-up Vulkan/SDL3 clear+present pipeline via `fl_port::RenderPipeline`/`fl_port::Window` (not upstream render/UI/material/shader/scene graph integration).
+- Controlled menu state is represented by stable frame loop/state transitions and clear+present output (no real menu widgets/textures/fonts/UI scripts).
+- Input is processed through SDL3 callbacks with VK mapping logging/sampling for bring-up validation; full client input bindings/IME/mouse capture semantics are pending.
+
+### Platform / ABI / runtime assumptions
+- Upstream-wrapper bring-up executable is 32-bit (`FL_LINUX_32BIT`) and depends on compatible 32-bit SDL3/Vulkan/runtime libraries for window/render acceptance.
+- Upstream wrapper TUs linked into the client use hidden visibility with exported explicit bring-up hooks to avoid ELF symbol interposition issues in dlopened graphics components.
+- Path handling in bring-up logic includes Linux case-insensitive/backslash normalization helpers; this is compatibility behavior and not full retail filesystem/search-path parity.
+
 
 ## Artifacts
 
-- CMake target: `freelancer_linux_client` (`linux/CMakeLists.txt`) — 32-bit bring-up client (DACOM/ReadFile/x86math upstream wrapper TUs + Linux entry/stubs), now includes M8.3 window/input/render hookup path (links `fl_linux_port_window`/`fl_linux_port_render` when SDL3/Vulkan available); non-32-bit fallback stub preserved for tools presets
-- Upstream TU config helper: `fl_upstream_tu_iface` INTERFACE target in `linux/CMakeLists.txt` (shared include dirs/defs for guarded 32-bit upstream wrapper consumers)
-- Entry/stub/shim sources: `linux/src/linux_client_main.cpp` (M8.2 core init + M8.3 hookup), `linux/src/linux_client_stubs.cpp`, `linux/include/linux_port/win32_user.h`
+- CMake target: `freelancer_linux_client` (`linux/CMakeLists.txt`) — 32-bit bring-up client (DACOM/ReadFile/x86math upstream wrapper TUs + Linux entry/stubs), includes M8.3 window/input/render hookup and M8.4/M8.5 bring-up diagnostics/unblocks/state flow (links gameplay/window/render deps when available); non-32-bit fallback stub preserved for tools presets
+- Upstream TU config helper: `fl_upstream_tu_iface` INTERFACE target in `linux/CMakeLists.txt` (shared include dirs/defs for guarded 32-bit upstream wrapper consumers; hidden visibility/exported hook policy for wrapper TUs)
+- Entry/stub/shim sources: `linux/src/linux_client_main.cpp` (M8.2 core init, M8.3 hookup, M8.4 unblocks, M8.5 diagnostics/controlled-state flow), `linux/src/linux_client_stubs.cpp`, `linux/include/linux_port/win32_user.h`, `linux/include/linux_port/win32_registry.h`
 - Dependency graph: `linux/docs/vcxproj-dependency-graph.json`, `linux/docs/vcxproj-dependency-graph.md` (refreshed in M8.0)
-- Smoke-test script: (to be created in M8.6)
+- Smoke-test script: `linux/scripts/smoke_freelancer_client_m85.sh` (M8.5 bring-up controlled main-menu state validation; auto-detects `linux/linux-x86` or `linux/build-x86`, requires compatible 32-bit SDL3/Vulkan runtime/display environment)
 - Known-stubs/deviations list: (this document, section above)

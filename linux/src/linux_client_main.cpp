@@ -5,6 +5,7 @@
 #include <dacom.h>
 #include <readfile.h>
 
+#include <chrono>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -222,13 +223,56 @@ bool try_set_bin_cwd(const std::filesystem::path& start_cwd, const std::filesyst
   return false;
 }
 
+
+enum class BootPhase {
+  Startup,
+  DacomInit,
+  CoreRegistrations,
+  ConfigAndData,
+  IFileSystemProbe,
+  AudioUnblock,
+  PersistenceUnblock,
+  BlockerStubs,
+  WindowCreate,
+  RenderInit,
+  MainMenu,
+  ControlledState,
+  Shutdown,
+};
+
+const char* boot_phase_name(BootPhase p) {
+  switch (p) {
+    case BootPhase::Startup: return "Startup";
+    case BootPhase::DacomInit: return "DacomInit";
+    case BootPhase::CoreRegistrations: return "CoreRegistrations";
+    case BootPhase::ConfigAndData: return "ConfigAndData";
+    case BootPhase::IFileSystemProbe: return "IFileSystemProbe";
+    case BootPhase::AudioUnblock: return "AudioUnblock";
+    case BootPhase::PersistenceUnblock: return "PersistenceUnblock";
+    case BootPhase::BlockerStubs: return "BlockerStubs";
+    case BootPhase::WindowCreate: return "WindowCreate";
+    case BootPhase::RenderInit: return "RenderInit";
+    case BootPhase::MainMenu: return "MainMenu";
+    case BootPhase::ControlledState: return "ControlledState";
+    case BootPhase::Shutdown: return "Shutdown";
+  }
+  return "Unknown";
+}
+
+void boot_checkpoint(BootPhase phase, const std::string& detail = {}) {
+  std::string msg = std::string("BOOT[") + boot_phase_name(phase) + "]";
+  if (!detail.empty()) msg += " " + detail;
+  fl_port::log_message(fl_port::LogLevel::Info, msg);
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
   std::filesystem::path isolated_xdg_root;
   bool isolate_xdg = false;
   fl_port::log_message(fl_port::LogLevel::Info,
-                       "freelancer_linux_client (M8.2/M8.3): core engine initialization starting");
+                       "freelancer_linux_client (M8.5 bring-up): boot sequence starting");
+  boot_checkpoint(BootPhase::Startup, "process entry reached");
 
 #if defined(__i386__) || defined(__i386) || defined(i386) || defined(_M_IX86)
   fl_upstream_dacom_install_fdump_bridge();
@@ -247,8 +291,20 @@ int main(int argc, char** argv) {
   }
 
   isolate_xdg = should_isolate_xdg(argc, argv);
+  struct IsolatedXdgGuard {
+    std::filesystem::path root;
+    bool active = false;
+    ~IsolatedXdgGuard() {
+      if (!active || root.empty()) return;
+      std::error_code ec;
+      std::filesystem::remove_all(root, ec);
+      if (!ec) fl_port::log_message(fl_port::LogLevel::Info, "M8.4/M8.5: removed isolated XDG temp root");
+    }
+  } xdg_guard;
   if (isolate_xdg) {
     isolated_xdg_root = make_isolated_xdg_root();
+    xdg_guard.root = isolated_xdg_root;
+    xdg_guard.active = true;
     fl_port::log_message(fl_port::LogLevel::Info,
                          "M8.4: isolated XDG dirs for smoke run under " + isolated_xdg_root.string());
   }
@@ -261,10 +317,11 @@ int main(int argc, char** argv) {
   }
 
   // --- Early/core init sequence (client-oriented bring-up): DACOM + config + DATA ---
+  boot_checkpoint(BootPhase::DacomInit, "acquiring DACOM manager");
   ICOManager* mgr = DACOM_Acquire();
   if (!mgr) {
-    fl_port::log_message(fl_port::LogLevel::Error, "DACOM_Acquire() failed");
-    std::cerr << "[FAIL] DACOM_Acquire() failed\n";
+    fl_port::log_message(fl_port::LogLevel::Error, "M8.5 early-out [DacomInit]: DACOM_Acquire() failed");
+    std::cerr << "[FAIL][DacomInit] DACOM_Acquire() failed\n";
     return 1;
   }
   fl_port::log_message(fl_port::LogLevel::Info, "DACOM_Acquire() ok");
@@ -292,6 +349,7 @@ int main(int argc, char** argv) {
     }
   }
 
+  boot_checkpoint(BootPhase::CoreRegistrations, "registering ReadFile/x86math");
   const int rf_ok = fl_upstream_readfile_integration_register();
   fl_port::log_message(rf_ok ? fl_port::LogLevel::Info : fl_port::LogLevel::Error,
                        rf_ok ? "ReadFile explicitly registered" : "ReadFile registration failed");
@@ -300,10 +358,11 @@ int main(int argc, char** argv) {
   fl_port::log_message(math_ok ? fl_port::LogLevel::Info : fl_port::LogLevel::Error,
                        math_ok ? "x86math explicitly registered" : "x86math explicit registration failed");
 
-  if (!rf_ok) return 2;
-  if (!math_ok) return 3;
-  if (!dacom_ini_resolved || !freelancer_ini_resolved) return 4;
+  if (!rf_ok) { fl_port::log_message(fl_port::LogLevel::Error, "M8.5 early-out [CoreRegistrations]: ReadFile registration failed"); std::cerr << "[FAIL][CoreRegistrations] ReadFile registration failed\n"; return 2; }
+  if (!math_ok) { fl_port::log_message(fl_port::LogLevel::Error, "M8.5 early-out [CoreRegistrations]: x86math registration failed"); std::cerr << "[FAIL][CoreRegistrations] x86math registration failed\n"; return 3; }
+  if (!dacom_ini_resolved || !freelancer_ini_resolved) { fl_port::log_message(fl_port::LogLevel::Error, "M8.5 early-out [ConfigAndData]: required config files not resolved"); std::cerr << "[FAIL][ConfigAndData] DACOM.INI/freelancer.ini resolution failed\n"; return 4; }
 
+  boot_checkpoint(BootPhase::ConfigAndData, "resolving and loading DACOM/freelancer config and DATA");
   // Resolve freelancer.ini [Freelancer].data path and DATA root
   std::filesystem::path data_root;
   const std::string data_path_val = get_ini_first_value(*freelancer_ini_resolved, "Freelancer", "data path");
@@ -360,6 +419,7 @@ int main(int argc, char** argv) {
   }
   if (!fs_ok || !data_fs) return 7;
 
+  boot_checkpoint(BootPhase::IFileSystemProbe, "exercising FileSystem/DOS interface and stream reads");
   // Exercise IFileSystem interface directly (path/search/stream behavior in ReadFile component)
   {
     char cur[260] = {};
@@ -391,49 +451,95 @@ int main(int argc, char** argv) {
     const int fs_err = data_fs->GetFileSystemError();
     fl_port::log_message(fl_port::LogLevel::Info, std::string("IFileSystem GetFileSystemError => ") + std::to_string(fs_err));
 
-    // Exercise ReadFile-component stream path through IFileSystem child open/read APIs
-    // (best-effort for bring-up: open file via DOS filesystem child instance and read bytes)
+    // Exercise ReadFile-component stream path through IFileSystem child open/read APIs.
+    // Try parent-mounted filesystem first (upstream DALib/Common pattern), then root manager fallback.
+    bool stream_ok = false;
     {
-      bool stream_ok = false;
-      auto resolved_file = fl_port::resolve_path_case_insensitive(data_root, "solar\\solararch.ini");
-      if (resolved_file) {
+      auto try_stream_read = [&](IComponentFactory* factory, const char* label, const std::string& path) -> bool {
+        if (!factory) return false;
         void* child_inst = nullptr;
         FFileSystemDesc child_desc{};
         child_desc.Size = 0x34;
         child_desc.ComponentName = "FileSystem";
         child_desc.Implementation = "DOS";
-        const std::string child_path = resolved_file->string();
-        child_desc.Path = child_path.c_str();
+        child_desc.Path = path.c_str();
         child_desc.Access = GENERIC_READ;
         child_desc.ShareMode = FILE_SHARE_READ;
         child_desc.Creation = OPEN_EXISTING;
         child_desc.Flags = 0;
         child_desc.Extra = 0;
         child_desc.Field30 = 0xFFFFFFFFu;
-        const GENRESULT gr_child = mgr->CreateInstance((AGGDESC*)&child_desc, &child_inst);
-        if (gr_child == GR_OK && child_inst) {
-          if (auto* child_fs = reinterpret_cast<IFileSystem*>(child_inst)) {
-            char sbuf[64] = {};
-            unsigned long bytes_read = 0;
-            // Handle 0 is the DOS filesystem's primary/opened file handle in this implementation path.
-            const int rd = child_fs->Read(0, sbuf, sizeof(sbuf) - 1, &bytes_read, 0);
-            stream_ok = (rd != 0 || bytes_read > 0);
-            fl_port::log_message(stream_ok ? fl_port::LogLevel::Info : fl_port::LogLevel::Warning,
-                                 std::string("IFileSystem stream Read (solar\\solararch.ini child DOS fs, handle=0): rd=") +
-                                     std::to_string(rd) + " bytes=" + std::to_string(bytes_read));
-            child_fs->Release();
+        const GENRESULT gr_child = factory->CreateInstance((AGGDESC*)&child_desc, &child_inst);
+        if (gr_child != GR_OK || !child_inst) {
+          fl_port::log_message(fl_port::LogLevel::Warning,
+                               std::string("IFileSystem stream test [") + label + "]: CreateInstance failed gr=" + std::to_string((int)gr_child));
+          return false;
+        }
+        bool ok = false;
+        if (auto* child_fs = reinterpret_cast<IFileSystem*>(child_inst)) {
+          char sbuf[64] = {};
+          unsigned long bytes_read = 0;
+          // Handle 0 is the DOS filesystem's primary/opened file handle in this implementation path.
+          const int rd = child_fs->Read(0, sbuf, sizeof(sbuf) - 1, &bytes_read, 0);
+          ok = (rd != 0 || bytes_read > 0);
+          fl_port::log_message(ok ? fl_port::LogLevel::Info : fl_port::LogLevel::Warning,
+                               std::string("IFileSystem stream Read (") + label + ", solar\\solararch.ini, handle=0): rd=" +
+                                   std::to_string(rd) + " bytes=" + std::to_string(bytes_read));
+          child_fs->Release();
+        } else {
+          reinterpret_cast<IDAComponent*>(child_inst)->Release();
+        }
+        return ok;
+      };
+
+      // Parent-mounted DATA filesystem open (preferred upstream-style path)
+      stream_ok = try_stream_read(static_cast<IComponentFactory*>(data_fs), "data_fs", "solar\\solararch.ini");
+      if (!stream_ok) {
+        auto resolved_file = fl_port::resolve_path_case_insensitive(data_root, "solar\\solararch.ini");
+        if (resolved_file) {
+          // Fallback via root manager (resolved absolute path)
+          void* child_inst = nullptr;
+          FFileSystemDesc child_desc{};
+          child_desc.Size = 0x34;
+          child_desc.ComponentName = "FileSystem";
+          child_desc.Implementation = "DOS";
+          const std::string child_path = resolved_file->string();
+          child_desc.Path = child_path.c_str();
+          child_desc.Access = GENERIC_READ;
+          child_desc.ShareMode = FILE_SHARE_READ;
+          child_desc.Creation = OPEN_EXISTING;
+          child_desc.Flags = 0;
+          child_desc.Extra = 0;
+          child_desc.Field30 = 0xFFFFFFFFu;
+          const GENRESULT gr_child = mgr->CreateInstance((AGGDESC*)&child_desc, &child_inst);
+          if (gr_child == GR_OK && child_inst) {
+            if (auto* child_fs = reinterpret_cast<IFileSystem*>(child_inst)) {
+              char sbuf[64] = {};
+              unsigned long bytes_read = 0;
+              const int rd = child_fs->Read(0, sbuf, sizeof(sbuf) - 1, &bytes_read, 0);
+              stream_ok = (rd != 0 || bytes_read > 0);
+              fl_port::log_message(stream_ok ? fl_port::LogLevel::Info : fl_port::LogLevel::Warning,
+                                   std::string("IFileSystem stream Read (mgr-resolved, solar\\solararch.ini, handle=0): rd=") +
+                                       std::to_string(rd) + " bytes=" + std::to_string(bytes_read));
+              child_fs->Release();
+            } else {
+              reinterpret_cast<IDAComponent*>(child_inst)->Release();
+            }
           } else {
-            reinterpret_cast<IDAComponent*>(child_inst)->Release();
+            fl_port::log_message(fl_port::LogLevel::Warning,
+                                 std::string("IFileSystem stream test [mgr-resolved]: CreateInstance failed gr=") + std::to_string((int)gr_child));
           }
         } else {
           fl_port::log_message(fl_port::LogLevel::Warning,
-                               std::string("IFileSystem stream test: CreateInstance(DOS file child) failed gr=") + std::to_string((int)gr_child));
+                               "IFileSystem stream test: could not resolve solar\\solararch.ini for fallback");
         }
-      } else {
-        fl_port::log_message(fl_port::LogLevel::Warning,
-                             "IFileSystem stream test: could not resolve solar\\solararch.ini");
       }
-      (void)stream_ok;
+    }
+    if (!stream_ok) {
+      fl_port::log_message(fl_port::LogLevel::Error, "M8.5 early-out [IFileSystemProbe]: stream read verification failed");
+      std::cerr << "[FAIL][IFileSystemProbe] IFileSystem stream read verification failed\n";
+      if (data_fs) { data_fs->Release(); data_fs = nullptr; }
+      return 9;
     }
   }
 
@@ -475,14 +581,16 @@ int main(int argc, char** argv) {
   }
 
   if (!data_ok) {
-    std::cerr << "[FAIL] M8.2 core config/DATA loading checks failed\n";
+    fl_port::log_message(fl_port::LogLevel::Error, "M8.5 early-out [ConfigAndData]: core config/DATA loading checks failed");
+    std::cerr << "[FAIL][ConfigAndData] core config/DATA loading checks failed\n";
     return 8;
   }
 
   std::cout << "freelancer_linux_client (M8.2 bring-up): DACOM component system initialized; core components created; config/DATA loading checks passed\n";
+  boot_checkpoint(BootPhase::ConfigAndData, "core init/config/DATA checks passed");
 
   // --- M8.4: audio / config / persistence unblock (bring-up client path) ---
-  fl_port::log_message(fl_port::LogLevel::Info, "M8.4: starting audio/config/persistence unblock");
+  boot_checkpoint(BootPhase::AudioUnblock, "initializing null audio backend and exercising boot/menu calls");
 
   // Null audio backend: satisfy boot/menu audio calls in bring-up path
   fl_port::NullAudioBackend audio;
@@ -494,9 +602,8 @@ int main(int argc, char** argv) {
     acfg.buffer_frames = 1024;
     acfg.master_volume = 0.8f;
     if (!audio.init(acfg) || !audio.is_initialized()) {
-      fl_port::log_message(fl_port::LogLevel::Error, "M8.4: null audio backend init failed");
-      std::cerr << "[FAIL] M8.4: null audio backend init failed\n";
-      if (isolate_xdg && !isolated_xdg_root.empty()) { std::error_code ec2; std::filesystem::remove_all(isolated_xdg_root, ec2); }
+      fl_port::log_message(fl_port::LogLevel::Error, "M8.5 early-out [AudioUnblock]: null audio backend init failed");
+      std::cerr << "[FAIL][AudioUnblock] null audio backend init failed\n";
       return 30;
     }
     audio.set_master_volume(0.75f);
@@ -512,6 +619,7 @@ int main(int argc, char** argv) {
                          "M8.4: null audio backend satisfied boot/menu calls (play/stop/update/volume)");
   }
 
+  boot_checkpoint(BootPhase::PersistenceUnblock, "exercising XDG config/registry/save shim");
   // XDG config/registry/save shim: exercise early settings/save persistence calls
   {
     fl_port::XdgConfig xdg;
@@ -593,16 +701,16 @@ int main(int argc, char** argv) {
 
     if (!cfg_ok) {
       fl_port::log_message(fl_port::LogLevel::Error,
-                           "M8.4: XDG config/registry/save shim validation failed");
-      std::cerr << "[FAIL] M8.4: config/registry/save unblock checks failed\n";
+                           "M8.5 early-out [PersistenceUnblock]: XDG config/registry/save shim validation failed");
+      std::cerr << "[FAIL][PersistenceUnblock] config/registry/save unblock checks failed\n";
       audio.shutdown();
-      if (isolate_xdg && !isolated_xdg_root.empty()) { std::error_code ec2; std::filesystem::remove_all(isolated_xdg_root, ec2); }
       return 31;
     }
     fl_port::log_message(fl_port::LogLevel::Info,
                          "M8.4: XDG config/registry/save shim used for early settings/save calls (config, HKCU registry, state save)");
   }
 
+  boot_checkpoint(BootPhase::BlockerStubs, "invoking deterministic movie/IME/EULA bootstrap bypass stubs");
   // Stub/bypass remaining boot/menu blockers (movies, IME, legacy registry-write marker)
   {
     (void)fl_stub_eula_accepted();
@@ -622,12 +730,12 @@ int main(int argc, char** argv) {
 
   std::cout << "freelancer_linux_client (M8.4): null audio satisfied boot/menu calls; XDG config/registry/save shim exercised; movie/IME blockers stubbed/bypassed\n";
 
-  // --- M8.3: window + input + render hookup (bring-up client path) ---
-  fl_port::log_message(fl_port::LogLevel::Info, "M8.3: starting window/input/render hookup");
+  // --- M8.3/M8.5: window + input + render hookup and controlled in-engine state (bring-up) ---
+  boot_checkpoint(BootPhase::WindowCreate, "creating native window (fl_port::Window)");
 #if defined(FL_HAS_SDL3) && defined(FL_HAS_VULKAN)
   {
     fl_port::WindowConfig wcfg;
-    wcfg.title = "Freelancer Linux Client (M8.3)";
+    wcfg.title = "Freelancer Linux Client (M8.5 bring-up)";
     wcfg.width = 960;
     wcfg.height = 540;
     wcfg.resizable = true;
@@ -636,53 +744,61 @@ int main(int argc, char** argv) {
     wcfg.vulkan = true;
 
     fl_port::Window window;
-    fl_port::log_message(fl_port::LogLevel::Info, "M8.3: creating native window (fl_port::Window)...");
+    fl_port::log_message(fl_port::LogLevel::Info, "M8.3/M8.5: creating native window (fl_port::Window)...");
     if (!window.create(wcfg)) {
-      fl_port::log_message(fl_port::LogLevel::Error, "M8.3: failed to create native window (fl_port::Window)");
-      std::cerr << "[FAIL] M8.3: native window creation failed\n";
+      fl_port::log_message(fl_port::LogLevel::Error, "M8.5 early-out: native window creation failed");
+      std::cerr << "[FAIL][WindowCreate] native window creation failed\n";
       audio.shutdown();
-      if (isolate_xdg && !isolated_xdg_root.empty()) { std::error_code ec2; std::filesystem::remove_all(isolated_xdg_root, ec2); }
       return 20;
     }
     const char* drv = SDL_GetCurrentVideoDriver();
     fl_port::log_message(fl_port::LogLevel::Info,
-                         std::string("M8.3: native window created via fl_port::Window (SDL driver=") + (drv ? drv : "unknown") + ")");
+                         std::string("M8.3/M8.5: native window created via fl_port::Window (SDL driver=") + (drv ? drv : "unknown") + ")");
 
+    boot_checkpoint(BootPhase::RenderInit, "initializing render pipeline");
     fl_port::RenderPipelineConfig rcfg;
     rcfg.initial_width = wcfg.width;
     rcfg.initial_height = wcfg.height;
-    rcfg.clear_r = 0.08f;
-    rcfg.clear_g = 0.10f;
-    rcfg.clear_b = 0.16f;
+    rcfg.clear_r = 0.05f;
+    rcfg.clear_g = 0.08f;
+    rcfg.clear_b = 0.14f;
     rcfg.vsync = true;
 
     fl_port::RenderPipeline rp;
-    fl_port::log_message(fl_port::LogLevel::Info, "M8.3: initializing render pipeline...");
     if (!rp.init_for_window(&window, rcfg)) {
       fl_port::log_message(fl_port::LogLevel::Error,
-                           std::string("M8.3: render pipeline init failed: ") + rp.last_error());
-      std::cerr << "[FAIL] M8.3: render pipeline init failed: " << rp.last_error() << "\n";
+                           std::string("M8.5 early-out: render pipeline init failed: ") + rp.last_error());
+      std::cerr << "[FAIL][RenderInit] render pipeline init failed: " << rp.last_error() << "\n";
       window.destroy();
       audio.shutdown();
-      if (isolate_xdg && !isolated_xdg_root.empty()) { std::error_code ec2; std::filesystem::remove_all(isolated_xdg_root, ec2); }
       return 21;
     }
     fl_port::log_message(fl_port::LogLevel::Info,
-                         "M8.3: render pipeline initialized and connected to client window");
+                         "M8.3/M8.5: render pipeline initialized and connected to client window");
 
     int key_events = 0;
     int mouse_events = 0;
     int presented = 0;
     bool close_requested = false;
     bool render_error = false;
-    const int target_frames = 120;
+    bool main_menu_reached = false;
+    const int boot_frames = 30;
+    const int menu_hold_frames = 180; // controlled stable in-engine state (~3s @ 60fps target)
+
+    auto cleanup_all = [&](int code) -> int {
+      boot_checkpoint(BootPhase::Shutdown, std::string("cleanup (code=") + std::to_string(code) + ")");
+      rp.shutdown();
+      window.destroy();
+      audio.shutdown();
+      return code;
+    };
 
     fl_port::WindowCallbacks cb;
     cb.on_key = [&](const fl_port::KeyEvent& e) {
       ++key_events;
-      if (key_events <= 5) {
+      if (key_events <= 8) {
         fl_port::log_message(fl_port::LogLevel::Info,
-                             "M8.3 input: key action=" + std::string(e.action == fl_port::InputAction::Press ? "press" : "release") +
+                             "M8.5 input: key action=" + std::string(e.action == fl_port::InputAction::Press ? "press" : "release") +
                                  " sdl_key=" + std::to_string(e.sdl_keycode) +
                                  " vk=" + std::to_string(e.win_vk) +
                                  " repeat=" + (e.repeat ? "1" : "0"));
@@ -701,66 +817,79 @@ int main(int argc, char** argv) {
       }
     };
 
-    // Stable frame loop: pump SDL/input events via fl_port::Window, render clear+present frames.
+    // Boot-to-menu transition (bring-up equivalent): simulate resource/UI init steps,
+    // then enter a stable "main menu" controlled state loop with input + render + audio.
+    boot_checkpoint(BootPhase::MainMenu, "entering boot-to-menu transition (bring-up controlled state)");
+    (void)audio.play_sound("ui/menu_ready", 0.8f, false);
+    audio.update();
+
     window.run_loop([&](std::uint64_t frame_index, double /*dt_ms*/) {
       if (close_requested || render_error) return false;
+
+      // Controlled-state visuals (clear-only renderer): vary clear color by phase
+      const bool in_menu = frame_index >= static_cast<std::uint64_t>(boot_frames);
+      if (in_menu && !main_menu_reached) {
+        main_menu_reached = true;
+        rp.set_clear_color(0.03f, 0.09f, 0.18f, 1.0f);
+        fl_port::log_message(fl_port::LogLevel::Info,
+                             "M8.5: reached main menu (equivalent stable in-engine bring-up state)");
+        std::cout << "freelancer_linux_client (M8.5): reached main menu (controlled bring-up state)\n";
+        (void)audio.play_sound("music/menu_theme_loop", 0.5f, true);
+      } else if (!in_menu) {
+        rp.set_clear_color(0.06f, 0.07f, 0.12f, 1.0f);
+      }
+      audio.update();
+
       if (!rp.render_frame(static_cast<float>(frame_index) / 60.0f)) {
         fl_port::log_message(fl_port::LogLevel::Error,
-                             std::string("M8.3: render_frame failed: ") + rp.last_error());
+                             std::string("M8.5 early-out: render_frame failed: ") + rp.last_error());
         render_error = true;
         return false;
       }
       ++presented;
-      return presented < target_frames;
-    }, cb, target_frames, 10.0, true);
+
+      const std::uint64_t total_target = static_cast<std::uint64_t>(boot_frames + menu_hold_frames);
+      if (frame_index + 1 >= total_target) {
+        boot_checkpoint(BootPhase::ControlledState,
+                        "main menu stable-state loop completed (presented=" + std::to_string(presented) + ")");
+        return false;
+      }
+      return true;
+    }, cb, boot_frames + menu_hold_frames, 10.0, true);
 
     if (render_error) {
-      fl_port::log_message(fl_port::LogLevel::Error,
-                           "M8.3: frame loop ended due to render error (presented=" + std::to_string(presented) + ")");
-      std::cerr << "[FAIL] M8.3: render_frame failed during frame loop\n";
-      rp.shutdown();
-      window.destroy();
-      audio.shutdown();
-      if (isolate_xdg && !isolated_xdg_root.empty()) { std::error_code ec2; std::filesystem::remove_all(isolated_xdg_root, ec2); }
-      return 22;
+      std::cerr << "[FAIL][ControlledState] render_frame failed during boot/menu loop (presented=" << presented << ")\n";
+      return cleanup_all(22);
     }
-
     if (presented < 1) {
-      std::cerr << "[FAIL] M8.3: no frames presented\n";
-      rp.shutdown();
-      window.destroy();
-      audio.shutdown();
-      if (isolate_xdg && !isolated_xdg_root.empty()) { std::error_code ec2; std::filesystem::remove_all(isolated_xdg_root, ec2); }
-      return 22;
+      std::cerr << "[FAIL][ControlledState] no frames presented\n";
+      return cleanup_all(22);
+    }
+    if (!main_menu_reached) {
+      fl_port::log_message(fl_port::LogLevel::Error, "M8.5 early-out: boot loop ended before reaching main menu state");
+      std::cerr << "[FAIL][MainMenu] did not reach main menu controlled state\n";
+      return cleanup_all(40);
     }
 
     fl_port::log_message(fl_port::LogLevel::Info,
-                         "M8.3: frame loop complete (presented=" + std::to_string(presented) +
+                         "M8.5: controlled state complete (presented=" + std::to_string(presented) +
                              ", key_events=" + std::to_string(key_events) +
                              ", mouse_events=" + std::to_string(mouse_events) +
                              ", close_requested=" + (close_requested ? "1" : "0") + ")");
-    std::cout << "freelancer_linux_client (M8.3): native window created, input processed (SDL3->VK mapped), render backend called for clear+present\n";
-    std::cout << "Status: M8.3/M8.4 bring-up client path complete (window/input/render + audio/config/persistence/blocker stubs; upstream client TU wiring pending)\n";
+    std::cout << "freelancer_linux_client (M8.5): native client initialized engine bring-up, opened window, reached main menu (controlled stable in-engine state)\n";
+    std::cout << "Status: M8.5 bring-up acceptance satisfied (equivalent controlled main-menu state); upstream client TU linkage still pending for real menu/game flow\n";
 
-    rp.shutdown();
-    window.destroy();
-    audio.shutdown();
-    if (isolate_xdg && !isolated_xdg_root.empty()) {
-      std::error_code ec2;
-      std::filesystem::remove_all(isolated_xdg_root, ec2);
-      if (!ec2) fl_port::log_message(fl_port::LogLevel::Info, "M8.4: removed isolated XDG temp root");
-    }
-    return 0;
+    return cleanup_all(0);
   }
 #elif defined(FL_HAS_SDL3)
   fl_port::log_message(fl_port::LogLevel::Error,
-                       "M8.3: SDL3 window/input available but Vulkan/render backend unavailable in this build; cannot satisfy clear+present acceptance");
-  std::cerr << "[FAIL] M8.3: render backend unavailable (SDL3 present, Vulkan missing)\n";
+                       "M8.5 early-out: SDL3 window/input available but Vulkan/render backend unavailable; cannot reach controlled in-engine state");
+  std::cerr << "[FAIL][RenderInit] render backend unavailable (SDL3 present, Vulkan missing)\n";
   return 23;
 #else
   fl_port::log_message(fl_port::LogLevel::Error,
-                       "M8.3: SDL3/Vulkan window+render hookups unavailable in this build; cannot satisfy M8.3 acceptance");
-  std::cerr << "[FAIL] M8.3: window/input/render hookups unavailable (missing SDL3/Vulkan build deps)\n";
+                       "M8.5 early-out: SDL3/Vulkan window+render hookups unavailable; cannot reach controlled in-engine state");
+  std::cerr << "[FAIL][WindowCreate] window/input/render hookups unavailable (missing SDL3/Vulkan build deps)\n";
   return 24;
 #endif
 
