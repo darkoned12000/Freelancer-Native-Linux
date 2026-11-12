@@ -190,6 +190,10 @@ void Window::destroy() {
     sdl_video_initialized_ = false;
   }
   state_ = InputState{};
+  cursor_visible_ = true;
+  relative_mouse_ = false;
+  mouse_grabbed_ = false;
+  fullscreen_ = false;
 }
 
 bool Window::is_open() const { return window_ != nullptr; }
@@ -284,7 +288,6 @@ void Window::handle_event(const SDL_Event& ev, const WindowCallbacks& callbacks)
         // engine code checking VK_SHIFT/CONTROL/MENU sees combined state.
         const bool pressed = (ke.action == InputAction::Press);
         if (ke.win_vk == 0xA0 || ke.win_vk == 0xA1) {
-          state_.vk_down[0x10] = (state_.vk_down[0xA0] || state_.vk_down[0xA1]) ? pressed : state_.vk_down[0x10];
           // Recompute combined state accurately on both press and release.
           state_.vk_down[0x10] = state_.vk_down[0xA0] || state_.vk_down[0xA1];
         } else if (ke.win_vk == 0xA2 || ke.win_vk == 0xA3) {
@@ -418,6 +421,17 @@ void Window::get_size(int& w, int& h) const {
 }
 void Window::set_size(int w, int h) {
   if (window_) SDL_SetWindowSize(window_, w, h);
+}
+bool Window::set_fullscreen(bool enabled) {
+  if (!window_) return false;
+  if (enabled == fullscreen_) return true;
+  if (SDL_SetWindowFullscreen(window_, enabled)) {
+    fullscreen_ = enabled;
+    std::cout << "[fl-port][window] fullscreen=" << (fullscreen_ ? "on" : "off") << "\n";
+    return true;
+  }
+  std::cerr << "[fl-port][window] SDL_SetWindowFullscreen failed: " << SDL_GetError() << "\n";
+  return false;
 }
 bool Window::has_focus() const { return state_.focused; }
 WindowLifecycleEvent Window::last_lifecycle_event() const { return last_lifecycle_; }

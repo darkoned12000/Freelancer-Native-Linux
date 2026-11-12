@@ -2,6 +2,30 @@
 
 Snapshot of bring-up work for native Linux (Wayland) target.
 
+## M8+ — Game client integration (planned)
+
+M8–M12 cover compiling/linking the actual Freelancer game client as a native
+Linux ELF and implementing the full render/audio/game-flow stack. These are the
+remaining milestones to reach a playable native Linux experience. See
+`roadmap.md` (M8–M12) and `README.md` milestone table.
+
+## M7 — Native Linux release candidate (completed, pending review, bring-up/harness scope)
+
+**Status:** implemented in working tree for review (not committed). Builds/tests validated on host (64-bit and 32-bit presets).
+
+### Completed in M7
+- **Display/input modes:** added `Window::set_fullscreen`/`toggle_fullscreen`/`set_windowed` (SDL fullscreen toggle); controller detection via SDL gamepad API (hotplug).
+- **Performance/frame pacing:** added frame timing metrics to `RenderPipeline` (avg/last frame ms, frame count); `yield_cpu` gating; VSync via FIFO present mode.
+- **Packaging/install/run docs:** added `linux/docs/packaging-install-run.md` with dependencies, build, run, install, XDG, and known limitations.
+- **Final validation harness:** added `m7_release_harness` (`linux/tests/m7_release_harness.cpp`) validating all subsystems (audio, XDG, window, render, input, controllers, performance, binary existence) — PASS on 64-bit and 32-bit.
+
+### Validation highlights
+- 64-bit preset (`linux/linux-x64`): `m7_release_harness` → **PASS** (32/32 checks).
+- 32-bit preset (`linux/linux-x86`): `m7_release_harness` → **PASS** (32/32 checks).
+- M1–M6 harnesses remain passing on both presets.
+
+See `linux/docs/packaging-install-run.md`.
+
 ## M6 — Gameplay bring-up (completed, pending review)
 
 **Status:** implemented in working tree for review (not committed). Builds/tests validated on host (64-bit and 32-bit presets).

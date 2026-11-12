@@ -356,7 +356,7 @@ GENRESULT RenderPipeline::CreateBuffers(HWND Hwnd, int* /*Mode*/, int* /*OutMode
     vr = vkCreateImageView(vk_->device, &ivci, nullptr, &vk_->swapchain_image_views[i]);
     if (vr != VK_SUCCESS) {
       set_error("CreateBuffers: vkCreateImageView failed");
-      // best-effort cleanup omitted for brevity; shutdown() handles it
+      shutdown();
       return GR_GENERIC;
     }
   }
@@ -390,6 +390,7 @@ GENRESULT RenderPipeline::CreateBuffers(HWND Hwnd, int* /*Mode*/, int* /*OutMode
   vr = vkCreateRenderPass(vk_->device, &rpci, nullptr, &vk_->render_pass);
   if (vr != VK_SUCCESS) {
     set_error("CreateBuffers: vkCreateRenderPass failed");
+    shutdown();
     return GR_GENERIC;
   }
 
@@ -407,6 +408,7 @@ GENRESULT RenderPipeline::CreateBuffers(HWND Hwnd, int* /*Mode*/, int* /*OutMode
     vr = vkCreateFramebuffer(vk_->device, &fci, nullptr, &vk_->framebuffers[i]);
     if (vr != VK_SUCCESS) {
       set_error("CreateBuffers: vkCreateFramebuffer failed");
+      shutdown();
       return GR_GENERIC;
     }
   }
@@ -419,6 +421,7 @@ GENRESULT RenderPipeline::CreateBuffers(HWND Hwnd, int* /*Mode*/, int* /*OutMode
   vr = vkCreateCommandPool(vk_->device, &cpci, nullptr, &vk_->command_pool);
   if (vr != VK_SUCCESS) {
     set_error("CreateBuffers: vkCreateCommandPool failed");
+    shutdown();
     return GR_GENERIC;
   }
   vk_->command_buffers.resize(sc_img_count);
@@ -430,6 +433,7 @@ GENRESULT RenderPipeline::CreateBuffers(HWND Hwnd, int* /*Mode*/, int* /*OutMode
   vr = vkAllocateCommandBuffers(vk_->device, &cbai, vk_->command_buffers.data());
   if (vr != VK_SUCCESS) {
     set_error("CreateBuffers: vkAllocateCommandBuffers failed");
+    shutdown();
     return GR_GENERIC;
   }
 
@@ -843,6 +847,7 @@ bool RenderPipeline::resize(int w, int h) {
 
 bool RenderPipeline::render_frame(float /*t_seconds*/) {
   if (!initialized_ || !vk_ || !vk_->device) return false;
+  auto t0 = std::chrono::steady_clock::now();
   VkDevice dev = vk_->device;
   // Wait for fence
   vkWaitForFences(dev, 1, &vk_->in_flight, VK_TRUE, UINT64_MAX);
@@ -854,10 +859,18 @@ bool RenderPipeline::render_frame(float /*t_seconds*/) {
     int w = 0, h = 0;
     if (window_) window_->get_size(w, h);
     if (w > 0 && h > 0) resize(w, h);
+    {
+      auto t1 = std::chrono::steady_clock::now();
+      last_frame_ms_ = std::chrono::duration<double, std::milli>(t1 - t0).count();
+    }
     return true;
   }
   if (vr != VK_SUCCESS && vr != VK_SUBOPTIMAL_KHR) {
     set_error(std::string("render_frame: acquire failed ") + vk_result_str(vr));
+    {
+      auto t1 = std::chrono::steady_clock::now();
+      last_frame_ms_ = std::chrono::duration<double, std::milli>(t1 - t0).count();
+    }
     return false;
   }
   vk_->current_image = image_index;
@@ -908,6 +921,10 @@ bool RenderPipeline::render_frame(float /*t_seconds*/) {
   vr = vkQueueSubmit(vk_->graphics_queue, 1, &si, vk_->in_flight);
   if (vr != VK_SUCCESS) {
     set_error(std::string("render_frame: vkQueueSubmit failed ") + vk_result_str(vr));
+    {
+      auto t1 = std::chrono::steady_clock::now();
+      last_frame_ms_ = std::chrono::duration<double, std::milli>(t1 - t0).count();
+    }
     return false;
   }
 
@@ -924,11 +941,27 @@ bool RenderPipeline::render_frame(float /*t_seconds*/) {
     int w = 0, h = 0;
     if (window_) window_->get_size(w, h);
     if (w > 0 && h > 0) resize(w, h);
+    {
+      auto t1 = std::chrono::steady_clock::now();
+      last_frame_ms_ = std::chrono::duration<double, std::milli>(t1 - t0).count();
+      if (frame_count_ == 0) avg_frame_ms_ = last_frame_ms_; else avg_frame_ms_ = avg_frame_ms_ * 0.9 + last_frame_ms_ * 0.1;
+      ++frame_count_;
+    }
     return true;
   }
   if (vr != VK_SUCCESS) {
     set_error(std::string("render_frame: present failed ") + vk_result_str(vr));
+    {
+      auto t1 = std::chrono::steady_clock::now();
+      last_frame_ms_ = std::chrono::duration<double, std::milli>(t1 - t0).count();
+    }
     return false;
+  }
+  {
+    auto t1 = std::chrono::steady_clock::now();
+    last_frame_ms_ = std::chrono::duration<double, std::milli>(t1 - t0).count();
+    if (frame_count_ == 0) avg_frame_ms_ = last_frame_ms_; else avg_frame_ms_ = avg_frame_ms_ * 0.9 + last_frame_ms_ * 0.1;
+    ++frame_count_;
   }
   return true;
 }

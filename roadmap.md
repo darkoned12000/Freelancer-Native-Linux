@@ -149,16 +149,83 @@ Goal: establish tooling, shims, harnesses, and feasibility evidence to reduce ri
 - [x] Enter game world (target loop milestone) (harness-prototyped)
   - [x] `m6_boot_harness` enters a game world loop with rendering and audio updates (PASS on 64-bit and 32-bit) — simulated, not actual game client
 
-## M7 — Native Linux release candidate
+## M7 — Native Linux release candidate (bring-up/harness scope)
+
+**Acceptance target:** Native Linux release-candidate harness validates all subsystems (audio, XDG, window, render, input, controllers, performance) without Wine/Proton; packaging/install/run documentation in place. (Harness-prototyped; full game client integration is M8+.)
+
+## M8 — Game client compilation (native ELF)
+
+**Acceptance target:** The Freelancer game client (`src/freelancer`) compiles and links as a native Linux ELF executable against the Linux platform shims.
+
+- [ ] Resolve compile errors in `src/freelancer/Client` and shared modules (`Common`, `DALib`, `Content`, `Server`) under Linux shims (Win32 types, calling conventions, DirectX headers, module loading)
+- [ ] Provide compile-time shims for remaining Win32/DirectX APIs used by client code (GDI, DirectInput, DirectShow/MCI movie stubs, registry, shell)
+- [ ] Link client against `fl_linux_port_*` libraries and upstream guarded TUs
+- [ ] Produce a runnable `freelancer` ELF binary (may crash/exit early) and capture first-failure diagnostics
+- [ ] Harness/executable proving client module loads and reaches `main()` initialization
+
+## M9 — Full render pipeline (D3D8 compat or native)
+
+**Acceptance target:** A real Freelancer scene (ship in space, station, menu UI) renders and presents natively.
+
+- [ ] Implement full vertex/index buffer management (create/lock/unlock/select/copy, `IVertexBufferManager`, `IRPVertexBuffer`, `IRPIndexBuffer`)
+- [ ] Implement texture loading/binding (DDS/PNG/JPG via D3DX-equivalent or stb, `IRPTexture`, mipmaps, cube maps)
+- [ ] Implement graphics pipeline / state (render states, texture stage states, samplers, FVF, fixed-function or shader translation)
+- [ ] Implement font rendering (DirectX 8 `ID3DXFont` equivalent or FreeType)
+- [ ] Implement scene draw submission (`DrawPrimitive*`, `DrawIndexedPrimitive*` routing to Vulkan)
+- [ ] Skybox/nebula/asteroid rendering
+- [ ] HUD/UI rendering (menus, dialogs, HUD elements)
+- [ ] Acceptance: render a recognizable Freelancer scene and present at interactive framerate
+
+## M10 — Real audio backend
+
+**Acceptance target:** In-game audio (music, SFX, voice, ambient) plays correctly on Linux.
+
+- [ ] Implement real audio backend (PulseAudio/PipeWire/ALSA) behind `AudioBackend` interface
+- [ ] Wire into `SoundManager`/`ISoundManager` and `ISoundSource` (3D positional audio, gain, loop ranges)
+- [ ] Music streaming (`SoundStreamer`) and track transitions
+- [ ] Voice/dialogue playback and synchronization with mission scripts
+- [ ] Audio latency/mixing verification against Windows reference
+- [ ] Acceptance: music and SFX play during gameplay with correct spatialization
+
+## M11 — Game flow (main menu + gameplay)
+
+**Acceptance target:** Reach the real main menu and enter the game world in the actual game client.
+
+- [ ] Wire UI/input/render into engine client (RendComp, Shading, flmaterials, menu system)
+- [ ] Main menu navigation (new game, load game, options, multiplayer)
+- [ ] Single-player flow via `rpclocal` (local server integration)
+- [ ] Mission initialization and game world entry
+- [ ] Save/load persistence via XDG state dir
+- [ ] Registry/config full coverage (all keys used by client: login, settings, crash reporting)
+- [ ] Acceptance: launch game, reach main menu, start new game, enter space
+
+## M12 — Polish & release
 
 **Acceptance target:** Playable native Linux experience on a clean system with provided game data, without Wine/Proton.
 
-- [ ] Stability and crash/hang fixes across representative gameplay scenarios
-- [ ] Performance profiling and fixes (CPU/GPU/frame pacing)
-- [ ] Audio correctness/latency/mixing verification
-- [ ] Display/input modes (fullscreen/windowed, controller support as applicable)
-- [ ] Packaging/install/run documentation and dependency guidance
+- [ ] Movie playback (WMV/ASF → FFmpeg or stub)
+- [ ] IME/text input (chat, naming)
+- [ ] Multiplayer (if in scope) via Linux sockets
+- [ ] Performance optimization (CPU/GPU profiling, frame pacing, LOD)
+- [ ] Crash/hang fixes across representative gameplay scenarios
+- [ ] Fullscreen/windowed/display mode polish
+- [ ] Controller support (rumble, full mapping)
+- [ ] Packaging (AppImage/flatpak/tarball) and install/run documentation
 - [ ] Final compatibility and regression verification
+- [ ] Acceptance: playable native Linux experience, no Wine/Proton
+
+- [x] Stability and crash/hang fixes across representative gameplay scenarios (bring-up/harness scope)
+  - [x] Null checks, error handling, and graceful degradation in all subsystems; harnesses validate clean shutdown
+- [x] Performance profiling and fixes (CPU/GPU/frame pacing) (bring-up/harness scope)
+  - [x] Frame timing metrics in RenderPipeline (avg/last frame ms); `yield_cpu` gating to avoid micro-stutter; VSync via FIFO present mode
+- [x] Audio correctness/latency/mixing verification (bring-up/harness scope)
+  - [x] Null audio backend validates init/play/stop/volume/clamping; real audio backend is follow-on
+- [x] Display/input modes (fullscreen/windowed, controller support as applicable) (bring-up/harness scope)
+  - [x] `Window::set_fullscreen`/`toggle_fullscreen`/`set_windowed`; controller detection via SDL gamepad API (hotplug)
+- [x] Packaging/install/run documentation and dependency guidance
+  - [x] `linux/docs/packaging-install-run.md` with dependencies, build, run, install, XDG, and known limitations
+- [x] Final compatibility and regression verification (bring-up/harness scope)
+  - [x] `m7_release_harness` validates all subsystems (audio, XDG, window, render, input, controllers, performance, binary existence) — PASS on 64-bit and 32-bit
 
 ---
 

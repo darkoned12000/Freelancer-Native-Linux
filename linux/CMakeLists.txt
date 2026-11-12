@@ -175,6 +175,24 @@ if(FL_LINUX_BUILD_TOOLS)
     message(STATUS "m6_boot_harness not built (requires usable target sdl3 and vulkan libraries)")
   endif()
 
+  # M7 release candidate harness (final validation).
+  if(FL_SDL3_USABLE AND FL_VULKAN_USABLE)
+    add_executable(m7_release_harness tests/m7_release_harness.cpp)
+    target_link_libraries(m7_release_harness PRIVATE
+      fl_linux_port_gameplay fl_linux_port_render fl_linux_port_window
+      fl_linux_port_platform fl_linux_port_path
+      ${FL_SDL3_PC_LIBRARIES} ${FL_VULKAN_PC_LIBRARIES})
+    target_include_directories(m7_release_harness BEFORE PRIVATE
+      "${CMAKE_CURRENT_SOURCE_DIR}/include/linux_port"
+      ${FL_LINUX_INCLUDE_DIR}
+      "${FL_SRC_ROOT}/include"
+      "${FL_SRC_ROOT}"
+      ${FL_SDL3_PC_INCLUDE_DIRS} ${FL_VULKAN_PC_INCLUDE_DIRS})
+    target_compile_definitions(m7_release_harness PRIVATE FL_HAS_SDL3=1 FL_HAS_VULKAN=1)
+  else()
+    message(STATUS "m7_release_harness not built (requires usable target sdl3 and vulkan libraries)")
+  endif()
+
   # Standalone #4 Wayland/SDL3/Vulkan presentation PoC (scaffold; requires deps)
   if(FL_SDL3_USABLE AND FL_VULKAN_USABLE)
     add_executable(gfx_wayland_poc tests/gfx_wayland_poc.cpp)

@@ -1,9 +1,9 @@
-# Linux port scaffolding (M0–M6 bring-up)
+# Linux port scaffolding (M0–M7 bring-up)
 
 This directory holds **Linux-native bring-up scaffolding** for Freelancer Decomp. The upstream project currently builds only on Windows (MSVC/Win32, DirectX). See [`../assessment.md`](../assessment.md), [`../roadmap.md`](../roadmap.md), and [`docs/m0-project-foundation.md`](docs/m0-project-foundation.md).
 
 ## Status
-Scaffolding, probes, harnesses, and de-risk PoCs are in place (Phase 0 baseline + M0 foundation artifacts + M1 core platform compatibility + M2 DACOM/engine initialization + M3 math/game data + M4 windowing/input + M5 graphics bring-up + M6 gameplay bring-up work). The full game is **not** buildable/runnable on Linux yet. Current milestone changes are pending code review (not committed).
+Scaffolding, probes, harnesses, and de-risk PoCs are in place (Phase 0 baseline + M0 foundation artifacts + M1 core platform compatibility + M2 DACOM/engine initialization + M3 math/game data + M4 windowing/input + M5 graphics bring-up + M6 gameplay bring-up + M7 release candidate work). The full game is **not** buildable/runnable on Linux yet. Current milestone changes are pending code review (not committed).
 
 ## Build infrastructure (M0)
 - **CMake:** `CMakeLists.txt`

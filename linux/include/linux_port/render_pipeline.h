@@ -82,7 +82,7 @@ class RenderPipeline : public IComponentFactory {
   GENRESULT DACOM_API GetDepthRange(float* OutMinZ, float* OutMaxZ) RP_OVERRIDE;
   GENRESULT DACOM_API SetWindow(HWND Hwnd, int X, int Y, int W, int H) RP_OVERRIDE;
   GENRESULT DACOM_API GetWindow(HWND* OutHwnd, int* OutLeft, int* OutRight, int* OutW,
-                                int* OutH);
+                                int* OutH); // no RP_OVERRIDE: OutRight semantics (right edge) differ from upstream naming
   GENRESULT DACOM_API SetWorld(const float* M12) RP_OVERRIDE;
   GENRESULT DACOM_API GetWorld(float* Out12) RP_OVERRIDE;
   GENRESULT DACOM_API SetView(const float* M12) RP_OVERRIDE;
@@ -92,11 +92,11 @@ class RenderPipeline : public IComponentFactory {
   GENRESULT DACOM_API SetProjection(const float* M16) RP_OVERRIDE;
   GENRESULT DACOM_API GetProjection(float* Out16) RP_OVERRIDE;
   GENRESULT DACOM_API SetLookat(float EyeX, float EyeY, float EyeZ, float AtX, float AtY,
-                                float AtZ, float UpX, float UpY, float UpZ);
+                                float AtZ, float UpX, float UpY, float UpZ); // no RP_OVERRIDE: matches upstream signature
   GENRESULT DACOM_API SetOrtho(float Left, float Right, float Bottom, float Top,
-                               float NearPlane, float FarPlane);
+                               float NearPlane, float FarPlane); // no RP_OVERRIDE: matches upstream signature
   GENRESULT DACOM_API SetPerspective(float FovDeg, float Aspect, float NearPlane,
-                                     float FarPlane);
+                                     float FarPlane); // no RP_OVERRIDE: matches upstream signature
   GENRESULT DACOM_API SetLight(void* Handle, const D3DLIGHT8* Light) RP_OVERRIDE;
   GENRESULT DACOM_API DestroyLight(void* Handle) RP_OVERRIDE;
   GENRESULT DACOM_API GetLight(void* Handle, D3DLIGHT8* OutLight) RP_OVERRIDE;
@@ -106,7 +106,7 @@ class RenderPipeline : public IComponentFactory {
   GENRESULT DACOM_API GetMaterial(D3DMATERIAL8* Material) RP_OVERRIDE;
   GENRESULT DACOM_API CreateTexture(int Width, int Height, unsigned int* Format,
                                     unsigned int Levels, unsigned int Flags,
-                                    void** OutHandle);
+                                    void** OutHandle); // no RP_OVERRIDE: stub (unsupported)
   GENRESULT DACOM_API DestroyTexture(void* Handle) RP_OVERRIDE;
   GENRESULT DACOM_API IsTexture(void* Handle) RP_OVERRIDE;
   GENRESULT DACOM_API LockTexture(void* Handle, int Level, void* Out) RP_OVERRIDE;
@@ -134,7 +134,7 @@ class RenderPipeline : public IComponentFactory {
   GENRESULT DACOM_API GetTextureStageTexture(int Stage, void** OutHandle) RP_OVERRIDE;
   GENRESULT DACOM_API VerifyState() RP_OVERRIDE;
   GENRESULT DACOM_API DrawPrimitive(unsigned long Prim, unsigned int Fvf, const void* Verts,
-                                    unsigned int Count, void* Unused);
+                                    unsigned int Count, void* Unused); // no RP_OVERRIDE: stub (unsupported)
   GENRESULT DACOM_API DrawIndexedPrimitiveUp(unsigned long Prim, unsigned int Fvf,
                                              const void* Verts, unsigned int VertCount,
                                              const void* Indices, unsigned int IndexCount,
@@ -162,6 +162,10 @@ class RenderPipeline : public IComponentFactory {
   // Runs a full frame: begin scene, clear, draw triangle, end scene, present.
   // Returns false on fatal error.
   bool render_frame(float t_seconds);
+  // Performance / frame pacing helpers.
+  double last_frame_ms() const { return last_frame_ms_; }
+  double avg_frame_ms() const { return avg_frame_ms_; }
+  void reset_frame_stats() { frame_count_ = 0; avg_frame_ms_ = 0.0; last_frame_ms_ = 0.0; }
   // Resize handling (recreate swapchain).
   bool resize(int w, int h);
 
@@ -178,6 +182,10 @@ class RenderPipeline : public IComponentFactory {
   RenderPipelineConfig config_{};
   bool initialized_{false};
   std::string last_error_{};
+  // Frame timing.
+  double last_frame_ms_{0.0};
+  double avg_frame_ms_{0.0};
+  std::uint64_t frame_count_{0};
 
   // Stored transforms/state (minimal).
   float world_[12]{};

@@ -178,6 +178,13 @@ class Window {
   bool has_focus() const;
   WindowLifecycleEvent last_lifecycle_event() const;
 
+  // Display/input modes (fullscreen/windowed).
+  bool set_fullscreen(bool enabled);
+  bool is_fullscreen() const { return fullscreen_; }
+  void set_windowed() { set_fullscreen(false); }
+  // Toggle between fullscreen and windowed.
+  bool toggle_fullscreen() { return set_fullscreen(!fullscreen_); }
+
   // Cursor / grab handling
   void set_cursor_visible(bool visible);
   void set_relative_mouse_mode(bool enabled);
@@ -206,6 +213,7 @@ class Window {
   bool cursor_visible_{true};
   bool relative_mouse_{false};
   bool mouse_grabbed_{false};
+  bool fullscreen_{false};
   std::vector<std::uint32_t> opened_gamepads_; // SDL_JoystickID list (tracked for cleanup)
   bool sdl_video_initialized_{false};
 };
