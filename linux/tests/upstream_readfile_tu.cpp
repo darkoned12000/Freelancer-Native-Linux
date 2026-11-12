@@ -59,7 +59,12 @@ int CallDacomStricmp(const char* Left, const char* Right) {
 #if !defined(_WIN32)
 // #1.2 integration hook: explicit module registration/init for ReadFile in harness context.
 // Upstream DllMain was renamed to DllMain_readfile_upstream by this wrapper TU.
-extern "C" int fl_upstream_readfile_integration_register() {
+#if defined(__GNUC__) || defined(__clang__)
+#define FL_UPSTREAM_EXPORT __attribute__((visibility("default")))
+#else
+#define FL_UPSTREAM_EXPORT
+#endif
+extern "C" FL_UPSTREAM_EXPORT int fl_upstream_readfile_integration_register() {
   // Simulate process attach so factories/components register with DACOM manager.
   const BOOL ok = DllMain_readfile_upstream((HINSTANCE)nullptr, (DWORD)1 /* DLL_PROCESS_ATTACH */, (LPVOID)nullptr);
   return ok ? 1 : 0;

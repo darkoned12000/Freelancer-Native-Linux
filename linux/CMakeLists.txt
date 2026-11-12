@@ -142,6 +142,9 @@ if(FL_LINUX_BUILD_TOOLS)
       PRIVATE ${FL_SDL3_PC_INCLUDE_DIRS} ${FL_VULKAN_PC_INCLUDE_DIRS})
     target_link_directories(fl_linux_port_render PUBLIC ${FL_SDL3_PC_LIBRARY_DIRS} ${FL_VULKAN_PC_LIBRARY_DIRS})
     target_compile_definitions(fl_linux_port_render PUBLIC FL_HAS_SDL3=1 FL_HAS_VULKAN=1)
+    if(FL_LINUX_32BIT)
+      target_compile_definitions(fl_linux_port_render PUBLIC FL_LINUX_32BIT=1)
+    endif()
 
     add_executable(m5_graphics_harness tests/m5_graphics_harness.cpp)
     target_link_libraries(m5_graphics_harness PRIVATE fl_linux_port_render fl_linux_port_window fl_linux_port_platform ${FL_SDL3_PC_LIBRARIES} ${FL_VULKAN_PC_LIBRARIES})
@@ -223,7 +226,8 @@ if(FL_LINUX_BUILD_TOOLS)
       "${FL_SRC_ROOT}/include"
       "${FL_SRC_ROOT}"
     )
-    target_compile_definitions(fl_upstream_tu_iface INTERFACE FL_LINUX_PORT_UPSTREAM_TU=1)
+    target_compile_definitions(fl_upstream_tu_iface INTERFACE FL_LINUX_PORT_UPSTREAM_TU=1 FL_LINUX_32BIT=1)
+    target_compile_options(fl_upstream_tu_iface INTERFACE -fvisibility=hidden -fvisibility-inlines-hidden)
 
     # Upstream source integration wrappers (guarded Linux harness TUs).
     # These target the original 32-bit/x86 upstream layout and ABI assumptions.
@@ -318,9 +322,9 @@ if(FL_LINUX_BUILD_TOOLS)
     )
     target_link_libraries(m3_math_data_tests PRIVATE fl_linux_port_platform fl_linux_port_path fl_upstream_tu_iface)
 
-    # M8.1/M8.2 — Linux client bring-up executable (32-bit): entry + stubs + upstream
+    # M8.1/M8.2/M8.3 — Linux client bring-up executable (32-bit): entry + stubs + upstream
     # DACOM/ReadFile/x86math wrapper TUs. Upstream src/freelancer/DALib/Common engine
-    # TUs are not yet linked (integration gate for true M8.2/M8.3 per review).
+    # TUs are not yet linked (integration gate for true M8.2+ client-code-path acceptance).
     add_executable(freelancer_linux_client
       src/linux_client_main.cpp
       src/linux_client_stubs.cpp
@@ -329,6 +333,19 @@ if(FL_LINUX_BUILD_TOOLS)
       $<TARGET_OBJECTS:fl_upstream_x86math_tu>
     )
     target_link_libraries(freelancer_linux_client PRIVATE fl_linux_port_platform fl_linux_port_path fl_upstream_tu_iface)
+    # M8.3 window/input/render hookups (optional when 32-bit SDL3/Vulkan libs unavailable)
+    if(FL_SDL3_USABLE AND TARGET fl_linux_port_window)
+      target_link_libraries(freelancer_linux_client PRIVATE fl_linux_port_window ${FL_SDL3_PC_LIBRARIES})
+      target_include_directories(freelancer_linux_client PRIVATE ${FL_SDL3_PC_INCLUDE_DIRS})
+      target_link_directories(freelancer_linux_client PRIVATE ${FL_SDL3_PC_LIBRARY_DIRS})
+      target_compile_definitions(freelancer_linux_client PRIVATE FL_HAS_SDL3=1)
+    endif()
+    if(FL_SDL3_USABLE AND FL_VULKAN_USABLE AND TARGET fl_linux_port_render)
+      target_link_libraries(freelancer_linux_client PRIVATE fl_linux_port_render ${FL_VULKAN_PC_LIBRARIES})
+      target_include_directories(freelancer_linux_client PRIVATE ${FL_VULKAN_PC_INCLUDE_DIRS})
+      target_link_directories(freelancer_linux_client PRIVATE ${FL_VULKAN_PC_LIBRARY_DIRS})
+      target_compile_definitions(freelancer_linux_client PRIVATE FL_HAS_VULKAN=1 FL_LINUX_32BIT=1)
+    endif()
 
   endif()
 endif()

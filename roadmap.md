@@ -210,22 +210,28 @@ Treat it as a multi-stage siege. Sub-phases M8.0–M8.6 are tracked below.
   - [~] Drive real initialization sequence used by original client
     - [x] `freelancer_linux_client` (32-bit) follows a client-oriented early/core init sequence in `linux/src/linux_client_main.cpp`: startup path/bin-context resolution, FDUMP bridge, DACOM acquisition, explicit core registrations (DACOM built-ins/ReadFile/x86math), DACOM config load, freelancer config/data-path resolution, core component creation, `IFileSystem` checks, and config/DATA access validation
     - [x] Integration gate prep started: added/build-validated 32-bit static targets `fl_upstream_zlib` and `fl_upstream_qhull` in `linux/CMakeLists.txt`
-    - [ ] Pending: compile/link and invoke real upstream client/library initialization paths (e.g. `DALib`, `Common`, `EngBase`/`system`, `src/freelancer/Client/main.cpp`, `engine_init.cpp`) instead of bring-up-only init logic
+    - [ ] Pending (target: **M8.3–M8.6**): compile/link and invoke real upstream client/library initialization paths (e.g. `DALib`, `Common`, `EngBase`/`system`, `src/freelancer/Client/main.cpp`, `engine_init.cpp`) instead of bring-up-only init logic, progressing with client hookup (M8.3) and stabilizing through controlled boot/menu state (M8.5–M8.6)
   - [~] Make `bin/DACOM.INI` + `freelancer.ini` + `DATA/` loading work end-to-end through client code paths
     - [x] Bring-up path resolves/loads `bin/DACOM.INI` (effective explicit-registration config) and `bin/freelancer.ini`, derives `[Freelancer].data path`, resolves DATA root, creates `FileSystem/DOS`, exercises `IFileSystem` (`GetCurrentPath`/`GetPathAttributes`), and reads key config/data files via Linux-compatible path resolution + Win32 file shim paths
-    - [ ] Pending: validate and drive the same loading through compiled upstream client/DALib/Common code paths (INI/BINI/UTF/search-path behavior) rather than bring-up helper logic
+    - [ ] Pending (target: **M8.5–M8.6**): validate and drive the same loading through compiled upstream client/DALib/Common code paths (INI/BINI/UTF/search-path behavior) rather than bring-up helper logic, once upstream init/client TUs are wired and boot reaches a controlled state
   - [~] Resolve remaining path/search-path/BINI loading issues appearing only under full client
     - [x] Addressed for current bring-up scope (case-insensitive/backslash path resolution, bin/DATA root derivation, `IFileSystem` attribute checks, key DATA file reads)
-    - [ ] Pending: full-client-only path/search/BINI issues to be discovered/fixed when upstream client/library TUs are compiled and linked
+    - [ ] Pending (target: **M8.3–M8.6**): discover/fix full-client-only path/search/BINI issues as upstream client/library TUs are compiled and linked (initial integration in M8.3+, boot/debug in M8.5, cleanup/stabilization in M8.6)
   - [~] Acceptance: DACOM component system initializes, core components created, config/DATA loading succeeds
     - [x] Bring-up acceptance (prototype): `./linux/build-x86/freelancer_linux_client` initializes DACOM, creates `FileSystem/DOS`, exercises `IFileSystem`, resolves/loads `DACOM.INI`+`freelancer.ini`+key `DATA` files, and exits cleanly (code 0)
-    - [ ] Full M8.2 acceptance pending upstream client/library TU linkage and validation through real client code paths
-- [ ] **M8.3 — Window + input + render hookup**
-  - [ ] Replace/adapt original window creation and message pump to use `fl_port::Window`
-  - [ ] Map client input expectations onto SDL3 → VK mapping
-  - [ ] Connect client render init path to `fl_port::RenderPipeline` (or thin adapter satisfying `IRenderPipeline`)
-  - [ ] Get stable frame loop running (even if clear-only)
-  - [ ] Acceptance: client creates native window, processes input, calls render backend for clear+present
+    - [ ] Full M8.2 acceptance pending upstream client/library TU linkage and validation through real client code paths (target completion: **M8.5–M8.6**, with integration groundwork in **M8.3–M8.4**)
+- [x] **M8.3 — Window + input + render hookup** (bring-up client path)
+  - [x] Replace/adapt original window creation and message pump to use `fl_port::Window`
+    - [x] `linux_client_main.cpp` creates/configures `fl_port::Window` (Wayland-first, Vulkan-enabled) and drives frame/event loop via `Window::run_loop` (SDL-backed message/event pump)
+  - [x] Map client input expectations onto SDL3 → VK mapping
+    - [x] Wired `WindowCallbacks` (key/mouse/window events) and logs mapped Win32-style VK codes from `KeyEvent.win_vk` (produced via `sdl_key_to_win_vk`) during bring-up runs
+  - [x] Connect client render init path to `fl_port::RenderPipeline` (or thin adapter satisfying `IRenderPipeline`)
+    - [x] Initializes `fl_port::RenderPipeline` for the created window and renders via `render_frame` (clear+present path)
+  - [x] Get stable frame loop running (even if clear-only)
+    - [x] Implemented bounded clear+present frame loop with resize handling and close-request handling in bring-up client
+  - [x] Acceptance: client creates native window, processes input, calls render backend for clear+present
+    - [x] 32-bit `freelancer_linux_client` rebuilds with SDL3/Vulkan hookups linked and runs successfully (Wayland/SDL3), creating a native window, initializing render pipeline, processing input events, and presenting clear+present frames (validated via run/gdb)
+    - [x] Fixed startup segfault caused by ELF symbol interposition from upstream wrapper TUs by compiling upstream wrapper TUs with hidden visibility and exporting only explicit `extern "C"` bring-up hooks; added M8.3 init checkpoints and separated close-request vs render-error handling
 - [ ] **M8.4 — Audio / config / persistence unblock**
   - [ ] Ensure null-audio backend satisfies every call the client makes during boot/menu
   - [ ] Confirm XDG config/registry/save shim is used for early settings/save calls

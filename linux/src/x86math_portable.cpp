@@ -302,7 +302,12 @@ void fl_x86math_initialize_engine() {
 }
 } // namespace
 
-extern "C" int fl_upstream_x86math_integration_register() {
+#if defined(__GNUC__) || defined(__clang__)
+#define FL_UPSTREAM_EXPORT __attribute__((visibility("default")))
+#else
+#define FL_UPSTREAM_EXPORT
+#endif
+extern "C" FL_UPSTREAM_EXPORT int fl_upstream_x86math_integration_register() {
   fl_x86math_initialize_engine();
   return G_Engine ? 1 : 0;
 }

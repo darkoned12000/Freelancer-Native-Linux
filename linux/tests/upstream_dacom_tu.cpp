@@ -79,7 +79,13 @@ void __cdecl fl_port_fdump_bridge(int flags, const char* fmt, ...) {
 }
 }
 
-extern "C" void fl_upstream_dacom_install_fdump_bridge() {
+#if defined(__GNUC__) || defined(__clang__)
+#define FL_UPSTREAM_EXPORT __attribute__((visibility("default")))
+#else
+#define FL_UPSTREAM_EXPORT
+#endif
+
+extern "C" FL_UPSTREAM_EXPORT void fl_upstream_dacom_install_fdump_bridge() {
   if (!FDUMP) {
     FDUMP = &fl_port_fdump_bridge;
   }
@@ -87,7 +93,7 @@ extern "C" void fl_upstream_dacom_install_fdump_bridge() {
 
 // #1.2 integration hooks: exercise upstream DACOM APIs compiled in this TU.
 // These are harness-only helpers (not part of upstream ABI).
-extern "C" int fl_upstream_dacom_integration_smoke(const char* ini_path) {
+extern "C" FL_UPSTREAM_EXPORT int fl_upstream_dacom_integration_smoke(const char* ini_path) {
   fl_upstream_dacom_install_fdump_bridge();
 
   ICOManager* mgr = DACOM_Acquire();
@@ -154,7 +160,7 @@ extern "C" int fl_upstream_dacom_integration_smoke(const char* ini_path) {
   return 1;
 }
 
-extern "C" void fl_upstream_dacom_register_builtin_components() {
+extern "C" FL_UPSTREAM_EXPORT void fl_upstream_dacom_register_builtin_components() {
   fl_upstream_dacom_install_fdump_bridge();
   // DllMain was renamed in this wrapper TU; explicitly register built-ins that
   // upstream DACOM would register during DLL_PROCESS_ATTACH.

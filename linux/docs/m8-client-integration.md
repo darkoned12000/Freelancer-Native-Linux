@@ -1,6 +1,6 @@
 # M8 — Game client integration (living document)
 
-**Status:** M8.2 in progress — bring-up prototype complete (DACOM/config/DATA/core component init and IFileSystem checks succeed in `freelancer_linux_client`), but full M8.2 acceptance remains pending compilation/linkage and validation through real upstream client/library code paths (`src/freelancer`, `DALib`, `Common`, etc.).  
+**Status:** M8.3 completed for bring-up client path (native window/input/render clear+present hookup validated). M8.2 remains `[~]` pending upstream client/library TU linkage and validation through real client code paths.  
 **Acceptance target:** The Freelancer game client (`src/freelancer`) compiles and links as a native Linux ELF and reaches a controlled early boot point (M8.5).
 
 ## Overview
@@ -108,19 +108,29 @@ Inventory method: targeted `rg` scans of `src/freelancer` and key dependency mod
 - **Integration gate progress:** added 32-bit Linux static library targets `fl_upstream_zlib` and `fl_upstream_qhull` in `linux/CMakeLists.txt` (leaf deps) and verified they build in `linux/build-x86`. DALib/Common (and downstream upstream client/library TUs) compilation/linkage targets are still pending.
 - M8.2 remains `[~]` until upstream client/library code paths drive config/DATA/core initialization and acceptance is validated through them.
 
+## M8.3 — Window + input + render hookup (completed for bring-up client path)
+
+- **Window/message pump adaptation (bring-up client):** `linux_client_main.cpp` creates a native window via `fl_port::Window` (SDL3, Wayland-first, Vulkan-enabled config) and runs the frame/event loop through `Window::run_loop` (SDL event pump integrated in port layer) after M8.2 init succeeds.
+- **Input mapping (SDL3 → VK):** `WindowCallbacks` are wired for key/mouse/window events; key events expose `KeyEvent.win_vk` mapped via `sdl_key_to_win_vk` (logged in bring-up path) to validate client-facing VK mapping integration.
+- **Render hookup:** `fl_port::RenderPipeline` is initialized against the created window and driven with `render_frame(...)` for clear+present output; resize events trigger `rp.resize(...)`.
+- **Stable frame loop:** bounded bring-up frame loop (clear+present) with close-request handling and basic event processing implemented.
+- **Runtime validation:** 32-bit `freelancer_linux_client` (linux-x86) successfully creates a native Wayland/SDL3 window, initializes the render pipeline, processes input events, and presents 120 clear+present frames before clean exit (validated via run/gdb).
+- **Segfault fix (review):** resolved M8.3 startup crash caused by ELF global symbol interposition from upstream wrapper TUs linked into the executable (affecting dlopened SDL/Vulkan/Mesa components) by compiling upstream wrapper TUs with hidden visibility and exporting only explicit bring-up hooks. Added M8.3 init checkpoints (`window.create`, render init) and separated `render_error` from `close_requested` so render failures return exit code 22.
+
 ## Known stubs / deviations
 
-- `freelancer_linux_client` (M8.2 bring-up prototype): initializes DACOM/config/DATA/core components and exercises `IFileSystem` in bring-up scope, but does not yet compile/link upstream `src/freelancer`/`DALib`/`Common` init paths or call upstream `WinMain`/`InitializeEngine`; no game window/message/frame loop/boot flow yet (M8.3+).
+- `freelancer_linux_client` (M8.3 bring-up): implements window/input/render hookup in bring-up client path, but does not yet compile/link upstream `src/freelancer`/`DALib`/`Common` init/UI/render code paths or call upstream `WinMain`/`InitializeEngine`; no real menu/game boot flow yet.
 - `linux_client_main.cpp` still contains temporary bring-up init/helper logic (INI parsing, config/data checks) pending replacement by real upstream client/library code paths; new simulation logic should be frozen.
 - `linux_client_main.cpp` uses an effective `DACOM.INI` with `[Libraries]` entries removed for source-only explicit-registration bring-up (external runtime module binaries not shipped); differs from retail auto-load behavior.
 - `linux_client_stubs.cpp`: movies/EULA/registry-write and Win32 bootstrap stubs remain intentional bring-up placeholders; additional stubs/shims will be required as upstream TUs are linked.
+- Upstream wrapper TU symbols are now hidden by default in the client build (explicit hooks exported) to avoid ELF interposition issues with dlopened graphics drivers; revisit symbol/export policy as upstream modules are integrated.
 - (To be expanded as M8 progresses.)
 
 ## Artifacts
 
-- CMake target: `freelancer_linux_client` (`linux/CMakeLists.txt`) — 32-bit bring-up client (DACOM/ReadFile/x86math upstream wrapper TUs + Linux entry/stubs), currently implements M8.1/M8.2 init scope; non-32-bit fallback stub preserved for tools presets
+- CMake target: `freelancer_linux_client` (`linux/CMakeLists.txt`) — 32-bit bring-up client (DACOM/ReadFile/x86math upstream wrapper TUs + Linux entry/stubs), now includes M8.3 window/input/render hookup path (links `fl_linux_port_window`/`fl_linux_port_render` when SDL3/Vulkan available); non-32-bit fallback stub preserved for tools presets
 - Upstream TU config helper: `fl_upstream_tu_iface` INTERFACE target in `linux/CMakeLists.txt` (shared include dirs/defs for guarded 32-bit upstream wrapper consumers)
-- Entry/stub/shim sources: `linux/src/linux_client_main.cpp` (M8.2 core init flow), `linux/src/linux_client_stubs.cpp`, `linux/include/linux_port/win32_user.h`
+- Entry/stub/shim sources: `linux/src/linux_client_main.cpp` (M8.2 core init + M8.3 hookup), `linux/src/linux_client_stubs.cpp`, `linux/include/linux_port/win32_user.h`
 - Dependency graph: `linux/docs/vcxproj-dependency-graph.json`, `linux/docs/vcxproj-dependency-graph.md` (refreshed in M8.0)
 - Smoke-test script: (to be created in M8.6)
 - Known-stubs/deviations list: (this document, section above)

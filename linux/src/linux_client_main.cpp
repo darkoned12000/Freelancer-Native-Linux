@@ -14,6 +14,14 @@
 
 #include <unistd.h>
 
+#if defined(FL_HAS_SDL3)
+#include "linux_port/window_input.h"
+#include <SDL3/SDL.h>
+#endif
+#if defined(FL_HAS_SDL3) && defined(FL_HAS_VULKAN)
+#include "linux_port/render_pipeline.h"
+#endif
+
 #if defined(__i386__) || defined(__i386) || defined(i386) || defined(_M_IX86)
 extern "C" void fl_upstream_dacom_install_fdump_bridge();
 extern "C" void fl_upstream_dacom_register_builtin_components();
@@ -159,7 +167,7 @@ bool try_set_bin_cwd(const std::filesystem::path& start_cwd, const std::filesyst
 int main(int argc, char** argv) {
   (void)argc;
   fl_port::log_message(fl_port::LogLevel::Info,
-                       "freelancer_linux_client (M8.2): core engine initialization starting");
+                       "freelancer_linux_client (M8.2/M8.3): core engine initialization starting");
 
 #if defined(__i386__) || defined(__i386) || defined(i386) || defined(_M_IX86)
   fl_upstream_dacom_install_fdump_bridge();
@@ -284,7 +292,7 @@ int main(int argc, char** argv) {
   }
   if (!fs_ok || !data_fs) return 7;
 
-  // Exercise IFileSystem interface directly (path/search behavior in ReadFile component)
+  // Exercise IFileSystem interface directly (path/search/stream behavior in ReadFile component)
   {
     char cur[260] = {};
     const int cur_ok = data_fs->GetCurrentPath(sizeof(cur), cur);
@@ -302,6 +310,18 @@ int main(int argc, char** argv) {
       fl_port::log_message(attr != 0 ? fl_port::LogLevel::Info : fl_port::LogLevel::Warning,
                            std::string("IFileSystem GetPathAttributes(") + p + ") => " + std::to_string(attr));
     }
+    // Exercise additional IFileSystem vtable paths (stream/find/resolve/error) where available
+    char resolved[260] = {};
+    (void)data_fs->ResolvePath(resolved, "solar\\solararch.ini", sizeof(resolved));
+    fl_port::log_message(fl_port::LogLevel::Info,
+                         std::string("IFileSystem ResolvePath probe: ") + (resolved[0] ? resolved : "(empty)"));
+    WIN32_FIND_DATAA fd{};
+    const int ff = data_fs->FindFirst("*.ini", &fd);
+    fl_port::log_message(ff >= 0 || ff == -1 ? fl_port::LogLevel::Info : fl_port::LogLevel::Warning,
+                         std::string("IFileSystem FindFirst(*.ini) => ") + std::to_string(ff));
+    if (ff >= 0) (void)data_fs->FindClose((unsigned long)ff);
+    const int fs_err = data_fs->GetFileSystemError();
+    fl_port::log_message(fl_port::LogLevel::Info, std::string("IFileSystem GetFileSystemError => ") + std::to_string(fs_err));
   }
 
   // Config/DATA loading checks via Linux-compatible path resolution and Win32 file APIs
@@ -347,12 +367,139 @@ int main(int argc, char** argv) {
   }
 
   std::cout << "freelancer_linux_client (M8.2 bring-up): DACOM component system initialized; core components created; config/DATA loading checks passed\n";
-  std::cout << "Status: upstream client/DALib/Common TU linkage pending before full M8.2 acceptance (window/render/input/engine loop pending M8.3+)\n";
-  return 0;
+
+  // --- M8.3: window + input + render hookup (bring-up client path) ---
+  fl_port::log_message(fl_port::LogLevel::Info, "M8.3: starting window/input/render hookup");
+#if defined(FL_HAS_SDL3) && defined(FL_HAS_VULKAN)
+  {
+    fl_port::WindowConfig wcfg;
+    wcfg.title = "Freelancer Linux Client (M8.3)";
+    wcfg.width = 960;
+    wcfg.height = 540;
+    wcfg.resizable = true;
+    wcfg.visible = true;
+    wcfg.prefer_wayland = true;
+    wcfg.vulkan = true;
+
+    fl_port::Window window;
+    fl_port::log_message(fl_port::LogLevel::Info, "M8.3: creating native window (fl_port::Window)...");
+    if (!window.create(wcfg)) {
+      fl_port::log_message(fl_port::LogLevel::Error, "M8.3: failed to create native window (fl_port::Window)");
+      std::cerr << "[FAIL] M8.3: native window creation failed\n";
+      return 20;
+    }
+    const char* drv = SDL_GetCurrentVideoDriver();
+    fl_port::log_message(fl_port::LogLevel::Info,
+                         std::string("M8.3: native window created via fl_port::Window (SDL driver=") + (drv ? drv : "unknown") + ")");
+
+    fl_port::RenderPipelineConfig rcfg;
+    rcfg.initial_width = wcfg.width;
+    rcfg.initial_height = wcfg.height;
+    rcfg.clear_r = 0.08f;
+    rcfg.clear_g = 0.10f;
+    rcfg.clear_b = 0.16f;
+    rcfg.vsync = true;
+
+    fl_port::RenderPipeline rp;
+    fl_port::log_message(fl_port::LogLevel::Info, "M8.3: initializing render pipeline...");
+    if (!rp.init_for_window(&window, rcfg)) {
+      fl_port::log_message(fl_port::LogLevel::Error,
+                           std::string("M8.3: render pipeline init failed: ") + rp.last_error());
+      std::cerr << "[FAIL] M8.3: render pipeline init failed: " << rp.last_error() << "\n";
+      window.destroy();
+      return 21;
+    }
+    fl_port::log_message(fl_port::LogLevel::Info,
+                         "M8.3: render pipeline initialized and connected to client window");
+
+    int key_events = 0;
+    int mouse_events = 0;
+    int presented = 0;
+    bool close_requested = false;
+    bool render_error = false;
+    const int target_frames = 120;
+
+    fl_port::WindowCallbacks cb;
+    cb.on_key = [&](const fl_port::KeyEvent& e) {
+      ++key_events;
+      if (key_events <= 5) {
+        fl_port::log_message(fl_port::LogLevel::Info,
+                             "M8.3 input: key action=" + std::string(e.action == fl_port::InputAction::Press ? "press" : "release") +
+                                 " sdl_key=" + std::to_string(e.sdl_keycode) +
+                                 " vk=" + std::to_string(e.win_vk) +
+                                 " repeat=" + (e.repeat ? "1" : "0"));
+      }
+    };
+    cb.on_mouse_button = [&](const fl_port::MouseButtonEvent& e) {
+      ++mouse_events;
+      (void)e;
+    };
+    cb.on_mouse_motion = [&](const fl_port::MouseMotionEvent& e) { (void)e; ++mouse_events; };
+    cb.on_mouse_wheel = [&](const fl_port::MouseWheelEvent& e) { (void)e; ++mouse_events; };
+    cb.on_window = [&](const fl_port::WindowEvent& e) {
+      if (e.type == fl_port::WindowLifecycleEvent::CloseRequested) close_requested = true;
+      if (e.type == fl_port::WindowLifecycleEvent::Resized && e.data1 > 0 && e.data2 > 0) {
+        (void)rp.resize(e.data1, e.data2);
+      }
+    };
+
+    // Stable frame loop: pump SDL/input events via fl_port::Window, render clear+present frames.
+    window.run_loop([&](std::uint64_t frame_index, double /*dt_ms*/) {
+      if (close_requested || render_error) return false;
+      if (!rp.render_frame(static_cast<float>(frame_index) / 60.0f)) {
+        fl_port::log_message(fl_port::LogLevel::Error,
+                             std::string("M8.3: render_frame failed: ") + rp.last_error());
+        render_error = true;
+        return false;
+      }
+      ++presented;
+      return presented < target_frames;
+    }, cb, target_frames, 10.0, true);
+
+    if (render_error) {
+      fl_port::log_message(fl_port::LogLevel::Error,
+                           "M8.3: frame loop ended due to render error (presented=" + std::to_string(presented) + ")");
+      std::cerr << "[FAIL] M8.3: render_frame failed during frame loop\n";
+      rp.shutdown();
+      window.destroy();
+      return 22;
+    }
+
+    if (presented < 1) {
+      std::cerr << "[FAIL] M8.3: no frames presented\n";
+      rp.shutdown();
+      window.destroy();
+      return 22;
+    }
+
+    fl_port::log_message(fl_port::LogLevel::Info,
+                         "M8.3: frame loop complete (presented=" + std::to_string(presented) +
+                             ", key_events=" + std::to_string(key_events) +
+                             ", mouse_events=" + std::to_string(mouse_events) +
+                             ", close_requested=" + (close_requested ? "1" : "0") + ")");
+    std::cout << "freelancer_linux_client (M8.3): native window created, input processed (SDL3->VK mapped), render backend called for clear+present\n";
+    std::cout << "Status: M8.3 window/input/render hookup complete for bring-up client path (upstream client TU wiring pending)\n";
+
+    rp.shutdown();
+    window.destroy();
+    return 0;
+  }
+#elif defined(FL_HAS_SDL3)
+  fl_port::log_message(fl_port::LogLevel::Error,
+                       "M8.3: SDL3 window/input available but Vulkan/render backend unavailable in this build; cannot satisfy clear+present acceptance");
+  std::cerr << "[FAIL] M8.3: render backend unavailable (SDL3 present, Vulkan missing)\n";
+  return 23;
+#else
+  fl_port::log_message(fl_port::LogLevel::Error,
+                       "M8.3: SDL3/Vulkan window+render hookups unavailable in this build; cannot satisfy M8.3 acceptance");
+  std::cerr << "[FAIL] M8.3: window/input/render hookups unavailable (missing SDL3/Vulkan build deps)\n";
+  return 24;
+#endif
+
 #else
   fl_port::log_message(fl_port::LogLevel::Warning,
-                       "M8.2 core engine initialization requires a 32-bit (i386) build; running stub path");
-  std::cout << "freelancer_linux_client: M8.2 requires linux-x86 build for upstream DACOM acquisition\n";
+                       "M8.2/M8.3 core bring-up requires a 32-bit (i386) build; running stub path");
+  std::cout << "freelancer_linux_client: M8.3 requires linux-x86 build for upstream DACOM acquisition\n";
   return 0;
 #endif
 }
