@@ -206,20 +206,22 @@ Treat it as a multi-stage siege. Sub-phases M8.0–M8.6 are tracked below.
     - [x] Startup uses `fl_port` logging + upstream DACOM FDUMP bridge, path/cwd resolution helpers for bin-context startup, and existing port/platform shim primitives for timing/threading
   - [x] Acceptance: binary links and reaches entry point without crashing
     - [x] `cmake --build linux/build-x86 --target freelancer_linux_client -j4` links successfully; running `linux/build-x86/freelancer_linux_client` reaches entry, completes DACOM/ReadFile/x86math init, and exits cleanly (code 0)
-- [~] **M8.2 — Core engine initialization** (bring-up prototype complete; upstream client/library TU linkage pending)
+- [~] **M8.2 — Core engine initialization** (bring-up prototype + incremental upstream-path integration; full acceptance pending)
   - [~] Drive real initialization sequence used by original client
     - [x] `freelancer_linux_client` (32-bit) follows a client-oriented early/core init sequence in `linux/src/linux_client_main.cpp`: startup path/bin-context resolution, FDUMP bridge, DACOM acquisition, explicit core registrations (DACOM built-ins/ReadFile/x86math), DACOM config load, freelancer config/data-path resolution, core component creation, `IFileSystem` checks, and config/DATA access validation
-    - [x] Integration gate prep started: added/build-validated 32-bit static targets `fl_upstream_zlib` and `fl_upstream_qhull` in `linux/CMakeLists.txt`
-    - [ ] Pending (target: **M8.3–M8.6**): compile/link and invoke real upstream client/library initialization paths (e.g. `DALib`, `Common`, `EngBase`/`system`, `src/freelancer/Client/main.cpp`, `engine_init.cpp`) instead of bring-up-only init logic, progressing with client hookup (M8.3) and stabilizing through controlled boot/menu state (M8.5–M8.6)
+    - [x] Integration gate prep: added/build-validated 32-bit static targets `fl_upstream_zlib` and `fl_upstream_qhull` in `linux/CMakeLists.txt`
+    - [x] Incremental upstream-path integration: added minimal Linux bring-up DALib core TU (`linux/src/dalib_core_bringup.cpp`) implementing `DALib::OpenData`/`DALib::CloseData` (+ globals) and switched `freelancer_linux_client` DATA filesystem creation/probing to use `DALib::OpenData`/`DALib::Data`/`DALib::CloseData`
+    - [ ] Pending (target **M8.7**): compile/link and invoke real upstream client/library initialization paths (e.g. full `DALib`, `Common`, `EngBase`/`system`, `src/freelancer/Client/main.cpp`, `engine_init.cpp`) instead of bring-up-only init logic; requires substantial porting of Windows/DirectPlay/engine-dependent TUs and shim coverage
   - [~] Make `bin/DACOM.INI` + `freelancer.ini` + `DATA/` loading work end-to-end through client code paths
-    - [x] Bring-up path resolves/loads `bin/DACOM.INI` (effective explicit-registration config) and `bin/freelancer.ini`, derives `[Freelancer].data path`, resolves DATA root, creates `FileSystem/DOS`, exercises `IFileSystem` (`GetCurrentPath`/`GetPathAttributes`), and reads key config/data files via Linux-compatible path resolution + Win32 file shim paths
-    - [ ] Pending (target: **M8.5–M8.6**): validate and drive the same loading through compiled upstream client/DALib/Common code paths (INI/BINI/UTF/search-path behavior) rather than bring-up helper logic, once upstream init/client TUs are wired and boot reaches a controlled state
+    - [x] Bring-up path resolves/loads `bin/DACOM.INI` (effective explicit-registration config) and `bin/freelancer.ini`, derives `[Freelancer].data path`, resolves DATA root, and validates config/data access via Linux-compatible path resolution + Win32 file shim paths
+    - [x] DATA filesystem creation/probing now exercised through `DALib::OpenData`/`DALib::CloseData` code path (bring-up DALib core implementation) with IFileSystem/stream checks against `DALib::Data`
+    - [ ] Pending (target **M8.7**): validate and drive the same loading through compiled upstream `DALib`/`Common`/client init code paths (full INI/BINI/UTF/search-path behavior) once upstream TUs are ported and linked
   - [~] Resolve remaining path/search-path/BINI loading issues appearing only under full client
-    - [x] Addressed for current bring-up scope (case-insensitive/backslash path resolution, bin/DATA root derivation, `IFileSystem` attribute checks, key DATA file reads)
-    - [ ] Pending (target: **M8.3–M8.6**): discover/fix full-client-only path/search/BINI issues as upstream client/library TUs are compiled and linked (initial integration in M8.3+, boot/debug in M8.5, cleanup/stabilization in M8.6)
+    - [x] Addressed for current bring-up scope (case-insensitive/backslash path resolution, bin/DATA root derivation, `IFileSystem` attribute/stream checks, key DATA file reads)
+    - [ ] Pending (target **M8.7**): discover/fix full-client-only path/search/BINI issues as upstream client/library TUs are compiled and linked
   - [~] Acceptance: DACOM component system initializes, core components created, config/DATA loading succeeds
-    - [x] Bring-up acceptance (prototype): `./linux/build-x86/freelancer_linux_client` initializes DACOM, creates `FileSystem/DOS`, exercises `IFileSystem`, resolves/loads `DACOM.INI`+`freelancer.ini`+key `DATA` files, and exits cleanly (code 0)
-    - [ ] Full M8.2 acceptance pending upstream client/library TU linkage and validation through real client code paths (target completion: **M8.5–M8.6**, with integration groundwork in **M8.3–M8.4**)
+    - [x] Bring-up acceptance (prototype, strengthened): `./linux/build-x86/freelancer_linux_client` and M8.5 smoke validate DACOM init, `DALib::OpenData` DATA filesystem creation, `IFileSystem`/stream probes, config/DATA checks, and controlled-state boot flow
+    - [ ] Full M8.2 acceptance still pending (target **M8.7**, before M9): compile/link/invoke real upstream client/library initialization and config/DATA loading paths (`DALib`/`Common`/`EngBase`/`system`/`src/freelancer` init TUs) and validate through them
 - [x] **M8.3 — Window + input + render hookup** (bring-up client path)
   - [x] Replace/adapt original window creation and message pump to use `fl_port::Window`
     - [x] `linux_client_main.cpp` creates/configures `fl_port::Window` (Wayland-first, Vulkan-enabled) and drives frame/event loop via `Window::run_loop` (SDL-backed message/event pump)
@@ -250,11 +252,42 @@ Treat it as a multi-stage siege. Sub-phases M8.0–M8.6 are tracked below.
   - [x] Acceptance: native client starts, initializes engine, opens window, reaches main menu (or equivalent stable in-engine state)
     - [x] `linux/scripts/smoke_freelancer_client_m85.sh` verifies clean boot, required checkpoints, IFileSystem stream read, M8.4 unblocks, transition to `M8.5: reached main menu (equivalent stable in-engine bring-up state)`, stable controlled-state loop completion, and clean shutdown
     - [ ] Real upstream main menu/game flow remains pending upstream `src/freelancer`/DALib/Common/init TU linkage and behavior parity work
-- [ ] **M8.6 — Stabilization & handoff to M9**
-  - [ ] Clean up CMake so full client build is reproducible
-  - [ ] Expand test surface (automated smoke test launching binary, checking log lines / window creation)
-  - [ ] Re-evaluate 32-bit vs 64-bit pressure
-  - [ ] Document known stubs/deviations list
+- [x] **M8.6 — Stabilization & handoff to M9** (bring-up client scope)
+  - [x] Clean up CMake so full client build is reproducible
+    - [x] Added `FL_LINUX_BUILD_CLIENT` option and clarified/gated `freelancer_linux_client` target paths (32-bit bring-up build vs x64 fallback stub) with explicit SDL3/Vulkan capability status messages; reproducible preset commands documented (`cmake --preset linux-x86` / `--build --preset linux-x86 --target freelancer_linux_client`)
+    - [~] "Full" upstream client build (linking `src/freelancer`/`DALib`/`Common`/init TUs) remains pending; current bring-up client target is reproducible
+  - [x] Expand test surface (automated smoke test launching binary, checking log lines / window creation)
+    - [x] Expanded `linux/scripts/smoke_freelancer_client_m85.sh` to validate boot phases, IFileSystem stream read, M8.4 unblocks, window creation/driver+render init, main-menu controlled-state reach/completion, frame presentation, shutdown/cleanup, and clean exit
+  - [x] Re-evaluate 32-bit vs 64-bit pressure
+    - [x] Reevaluated in `linux/docs/m8-client-integration.md`: 32-bit remains required for current upstream-wrapper bring-up path (ABI/layout/calling-convention assumptions, x86math/upstream TU constraints); 64-bit pressure deferred until upstream client linkage and ABI audit progress
+  - [x] Document known stubs/deviations list
+    - [x] Maintained comprehensive known stubs/deviations inventory in `linux/docs/m8-client-integration.md` (explicit bring-up deviations, shim fidelity limits, and pending upstream-integration gaps)
+
+- [ ] **M8.7 — Upstream client/library integration & M8.2 completion gate (before M9)**
+  - [ ] **DALib (real upstream integration)**
+    - [ ] Replace/augment `linux/src/dalib_core_bringup.cpp` with buildable upstream `src/DALib` core TU(s) for Linux (start with `DALib::OpenData`/`CloseData`/data-path + required globals/config helpers; isolate or stub DirectPlay/networking/`Startup` subsystems not needed for early boot)
+    - [ ] Resolve Win32/MSVC/DirectX/DirectSound include and linkage dependencies for the selected DALib subset (guard Windows-only networking/audio/device init paths behind Linux bring-up stubs as needed)
+    - [ ] Link DALib core target into `freelancer_linux_client` and validate `DALib::OpenData`/config/data access through upstream DALib code paths
+  - [ ] **Common / EngBase / system prerequisites**
+    - [ ] Inventory and select minimal `src/Common` TUs required for early client init/config/data/path/INI/BINI behavior used by M8.2 acceptance
+    - [ ] Port/build selected `Common` TU subset for Linux 32-bit (shims for Win32 APIs, registry/file/time/thread/memory/COM assumptions, and missing platform abstractions)
+    - [ ] Identify and build required `EngBase`/`system` components (and any additional leaf deps) needed by upstream init/config/data paths; add CMake targets and resolve compile/link blockers incrementally
+  - [ ] **Upstream client init TU integration (`src/freelancer`)**
+    - [ ] Add guarded Linux build support for upstream client bootstrap/init TUs (starting with `src/freelancer/Client/main.cpp`, `engine_init.cpp`, and minimal transitive dependencies) without regressing Windows build assumptions
+    - [ ] Wire `freelancer_linux_client` to invoke upstream initialization/boot entry points (e.g. wrapped `WinMain`/`InitializeEngine` path) behind Linux entry glue, using explicit registration/hooks and bring-up stubs for not-yet-ported subsystems
+    - [ ] Replace temporary bring-up simulation/init helpers in `linux_client_main.cpp` with real upstream calls where validated (retain diagnostics/early-outs and controlled-state fallback only where necessary)
+  - [ ] **Config/DATA/BINI/path validation through upstream paths (M8.2 closure)**
+    - [ ] Drive `DACOM.INI`, `freelancer.ini`, and `DATA/` loading/access through compiled upstream DALib/Common/client init code paths (not bring-up-only helpers)
+    - [ ] Reproduce and fix full-client-only path/search-path/BINI/INI loading issues exposed by linked upstream TUs
+    - [ ] Confirm IFileSystem/search-path behavior and key asset/config reads succeed via upstream code paths in `linux/build-x86` runtime
+  - [ ] **Diagnostics, stubs, and acceptance**
+    - [ ] Add/extend diagnostics and phase-tagged early-outs around upstream init stages to pinpoint new integration failures
+    - [ ] Document any additional intentional stubs/deviations introduced for M8.7 integration
+    - [ ] Update/extend smoke validation to cover upstream-path init/config/data milestones reached (while preserving bring-up controlled-state checks as needed)
+  - [ ] **Acceptance (closes open M8.2 items)**
+    - [ ] Upstream client/library init path compiles and links in `freelancer_linux_client` (Linux 32-bit) for the M8.2 scope
+    - [ ] DACOM and required core components initialize through upstream code paths; `DACOM.INI`/`freelancer.ini`/`DATA/` load and key checks succeed through upstream DALib/Common/client paths
+    - [ ] `roadmap.md` M8.2 promoted from `[~]` to `[x]` with evidence/log references; M9 can begin on real client-linked foundations
 
 **Risk hotspots:** hidden global constructors/static init order; remaining COM/QueryInterface usage assuming Windows apartment or vtable layouts; resource loading (.rc/string tables/cursors); code assuming HWND is a real window handle or classic Win32 message pump; float/math edge cases only under full client; 32-bit library availability.
 

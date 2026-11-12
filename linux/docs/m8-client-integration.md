@@ -1,6 +1,6 @@
 # M8 — Game client integration (living document)
 
-**Status:** M8.5 completed for bring-up client path as an equivalent controlled main-menu/in-engine state (boot diagnostics/early-outs, stable window+input+render loop, M8.4 unblocks, documented stubs/deviations). Real upstream main-menu/game flow and full M8.2 acceptance remain pending upstream client/library TU linkage and validation through real client code paths.  
+**Status:** M8.6 completed for bring-up client stabilization/handoff (reproducible bring-up target build flow, expanded smoke validation, 32/64-bit reassessment, documented stubs/deviations). M8.5 remains a bring-up-equivalent controlled main-menu state. M8.2 has incremental upstream-path progress (`DALib::OpenData`/`CloseData` bring-up integration) but full acceptance remains pending; **M8.7** is planned to complete upstream client/library TU linkage and close all open M8.2 items before M9.  
 **Acceptance target:** The Freelancer game client (`src/freelancer`) compiles and links as a native Linux ELF and reaches a controlled early boot point (M8.5).
 
 ## Overview
@@ -94,13 +94,14 @@ Inventory method: targeted `rg` scans of `src/freelancer` and key dependency mod
 - **Path/logging/timing/threading:** uses `fl_port` logging and DACOM FDUMP bridge for diagnostics; startup path/cwd handling via `std::filesystem` + port path utilities context; relies on existing Linux port shim/platform primitives for timing/threading/file/path behavior in linked components.
 - **Build/link/run validation (acceptance):** `cmake --build linux/build-x86 --target freelancer_linux_client -j4` links successfully; `./linux/build-x86/freelancer_linux_client` reaches entry point, completes DACOM acquisition and explicit core registrations, prints skeleton status, and exits cleanly (code 0). Non-32-bit tools builds keep a fallback stub target with a status message (M8.1 upstream-linked skeleton requires `FL_LINUX_32BIT=ON`).
 
-## M8.2 — Core engine initialization (bring-up prototype progress; full acceptance pending)
+## M8.2 — Core engine initialization (bring-up prototype + incremental upstream-path progress; full acceptance pending)
 
 - **Client-oriented early/core init sequence (bring-up scope):** `linux/src/linux_client_main.cpp` drives startup path/bin-context resolution, FDUMP bridge installation, DACOM acquisition, explicit core registrations (DACOM built-ins, ReadFile, x86math), DACOM config application, `freelancer.ini` parsing/data-path resolution, core component creation, and config/DATA access validation before exit. This is a bring-up prototype and does **not** yet replace or invoke compiled upstream client/library initialization paths.
 - **`bin/DACOM.INI` + `bin/freelancer.ini` + `DATA/` loading (bring-up path):** resolves/loads `DACOM.INI` via effective explicit-registration config (source-only checkout: `[Libraries]` entries filtered to avoid unavailable external module auto-loads), resolves `freelancer.ini`, reads `[Freelancer].data path`, resolves the DATA root case-insensitively, and validates config/data access through Linux-compatible path resolution and Win32 file shim APIs.
 - **Core component creation/load + IFileSystem exercise:** creates `FileSystem/DOS` over resolved DATA root via `ICOManager::CreateInstance` after explicit ReadFile registration and exercises `IFileSystem` methods (`GetCurrentPath`, `GetPathAttributes` on key DATA paths) to validate ReadFile component path/search behavior in addition to Win32 shim reads.
 - **Path/search-path/BINI-loading handling (current scope):** validated case-insensitive/backslash-tolerant resolution and reads for key files (`DACOM.INI`, `freelancer.ini`, `DATA/solar/solararch.ini`, `DATA/UNIVERSE/universe.ini`, `DATA/EQUIPMENT/select_equip.ini`, `DATA/FONTS/fonts.ini`) and resolved `DATA/InitialWorld.ini` presence. Full-client-only path/search/BINI issues remain pending until upstream client/library TUs are compiled and linked.
 - **Validation (prototype):** `cmake --build linux/build-x86 --target freelancer_linux_client -j4` succeeds; `./linux/build-x86/freelancer_linux_client` exits 0 with DACOM initialized, core component created, `IFileSystem` exercised, and config/DATA checks passing.
+- **Incremental upstream DALib path integration:** added `linux/src/dalib_core_bringup.cpp` (minimal Linux bring-up implementation of `DALib::OpenData`/`DALib::CloseData` and `DALib::Dacom`/`DALib::Data`) and wired `freelancer_linux_client` to create/probe/release the DATA filesystem via `DALib::OpenData`/`DALib::CloseData`. This advances M8.2 toward client-code-path usage but does not yet compile/link full upstream `DALib`/`Common`/`src/freelancer` init sequences.
 
 ### Strategic correction (review-driven, in progress)
 - Freeze new simulation-only init logic in `linux_client_main.cpp`; treat current code as a temporary bring-up prototype.
@@ -137,6 +138,39 @@ Inventory method: targeted `rg` scans of `src/freelancer` and key dependency mod
 - **M8.5 review fixes:** isolated XDG temp cleanup is RAII-managed for all early-exit paths; IFileSystem stream verification now prefers parent-mounted `data_fs->CreateInstance` (upstream-style) with root-manager fallback and fails `[IFileSystemProbe]` explicitly if stream read cannot be verified; smoke script auto-detects `linux/linux-x86` then `linux/build-x86` and prints environment hints for `WindowCreate`/`RenderInit` failures (exit 20/21).
 - **Smoke test:** `linux/scripts/smoke_freelancer_client_m85.sh` runs `freelancer_linux_client --smoke-xdg-temp` and verifies required checkpoints/logs, IFileSystem stream read, M8.4 unblocks, main-menu controlled-state reach/completion, and clean exit.
 
+
+## M8.6 — Stabilization & handoff to M9 (bring-up scope completed)
+
+- **CMake cleanup / reproducibility (bring-up client):**
+  - `linux/CMakeLists.txt` now exposes `FL_LINUX_BUILD_CLIENT` and documents/gates `freelancer_linux_client` paths:
+    - `FL_LINUX_32BIT=ON` (recommended via `linux-x86` preset): builds full M8 bring-up client (upstream DACOM/ReadFile/x86math wrapper TUs + M8.3–M8.5 flow)
+    - `FL_LINUX_32BIT=OFF`: builds fallback stub target to keep x64 tools presets usable
+  - Added explicit status messages for missing SDL3/Vulkan window/render hook availability (runtime acceptance impact) and kept preset-driven reproducible commands as the primary workflow.
+  - **Scope note:** this stabilizes/reproducibilizes the current bring-up client target; a "full client build" that links upstream `src/freelancer`/`DALib`/`Common`/engine init TUs is still pending (M8.2/M8.5 true upstream integration gate before M9-heavy UI/render assumptions).
+
+- **Expanded test surface (automated smoke):**
+  - `linux/scripts/smoke_freelancer_client_m85.sh` now validates a broader contract: boot/init phases, core registration/config+DATA success, IFileSystem stream read, M8.4 audio/config/persistence/blocker unblocks, window creation + SDL driver evidence, render pipeline init, main-menu controlled-state reach/completion with presented frame counts, final status, shutdown, and isolated XDG cleanup.
+  - Script auto-detects `linux/linux-x86` or `linux/build-x86` build dirs and provides exit-code hints for `WindowCreate` (20) / `RenderInit` (21) environment issues.
+  - Test remains display/graphics-runtime dependent (Wayland/X11 + 32-bit SDL3/Vulkan + repo DATA files) and is intended for opt-in/manual or environment-capable CI execution.
+
+- **32-bit vs 64-bit pressure reevaluation (handoff):**
+  - **Current decision:** keep `freelancer_linux_client` bring-up path **32-bit-first** (`FL_LINUX_32BIT=ON`, `linux-x86` preset).
+  - **Reasons:** upstream wrapper TUs and bring-up integration assumptions target 32-bit x86 ABI/layout/calling conventions (`__stdcall`/Win32 shims, vtable/layout-sensitive interfaces, x86 math path), and linked upstream source objects are built/validated in that mode today.
+  - **64-bit pressure:** desirable long-term for tooling/runtime/library availability, but premature for current upstream-linked bring-up because it requires audited struct/layout/vtable/calling-convention parity, pointer-size fixes, and revalidation of upstream TUs and COM/DACOM interfaces.
+  - **Handoff guidance:** defer 64-bit migration until after upstream client/library TU linkage stabilizes on 32-bit and an explicit ABI/layout audit plan is executed; revisit once M8.2/M8.5 upstream integration points are compiling and testable.
+
+
+
+## M8.7 — Planned: upstream client/library integration & M8.2 completion gate
+
+Roadmap **M8.7** was added to complete all open M8.2 items before M9 by:
+- replacing the minimal DALib bring-up data-path integration with buildable upstream `src/DALib` core TU(s) (Linux 32-bit, with non-essential subsystems stubbed/guarded as needed),
+- porting/building required `Common`/`EngBase`/`system` subsets for early init/config/data paths,
+- integrating guarded `src/freelancer` bootstrap/init TUs (`main.cpp`, `engine_init.cpp`, transitive deps) and invoking upstream init/boot paths from `freelancer_linux_client`,
+- validating `DACOM.INI`/`freelancer.ini`/`DATA` and resolving path/search-path/BINI issues through upstream code paths,
+- promoting M8.2 to `[x]` with evidence once acceptance is met.
+
+This is a prerequisite integration gate for starting M9 on real client-linked foundations rather than bring-up simulation paths.
 
 ## Known stubs / deviations
 
@@ -177,9 +211,11 @@ This list documents intentional stubs, bring-up substitutions, and behavioral de
 
 ## Artifacts
 
-- CMake target: `freelancer_linux_client` (`linux/CMakeLists.txt`) — 32-bit bring-up client (DACOM/ReadFile/x86math upstream wrapper TUs + Linux entry/stubs), includes M8.3 window/input/render hookup and M8.4/M8.5 bring-up diagnostics/unblocks/state flow (links gameplay/window/render deps when available); non-32-bit fallback stub preserved for tools presets
+- CMake target: `freelancer_linux_client` (`linux/CMakeLists.txt`) — reproducible bring-up client entry point with `FL_LINUX_BUILD_CLIENT` gating:
+  - 32-bit (`linux-x86` preset / `FL_LINUX_32BIT=ON`): DACOM/ReadFile/x86math upstream wrapper TUs + M8.2–M8.5 bring-up flow (window/input/render hooks when SDL3/Vulkan available)
+  - 64-bit/tools presets (`FL_LINUX_32BIT=OFF`): fallback stub target for preset compatibility
 - Upstream TU config helper: `fl_upstream_tu_iface` INTERFACE target in `linux/CMakeLists.txt` (shared include dirs/defs for guarded 32-bit upstream wrapper consumers; hidden visibility/exported hook policy for wrapper TUs)
-- Entry/stub/shim sources: `linux/src/linux_client_main.cpp` (M8.2 core init, M8.3 hookup, M8.4 unblocks, M8.5 diagnostics/controlled-state flow), `linux/src/linux_client_stubs.cpp`, `linux/include/linux_port/win32_user.h`, `linux/include/linux_port/win32_registry.h`
+- Entry/stub/shim sources: `linux/src/linux_client_main.cpp` (M8.2 core init + DALib OpenData path, M8.3 hookup, M8.4 unblocks, M8.5 diagnostics/controlled-state flow), `linux/src/dalib_core_bringup.cpp` (minimal DALib OpenData/CloseData bring-up integration), `linux/src/linux_client_stubs.cpp`, `linux/include/linux_port/win32_user.h`, `linux/include/linux_port/win32_registry.h`
 - Dependency graph: `linux/docs/vcxproj-dependency-graph.json`, `linux/docs/vcxproj-dependency-graph.md` (refreshed in M8.0)
-- Smoke-test script: `linux/scripts/smoke_freelancer_client_m85.sh` (M8.5 bring-up controlled main-menu state validation; auto-detects `linux/linux-x86` or `linux/build-x86`, requires compatible 32-bit SDL3/Vulkan runtime/display environment)
-- Known-stubs/deviations list: (this document, section above)
+- Smoke-test script: `linux/scripts/smoke_freelancer_client_m85.sh` (expanded M8.5/M8.6 bring-up validation: boot/init, window+render, M8.4 unblocks, controlled main-menu state, presented frames, shutdown/cleanup; auto-detects `linux/linux-x86` or `linux/build-x86`; display/32-bit SDL3/Vulkan dependent)
+- Known-stubs/deviations list: (this document, "Known stubs / deviations" section)

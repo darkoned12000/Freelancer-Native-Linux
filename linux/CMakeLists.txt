@@ -11,6 +11,9 @@ set(CMAKE_C_STANDARD 11)
 option(FL_LINUX_32BIT "Attempt to build 32-bit (x86) targets with -m32 (requires multilib toolchain/libs)" OFF)
 option(FL_LINUX_BUILD_PHASE0 "Build minimal Phase 0 experimental targets (when sources are ported)" OFF)
 option(FL_LINUX_BUILD_TOOLS "Build Linux helper tools/prototypes (path resolver, harnesses)" ON)
+option(FL_LINUX_BUILD_CLIENT "Build freelancer_linux_client bring-up target (requires FL_LINUX_BUILD_TOOLS; full M8.1+ path requires 32-bit)" ON)
+
+include(CTest)
 
 if(FL_LINUX_32BIT)
   add_compile_options(-m32 -msse2 -mfpmath=sse)
@@ -196,14 +199,18 @@ if(FL_LINUX_BUILD_TOOLS)
     message(STATUS "m7_release_harness not built (requires usable target sdl3 and vulkan libraries)")
   endif()
 
-  # M8.1 — minimal linkable client skeleton.
-  # Upstream DACOM/ReadFile/x86math wrapper TUs are 32-bit bring-up artifacts; provide a
-  # reduced fallback target for non-32-bit tool builds to keep presets green.
-  if(NOT FL_LINUX_32BIT)
-    message(STATUS "freelancer_linux_client: building non-32-bit fallback stub (full M8.1 DACOM skeleton requires FL_LINUX_32BIT=ON)")
-    add_executable(freelancer_linux_client src/freelancer_client_stub.cpp)
-    target_link_libraries(freelancer_linux_client PRIVATE fl_linux_port_platform fl_linux_port_path)
-    target_include_directories(freelancer_linux_client PRIVATE ${FL_LINUX_INCLUDE_DIR})
+  # M8 — freelancer_linux_client bring-up target (reproducible CMake entry point).
+  # Full bring-up path is 32-bit (upstream wrapper TUs / ABI/layout assumptions). Non-32-bit
+  # builds get a fallback stub to keep x64 tools presets usable.
+  if(FL_LINUX_BUILD_CLIENT)
+    if(NOT FL_LINUX_32BIT)
+      message(STATUS "freelancer_linux_client: building non-32-bit fallback stub (set -DFL_LINUX_32BIT=ON / preset linux-x86 for M8 bring-up client)")
+      add_executable(freelancer_linux_client src/freelancer_client_stub.cpp)
+      target_link_libraries(freelancer_linux_client PRIVATE fl_linux_port_platform fl_linux_port_path)
+      target_include_directories(freelancer_linux_client PRIVATE ${FL_LINUX_INCLUDE_DIR})
+    endif()
+  else()
+    message(STATUS "freelancer_linux_client: disabled (FL_LINUX_BUILD_CLIENT=OFF)")
   endif()
 
   # Standalone #4 Wayland/SDL3/Vulkan presentation PoC (scaffold; requires deps)
@@ -322,29 +329,51 @@ if(FL_LINUX_BUILD_TOOLS)
     )
     target_link_libraries(m3_math_data_tests PRIVATE fl_linux_port_platform fl_linux_port_path fl_upstream_tu_iface)
 
-    # M8.1/M8.2/M8.3 — Linux client bring-up executable (32-bit): entry + stubs + upstream
-    # DACOM/ReadFile/x86math wrapper TUs. Upstream src/freelancer/DALib/Common engine
-    # TUs are not yet linked (integration gate for true M8.2+ client-code-path acceptance).
-    add_executable(freelancer_linux_client
-      src/linux_client_main.cpp
-      src/linux_client_stubs.cpp
-      $<TARGET_OBJECTS:fl_upstream_dacom_tu>
-      $<TARGET_OBJECTS:fl_upstream_readfile_tu>
-      $<TARGET_OBJECTS:fl_upstream_x86math_tu>
-    )
-    target_link_libraries(freelancer_linux_client PRIVATE fl_linux_port_platform fl_linux_port_path fl_linux_port_gameplay fl_upstream_tu_iface)
-    # M8.3 window/input/render hookups (optional when 32-bit SDL3/Vulkan libs unavailable)
-    if(FL_SDL3_USABLE AND TARGET fl_linux_port_window)
-      target_link_libraries(freelancer_linux_client PRIVATE fl_linux_port_window ${FL_SDL3_PC_LIBRARIES})
-      target_include_directories(freelancer_linux_client PRIVATE ${FL_SDL3_PC_INCLUDE_DIRS})
-      target_link_directories(freelancer_linux_client PRIVATE ${FL_SDL3_PC_LIBRARY_DIRS})
-      target_compile_definitions(freelancer_linux_client PRIVATE FL_HAS_SDL3=1)
-    endif()
-    if(FL_SDL3_USABLE AND FL_VULKAN_USABLE AND TARGET fl_linux_port_render)
-      target_link_libraries(freelancer_linux_client PRIVATE fl_linux_port_render ${FL_VULKAN_PC_LIBRARIES})
-      target_include_directories(freelancer_linux_client PRIVATE ${FL_VULKAN_PC_INCLUDE_DIRS})
-      target_link_directories(freelancer_linux_client PRIVATE ${FL_VULKAN_PC_LIBRARY_DIRS})
-      target_compile_definitions(freelancer_linux_client PRIVATE FL_HAS_VULKAN=1 FL_LINUX_32BIT=1)
+    # M8.1–M8.5 — Linux client bring-up executable (32-bit): entry + stubs + upstream
+    # DACOM/ReadFile/x86math wrapper TUs. Full upstream src/freelancer/DALib/Common engine
+    # TU linkage is not yet complete; M8.2 makes incremental progress by exercising
+    # DALib OpenData/CloseData code paths via a minimal Linux bring-up implementation.
+    if(FL_LINUX_BUILD_CLIENT)
+      add_library(fl_dalib_core_bringup OBJECT src/dalib_core_bringup.cpp)
+      target_link_libraries(fl_dalib_core_bringup PRIVATE fl_linux_port_platform fl_upstream_tu_iface)
+
+      add_executable(freelancer_linux_client
+        src/linux_client_main.cpp
+        src/linux_client_stubs.cpp
+        $<TARGET_OBJECTS:fl_dalib_core_bringup>
+        $<TARGET_OBJECTS:fl_upstream_dacom_tu>
+        $<TARGET_OBJECTS:fl_upstream_readfile_tu>
+        $<TARGET_OBJECTS:fl_upstream_x86math_tu>
+      )
+      target_link_libraries(freelancer_linux_client PRIVATE fl_linux_port_platform fl_linux_port_path fl_linux_port_gameplay fl_upstream_tu_iface)
+      # M8.3 window/input/render hookups (optional when 32-bit SDL3/Vulkan libs unavailable)
+      if(FL_SDL3_USABLE AND TARGET fl_linux_port_window)
+        target_link_libraries(freelancer_linux_client PRIVATE fl_linux_port_window ${FL_SDL3_PC_LIBRARIES})
+        target_include_directories(freelancer_linux_client PRIVATE ${FL_SDL3_PC_INCLUDE_DIRS})
+        target_link_directories(freelancer_linux_client PRIVATE ${FL_SDL3_PC_LIBRARY_DIRS})
+        target_compile_definitions(freelancer_linux_client PRIVATE FL_HAS_SDL3=1)
+      else()
+        message(STATUS "freelancer_linux_client: SDL3 window/input hooks unavailable (client will fail M8.3+ acceptance at runtime)")
+      endif()
+      if(FL_SDL3_USABLE AND FL_VULKAN_USABLE AND TARGET fl_linux_port_render)
+        target_link_libraries(freelancer_linux_client PRIVATE fl_linux_port_render ${FL_VULKAN_PC_LIBRARIES})
+        target_include_directories(freelancer_linux_client PRIVATE ${FL_VULKAN_PC_INCLUDE_DIRS})
+        target_link_directories(freelancer_linux_client PRIVATE ${FL_VULKAN_PC_LIBRARY_DIRS})
+        target_compile_definitions(freelancer_linux_client PRIVATE FL_HAS_VULKAN=1 FL_LINUX_32BIT=1)
+      else()
+        message(STATUS "freelancer_linux_client: Vulkan render hooks unavailable (client will fail M8.3+ acceptance at runtime)")
+      endif()
+
+      # Opt-in smoke test (requires display + 32-bit SDL3/Vulkan runtime/data files in repo checkout)
+      if(BUILD_TESTING)
+        add_test(NAME m85_client_smoke
+          COMMAND "${CMAKE_CURRENT_LIST_DIR}/scripts/smoke_freelancer_client_m85.sh" "$<TARGET_FILE_DIR:freelancer_linux_client>"
+        )
+        set_tests_properties(m85_client_smoke PROPERTIES
+          LABELS "m8;smoke;display-required"
+          TIMEOUT 120
+        )
+      endif()
     endif()
 
   endif()

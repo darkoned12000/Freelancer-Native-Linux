@@ -35,6 +35,13 @@ extern "C" int  fl_upstream_readfile_integration_register();
 extern "C" int  fl_upstream_x86math_integration_register();
 #endif
 
+namespace DALib {
+extern ICOManager* Dacom;
+extern IFileSystem* Data;
+void __cdecl OpenData(const char* DataPath);
+void __cdecl CloseData();
+}
+
 extern "C" {
 int fl_stub_movie_play(const char* path);
 int fl_stub_movie_stop(void);
@@ -385,39 +392,19 @@ int main(int argc, char** argv) {
     }
   }
 
-  // Core component creation proof (FileSystem/DOS over DATA root) + IFileSystem exercise
-  bool fs_ok = false;
-  IFileSystem* data_fs = nullptr;
+  // Core component creation through DALib OpenData path (real DALib code path for DATA filesystem)
+  DALib::Dacom = mgr;
   {
-    void* inst = nullptr;
-    FFileSystemDesc fs{};
-    static_assert(offsetof(FFileSystemDesc, Field30) == 0x30, "DOS/UTF desc prefix is 0x34");
-    fs.Size = 0x34; // DOS/UTF descriptor size (prefix) for FileSystem/DOS instance
-    fs.ComponentName = "FileSystem";
-    fs.Implementation = "DOS";
     const std::string data_path_str = data_root.string();
-    fs.Path = data_path_str.c_str();
-    fs.Access = GENERIC_READ;
-    fs.ShareMode = FILE_SHARE_READ;
-    fs.Creation = OPEN_EXISTING;
-    fs.Flags = 0;
-    fs.Extra = 0;
-    fs.Field30 = 0xFFFFFFFFu;
-    const GENRESULT gr = mgr->CreateInstance((AGGDESC*)&fs, &inst);
-    if (gr == GR_OK && inst) {
-      data_fs = reinterpret_cast<IFileSystem*>(inst);
-      fs_ok = (data_fs != nullptr);
-      if (fs_ok) fl_port::log_message(fl_port::LogLevel::Info, "CreateInstance(FileSystem/DOS) ok");
-      else {
-        fl_port::log_message(fl_port::LogLevel::Error, "CreateInstance(FileSystem/DOS) returned null IFileSystem");
-        if (auto* comp = reinterpret_cast<IDAComponent*>(inst)) comp->Release();
-      }
-    } else {
-      fl_port::log_message(fl_port::LogLevel::Error,
-                           std::string("CreateInstance(FileSystem/DOS) failed gr=") + std::to_string((int)gr));
-    }
+    DALib::OpenData(data_path_str.c_str());
   }
-  if (!fs_ok || !data_fs) return 7;
+  IFileSystem* data_fs = DALib::Data;
+  if (!data_fs) {
+    fl_port::log_message(fl_port::LogLevel::Error, "M8.5 early-out [ConfigAndData]: DALib::OpenData failed to create DATA filesystem");
+    std::cerr << "[FAIL][ConfigAndData] DALib::OpenData failed\n";
+    return 7;
+  }
+  fl_port::log_message(fl_port::LogLevel::Info, "M8.2: DALib::OpenData succeeded (DALib::Data filesystem ready)");
 
   boot_checkpoint(BootPhase::IFileSystemProbe, "exercising FileSystem/DOS interface and stream reads");
   // Exercise IFileSystem interface directly (path/search/stream behavior in ReadFile component)
@@ -538,7 +525,7 @@ int main(int argc, char** argv) {
     if (!stream_ok) {
       fl_port::log_message(fl_port::LogLevel::Error, "M8.5 early-out [IFileSystemProbe]: stream read verification failed");
       std::cerr << "[FAIL][IFileSystemProbe] IFileSystem stream read verification failed\n";
-      if (data_fs) { data_fs->Release(); data_fs = nullptr; }
+      if (DALib::Data) { DALib::CloseData(); data_fs = nullptr; }
       return 9;
     }
   }
@@ -575,8 +562,8 @@ int main(int argc, char** argv) {
     else fl_port::log_message(fl_port::LogLevel::Warning, "DATA INITIALWORLD.INI not resolved (non-fatal in source-only checkout)");
   }
 
-  if (data_fs) {
-    data_fs->Release();
+  if (DALib::Data) {
+    DALib::CloseData();
     data_fs = nullptr;
   }
 
