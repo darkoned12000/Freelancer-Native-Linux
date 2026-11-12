@@ -1,6 +1,6 @@
 # M8 — Game client integration (living document)
 
-**Status:** M8.0 preparation/inventory in progress (artifacts and skeleton target created).  
+**Status:** M8.1 minimal linkable client skeleton completed (32-bit bring-up target links and reaches entry point without crashing); M8.2+ engine/client integration pending.  
 **Acceptance target:** The Freelancer game client (`src/freelancer`) compiles and links as a native Linux ELF and reaches a controlled early boot point (M8.5).
 
 ## Overview
@@ -85,14 +85,26 @@ Inventory method: targeted `rg` scans of `src/freelancer` and key dependency mod
 - Float/math edge cases only appearing under the full client
 - 32-bit library availability (SDL3, Vulkan loader, etc.)
 
+## M8.1 — Minimal linkable client skeleton (completed deliverables)
+
+- **Linux entry point / WinMain wrapper (skeleton):** added `linux/src/client_entry_m81.cpp` with `main()` as the process-entry wrapper for `freelancer_linux_client`. Performs startup logging, `/proc/self/exe`-first exe path resolution (argv[0] fallback), and best-effort `bin/DACOM.INI` cwd selection from startup cwd and exe-relative locations; structured to wrap/invoke upstream client `WinMain` in later milestones (not wired yet).
+- **Minimal objects for process start + DACOM acquisition (32-bit):** `freelancer_linux_client` (linux-x86) links upstream wrapper TUs `fl_upstream_dacom_tu`, `fl_upstream_readfile_tu`, and `fl_upstream_x86math_tu` plus `fl_linux_port_platform`/`fl_linux_port_path`; startup acquires `ICOManager*` via `DACOM_Acquire()`.
+- **Explicit registration hooks (dependency order):** installs DACOM FDUMP bridge (`fl_upstream_dacom_install_fdump_bridge`), registers DACOM built-ins, registers ReadFile (`fl_upstream_readfile_integration_register`), and registers x86math (`fl_upstream_x86math_integration_register`); x86math registration failure is treated as fatal in the M8.1 skeleton.
+- **Stubs / no-op placeholders:** added `linux/src/client_stubs_m81.cpp` with logged no-op helpers/placeholders for movies, EULA gate bypass, registry-write no-op, and generic not-implemented marker. Added `linux/include/linux_port/win32_user.h` (included via `linux_port/windows.h`) for Win32 bootstrap UI declarations and defined `ShowCursor`/`SetForegroundWindow`/`SetFocus`/`UpdateWindow` with C linkage in the stub TU (`ShowCursor` maintains display-count semantics).
+- **Path/logging/timing/threading:** uses `fl_port` logging and DACOM FDUMP bridge for diagnostics; startup path/cwd handling via `std::filesystem` + port path utilities context; relies on existing Linux port shim/platform primitives for timing/threading/file/path behavior in linked components.
+- **Build/link/run validation (acceptance):** `cmake --build linux/build-x86 --target freelancer_linux_client -j4` links successfully; `./linux/build-x86/freelancer_linux_client` reaches entry point, completes DACOM acquisition and explicit core registrations, prints skeleton status, and exits cleanly (code 0). Non-32-bit tools builds keep a fallback stub target with a status message (M8.1 upstream-linked skeleton requires `FL_LINUX_32BIT=ON`).
+
 ## Known stubs / deviations
 
-- `freelancer_linux_client` (M8.0): skeleton executable only; no upstream game client TUs linked yet, no game boot behavior. Upstream WinMain/windowing/resource/DirectX/audio/registry call paths remain to be adapted in M8.1+.
+- `freelancer_linux_client` (M8.1): linkable 32-bit skeleton initializes DACOM/ReadFile/x86math only; no upstream `src/freelancer` client TUs linked, no upstream `WinMain` call, no window/render/input/audio/engine loop, and no real game boot/menu flow yet (M8.2+).
+- `client_stubs_m81.cpp`: movies/EULA/registry-write behaviors are intentional no-ops or bypass placeholders for bring-up; missing APIs/calls will be expanded and replaced as upstream client code is linked.
 - (To be expanded as M8 progresses.)
 
 ## Artifacts
 
-- CMake target: `freelancer_linux_client` (M8.0 skeleton added in `linux/CMakeLists.txt`; to be expanded in M8.1+)
-- Dependency graph: `linux/docs/vcxproj-dependency-graph.json`, `linux/docs/vcxproj-dependency-graph.md` (refreshed)
+- CMake target: `freelancer_linux_client` (`linux/CMakeLists.txt`) — M8.1 32-bit minimal linkable skeleton (DACOM/ReadFile/x86math upstream wrapper TUs + Linux entry/stubs); non-32-bit fallback stub preserved for tools presets
+- Upstream TU config helper: `fl_upstream_tu_iface` INTERFACE target in `linux/CMakeLists.txt` (shared include dirs/defs for guarded 32-bit upstream wrapper consumers)
+- Entry/stub/shim sources: `linux/src/client_entry_m81.cpp`, `linux/src/client_stubs_m81.cpp`, `linux/include/linux_port/win32_user.h`
+- Dependency graph: `linux/docs/vcxproj-dependency-graph.json`, `linux/docs/vcxproj-dependency-graph.md` (refreshed in M8.0)
 - Smoke-test script: (to be created in M8.6)
 - Known-stubs/deviations list: (this document, section above)

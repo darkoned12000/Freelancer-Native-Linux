@@ -193,15 +193,15 @@ if(FL_LINUX_BUILD_TOOLS)
     message(STATUS "m7_release_harness not built (requires usable target sdl3 and vulkan libraries)")
   endif()
 
-  # M8.0 — preparation/inventory skeleton for native client bring-up.
-  # Intentionally minimal: no upstream src/freelancer TUs linked yet (M8.1+).
-  # M8.1 note: when upstream src/freelancer TUs are linked, gate this target under
-  # if(FL_LINUX_32BIT) (with a STATUS skip when OFF) because upstream wrappers/TUs
-  # rely on 32-bit x86 layouts/ABIs. Keep unconditional for M8.0 stub to preserve
-  # linux-x64/linux-x86 preset builds.
-  add_executable(freelancer_linux_client src/freelancer_client_stub.cpp)
-  target_link_libraries(freelancer_linux_client PRIVATE fl_linux_port_platform fl_linux_port_path)
-  target_include_directories(freelancer_linux_client PRIVATE ${FL_LINUX_INCLUDE_DIR})
+  # M8.1 — minimal linkable client skeleton.
+  # Upstream DACOM/ReadFile/x86math wrapper TUs are 32-bit bring-up artifacts; provide a
+  # reduced fallback target for non-32-bit tool builds to keep presets green.
+  if(NOT FL_LINUX_32BIT)
+    message(STATUS "freelancer_linux_client: building non-32-bit fallback stub (full M8.1 DACOM skeleton requires FL_LINUX_32BIT=ON)")
+    add_executable(freelancer_linux_client src/freelancer_client_stub.cpp)
+    target_link_libraries(freelancer_linux_client PRIVATE fl_linux_port_platform fl_linux_port_path)
+    target_include_directories(freelancer_linux_client PRIVATE ${FL_LINUX_INCLUDE_DIR})
+  endif()
 
   # Standalone #4 Wayland/SDL3/Vulkan presentation PoC (scaffold; requires deps)
   if(FL_SDL3_USABLE AND FL_VULKAN_USABLE)
@@ -215,85 +215,53 @@ if(FL_LINUX_BUILD_TOOLS)
   endif()
 
   if(FL_LINUX_32BIT)
+    # Common config for guarded upstream wrapper TUs / consumers (32-bit x86 bring-up).
+    add_library(fl_upstream_tu_iface INTERFACE)
+    target_include_directories(fl_upstream_tu_iface BEFORE INTERFACE
+      "${CMAKE_CURRENT_SOURCE_DIR}/include/linux_port"
+      "${FL_LINUX_INCLUDE_DIR}"
+      "${FL_SRC_ROOT}/include"
+      "${FL_SRC_ROOT}"
+    )
+    target_compile_definitions(fl_upstream_tu_iface INTERFACE FL_LINUX_PORT_UPSTREAM_TU=1)
+
     # Upstream source integration wrappers (guarded Linux harness TUs).
     # These target the original 32-bit/x86 upstream layout and ABI assumptions.
     add_library(fl_upstream_dacom_tu OBJECT tests/upstream_dacom_tu.cpp)
-    target_link_libraries(fl_upstream_dacom_tu PRIVATE fl_linux_port_platform fl_linux_port_path)
-    target_include_directories(fl_upstream_dacom_tu BEFORE PRIVATE
-      "${CMAKE_CURRENT_SOURCE_DIR}/include/linux_port"
-      "${FL_LINUX_INCLUDE_DIR}"
-      "${FL_SRC_ROOT}/include"
-      "${FL_SRC_ROOT}"
-    )
-    target_compile_definitions(fl_upstream_dacom_tu PRIVATE FL_LINUX_PORT_UPSTREAM_TU=1)
+    target_link_libraries(fl_upstream_dacom_tu PRIVATE fl_linux_port_platform fl_linux_port_path fl_upstream_tu_iface)
 
     add_library(fl_upstream_readfile_tu OBJECT tests/upstream_readfile_tu.cpp)
-    target_link_libraries(fl_upstream_readfile_tu PRIVATE fl_linux_port_platform fl_linux_port_path)
-    target_include_directories(fl_upstream_readfile_tu BEFORE PRIVATE
-      "${CMAKE_CURRENT_SOURCE_DIR}/include/linux_port"
-      "${FL_LINUX_INCLUDE_DIR}"
-      "${FL_SRC_ROOT}/include"
-      "${FL_SRC_ROOT}"
-    )
-    target_compile_definitions(fl_upstream_readfile_tu PRIVATE FL_LINUX_PORT_UPSTREAM_TU=1)
+    target_link_libraries(fl_upstream_readfile_tu PRIVATE fl_linux_port_platform fl_linux_port_path fl_upstream_tu_iface)
 
     add_executable(upstream_dacom_readfile_harness
       tests/upstream_dacom_readfile_harness.cpp
       $<TARGET_OBJECTS:fl_upstream_dacom_tu>
       $<TARGET_OBJECTS:fl_upstream_readfile_tu>
     )
-    target_link_libraries(upstream_dacom_readfile_harness PRIVATE fl_linux_port_platform fl_linux_port_path)
-    target_include_directories(upstream_dacom_readfile_harness PRIVATE "${FL_LINUX_INCLUDE_DIR}")
+    target_link_libraries(upstream_dacom_readfile_harness PRIVATE fl_linux_port_platform fl_linux_port_path fl_upstream_tu_iface)
 
     add_executable(upstream_dacom_integration_harness
       tests/upstream_dacom_integration_harness.cpp
       $<TARGET_OBJECTS:fl_upstream_dacom_tu>
     )
-    target_link_libraries(upstream_dacom_integration_harness PRIVATE fl_linux_port_platform fl_linux_port_path)
-    target_include_directories(upstream_dacom_integration_harness PRIVATE
-      "${FL_LINUX_INCLUDE_DIR}"
-      "${FL_SRC_ROOT}/include"
-      "${FL_SRC_ROOT}"
-    )
-    target_compile_definitions(upstream_dacom_integration_harness PRIVATE FL_LINUX_PORT_UPSTREAM_TU=1)
+    target_link_libraries(upstream_dacom_integration_harness PRIVATE fl_linux_port_platform fl_linux_port_path fl_upstream_tu_iface)
 
     add_executable(upstream_dacom_readfile_integration_harness
       tests/upstream_dacom_readfile_integration_harness.cpp
       $<TARGET_OBJECTS:fl_upstream_dacom_tu>
       $<TARGET_OBJECTS:fl_upstream_readfile_tu>
     )
-    target_link_libraries(upstream_dacom_readfile_integration_harness PRIVATE fl_linux_port_platform fl_linux_port_path)
-    target_include_directories(upstream_dacom_readfile_integration_harness BEFORE PRIVATE
-      "${CMAKE_CURRENT_SOURCE_DIR}/include/linux_port"
-      "${FL_LINUX_INCLUDE_DIR}"
-      "${FL_SRC_ROOT}/include"
-      "${FL_SRC_ROOT}"
-    )
-    target_compile_definitions(upstream_dacom_readfile_integration_harness PRIVATE FL_LINUX_PORT_UPSTREAM_TU=1)
+    target_link_libraries(upstream_dacom_readfile_integration_harness PRIVATE fl_linux_port_platform fl_linux_port_path fl_upstream_tu_iface)
 
     add_executable(m2_engine_init_harness
       tests/m2_engine_init_harness.cpp
       $<TARGET_OBJECTS:fl_upstream_dacom_tu>
       $<TARGET_OBJECTS:fl_upstream_readfile_tu>
     )
-    target_link_libraries(m2_engine_init_harness PRIVATE fl_linux_port_platform fl_linux_port_path)
-    target_include_directories(m2_engine_init_harness BEFORE PRIVATE
-      "${CMAKE_CURRENT_SOURCE_DIR}/include/linux_port"
-      "${FL_LINUX_INCLUDE_DIR}"
-      "${FL_SRC_ROOT}/include"
-      "${FL_SRC_ROOT}"
-    )
-    target_compile_definitions(m2_engine_init_harness PRIVATE FL_LINUX_PORT_UPSTREAM_TU=1)
+    target_link_libraries(m2_engine_init_harness PRIVATE fl_linux_port_platform fl_linux_port_path fl_upstream_tu_iface)
 
     add_library(fl_upstream_x86math_tu OBJECT tests/upstream_x86math_tu.cpp)
-    target_link_libraries(fl_upstream_x86math_tu PRIVATE fl_linux_port_platform fl_linux_port_path)
-    target_include_directories(fl_upstream_x86math_tu BEFORE PRIVATE
-      "${CMAKE_CURRENT_SOURCE_DIR}/include/linux_port"
-      "${FL_LINUX_INCLUDE_DIR}"
-      "${FL_SRC_ROOT}/include"
-      "${FL_SRC_ROOT}"
-    )
-    target_compile_definitions(fl_upstream_x86math_tu PRIVATE FL_LINUX_PORT_UPSTREAM_TU=1)
+    target_link_libraries(fl_upstream_x86math_tu PRIVATE fl_linux_port_platform fl_linux_port_path fl_upstream_tu_iface)
 
     add_executable(m3_math_data_tests
       tests/m3_math_data_tests.cpp
@@ -301,14 +269,19 @@ if(FL_LINUX_BUILD_TOOLS)
       $<TARGET_OBJECTS:fl_upstream_readfile_tu>
       $<TARGET_OBJECTS:fl_upstream_x86math_tu>
     )
-    target_link_libraries(m3_math_data_tests PRIVATE fl_linux_port_platform fl_linux_port_path)
-    target_include_directories(m3_math_data_tests BEFORE PRIVATE
-      "${CMAKE_CURRENT_SOURCE_DIR}/include/linux_port"
-      "${FL_LINUX_INCLUDE_DIR}"
-      "${FL_SRC_ROOT}/include"
-      "${FL_SRC_ROOT}"
+    target_link_libraries(m3_math_data_tests PRIVATE fl_linux_port_platform fl_linux_port_path fl_upstream_tu_iface)
+
+    # M8.1 — minimal linkable client skeleton (32-bit): Linux entry/wrapper + DACOM acquisition
+    # + explicit registration hooks, linked with upstream DACOM/ReadFile/x86math wrapper TUs.
+    # Upstream src/freelancer TUs are not linked yet (M8.2+).
+    add_executable(freelancer_linux_client
+      src/client_entry_m81.cpp
+      src/client_stubs_m81.cpp
+      $<TARGET_OBJECTS:fl_upstream_dacom_tu>
+      $<TARGET_OBJECTS:fl_upstream_readfile_tu>
+      $<TARGET_OBJECTS:fl_upstream_x86math_tu>
     )
-    target_compile_definitions(m3_math_data_tests PRIVATE FL_LINUX_PORT_UPSTREAM_TU=1)
+    target_link_libraries(freelancer_linux_client PRIVATE fl_linux_port_platform fl_linux_port_path fl_upstream_tu_iface)
 
   endif()
 endif()

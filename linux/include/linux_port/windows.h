@@ -11,4 +11,5 @@
 #include "linux_port/win32_sync.h"
 #include "linux_port/win32_threads.h"
 #include "linux_port/win32_time.h"
+#include "linux_port/win32_user.h"
 #include "linux_port/msvcrt_path.h"

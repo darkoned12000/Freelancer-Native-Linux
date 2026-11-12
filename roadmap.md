@@ -193,13 +193,19 @@ Treat it as a multi-stage siege. Sub-phases M8.0–M8.6 are tracked below.
     - [x] Decision documented in `linux/docs/m8-client-integration.md`: static-link first for initial `freelancer_linux_client` bring-up
   - [x] Create dedicated CMake target `freelancer_linux_client` starting with minimal translation units
     - [x] Added skeleton target in `linux/CMakeLists.txt` with minimal Linux stub TU (`linux/src/freelancer_client_stub.cpp`), no upstream `src/freelancer` TUs yet (M8.1 expansion)
-- [ ] **M8.1 — Minimal linkable client skeleton**
-  - [ ] Create Linux entry point replacing/wrapping `WinMain`
-  - [ ] Pull in absolute minimum objects for process start + DACOM acquisition
-  - [ ] Wire explicit DACOM/ReadFile/x86math registration hooks
-  - [ ] Stub/no-op every not-yet-implemented call (movies, EULA, registry writes, etc.)
-  - [ ] Resolve path resolution, logging (FDUMP bridge), basic timing/threading
-  - [ ] Acceptance: binary links and reaches entry point without crashing
+- [x] **M8.1 — Minimal linkable client skeleton**
+  - [x] Create Linux entry point replacing/wrapping `WinMain`
+    - [x] Added `linux/src/client_entry_m81.cpp` (`main`) as the Linux process-entry wrapper for `freelancer_linux_client` (M8.1 skeleton), with startup logging, `/proc/self/exe`-first path resolution, and best-effort `bin/DACOM.INI` cwd selection; structured to invoke/wrap upstream `WinMain` in later bring-up
+  - [x] Pull in absolute minimum objects for process start + DACOM acquisition
+    - [x] 32-bit `freelancer_linux_client` links minimal upstream wrapper TUs for DACOM/ReadFile/x86math (`fl_upstream_dacom_tu`, `fl_upstream_readfile_tu`, `fl_upstream_x86math_tu`) plus port/platform libs; acquires DACOM manager at startup
+  - [x] Wire explicit DACOM/ReadFile/x86math registration hooks
+    - [x] Installs FDUMP bridge and performs explicit dependency-ordered registration/init hooks (DACOM built-ins, ReadFile, x86math) in `client_entry_m81.cpp`; x86math registration failure is treated as fatal
+  - [x] Stub/no-op every not-yet-implemented call (movies, EULA, registry writes, etc.)
+    - [x] Added `linux/src/client_stubs_m81.cpp` with logged no-op stubs/placeholders for movies, EULA gate bypass, registry-write no-op marker, and generic not-implemented marker; added `linux/include/linux_port/win32_user.h` (decls via `windows.h`) and C-linkage Win32 bootstrap stubs (`ShowCursor` count semantics, `SetForegroundWindow`, `SetFocus`, `UpdateWindow`) for M8.2 linkage compatibility
+  - [x] Resolve path resolution, logging (FDUMP bridge), basic timing/threading
+    - [x] Startup uses `fl_port` logging + upstream DACOM FDUMP bridge, path/cwd resolution helpers for bin-context startup, and existing port/platform shim primitives for timing/threading
+  - [x] Acceptance: binary links and reaches entry point without crashing
+    - [x] `cmake --build linux/build-x86 --target freelancer_linux_client -j4` links successfully; running `linux/build-x86/freelancer_linux_client` reaches entry, completes DACOM/ReadFile/x86math init, and exits cleanly (code 0)
 - [ ] **M8.2 — Core engine initialization**
   - [ ] Drive real initialization sequence used by original client
   - [ ] Make `bin/DACOM.INI` + `freelancer.ini` + `DATA/` loading work end-to-end through client code paths
