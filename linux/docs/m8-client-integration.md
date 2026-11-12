@@ -1,6 +1,6 @@
 # M8 — Game client integration (living document)
 
-**Status:** M8.1 minimal linkable client skeleton completed (32-bit bring-up target links and reaches entry point without crashing); M8.2+ engine/client integration pending.  
+**Status:** M8.2 in progress — bring-up prototype complete (DACOM/config/DATA/core component init and IFileSystem checks succeed in `freelancer_linux_client`), but full M8.2 acceptance remains pending compilation/linkage and validation through real upstream client/library code paths (`src/freelancer`, `DALib`, `Common`, etc.).  
 **Acceptance target:** The Freelancer game client (`src/freelancer`) compiles and links as a native Linux ELF and reaches a controlled early boot point (M8.5).
 
 ## Overview
@@ -87,24 +87,40 @@ Inventory method: targeted `rg` scans of `src/freelancer` and key dependency mod
 
 ## M8.1 — Minimal linkable client skeleton (completed deliverables)
 
-- **Linux entry point / WinMain wrapper (skeleton):** added `linux/src/client_entry_m81.cpp` with `main()` as the process-entry wrapper for `freelancer_linux_client`. Performs startup logging, `/proc/self/exe`-first exe path resolution (argv[0] fallback), and best-effort `bin/DACOM.INI` cwd selection from startup cwd and exe-relative locations; structured to wrap/invoke upstream client `WinMain` in later milestones (not wired yet).
+- **Linux entry point / WinMain wrapper (skeleton):** added `linux/src/linux_client_main.cpp` with `main()` as the process-entry wrapper for `freelancer_linux_client`. Performs startup logging, `/proc/self/exe`-first exe path resolution (argv[0] fallback), and best-effort `bin/DACOM.INI` cwd selection from startup cwd and exe-relative locations; structured to wrap/invoke upstream client `WinMain` in later milestones (not wired yet).
 - **Minimal objects for process start + DACOM acquisition (32-bit):** `freelancer_linux_client` (linux-x86) links upstream wrapper TUs `fl_upstream_dacom_tu`, `fl_upstream_readfile_tu`, and `fl_upstream_x86math_tu` plus `fl_linux_port_platform`/`fl_linux_port_path`; startup acquires `ICOManager*` via `DACOM_Acquire()`.
 - **Explicit registration hooks (dependency order):** installs DACOM FDUMP bridge (`fl_upstream_dacom_install_fdump_bridge`), registers DACOM built-ins, registers ReadFile (`fl_upstream_readfile_integration_register`), and registers x86math (`fl_upstream_x86math_integration_register`); x86math registration failure is treated as fatal in the M8.1 skeleton.
-- **Stubs / no-op placeholders:** added `linux/src/client_stubs_m81.cpp` with logged no-op helpers/placeholders for movies, EULA gate bypass, registry-write no-op, and generic not-implemented marker. Added `linux/include/linux_port/win32_user.h` (included via `linux_port/windows.h`) for Win32 bootstrap UI declarations and defined `ShowCursor`/`SetForegroundWindow`/`SetFocus`/`UpdateWindow` with C linkage in the stub TU (`ShowCursor` maintains display-count semantics).
+- **Stubs / no-op placeholders:** added `linux/src/linux_client_stubs.cpp` with logged no-op helpers/placeholders for movies, EULA gate bypass, registry-write no-op, and generic not-implemented marker. Added `linux/include/linux_port/win32_user.h` (included via `linux_port/windows.h`) for Win32 bootstrap UI declarations and defined `ShowCursor`/`SetForegroundWindow`/`SetFocus`/`UpdateWindow` with C linkage in the stub TU (`ShowCursor` maintains display-count semantics).
 - **Path/logging/timing/threading:** uses `fl_port` logging and DACOM FDUMP bridge for diagnostics; startup path/cwd handling via `std::filesystem` + port path utilities context; relies on existing Linux port shim/platform primitives for timing/threading/file/path behavior in linked components.
 - **Build/link/run validation (acceptance):** `cmake --build linux/build-x86 --target freelancer_linux_client -j4` links successfully; `./linux/build-x86/freelancer_linux_client` reaches entry point, completes DACOM acquisition and explicit core registrations, prints skeleton status, and exits cleanly (code 0). Non-32-bit tools builds keep a fallback stub target with a status message (M8.1 upstream-linked skeleton requires `FL_LINUX_32BIT=ON`).
 
+## M8.2 — Core engine initialization (bring-up prototype progress; full acceptance pending)
+
+- **Client-oriented early/core init sequence (bring-up scope):** `linux/src/linux_client_main.cpp` drives startup path/bin-context resolution, FDUMP bridge installation, DACOM acquisition, explicit core registrations (DACOM built-ins, ReadFile, x86math), DACOM config application, `freelancer.ini` parsing/data-path resolution, core component creation, and config/DATA access validation before exit. This is a bring-up prototype and does **not** yet replace or invoke compiled upstream client/library initialization paths.
+- **`bin/DACOM.INI` + `bin/freelancer.ini` + `DATA/` loading (bring-up path):** resolves/loads `DACOM.INI` via effective explicit-registration config (source-only checkout: `[Libraries]` entries filtered to avoid unavailable external module auto-loads), resolves `freelancer.ini`, reads `[Freelancer].data path`, resolves the DATA root case-insensitively, and validates config/data access through Linux-compatible path resolution and Win32 file shim APIs.
+- **Core component creation/load + IFileSystem exercise:** creates `FileSystem/DOS` over resolved DATA root via `ICOManager::CreateInstance` after explicit ReadFile registration and exercises `IFileSystem` methods (`GetCurrentPath`, `GetPathAttributes` on key DATA paths) to validate ReadFile component path/search behavior in addition to Win32 shim reads.
+- **Path/search-path/BINI-loading handling (current scope):** validated case-insensitive/backslash-tolerant resolution and reads for key files (`DACOM.INI`, `freelancer.ini`, `DATA/solar/solararch.ini`, `DATA/UNIVERSE/universe.ini`, `DATA/EQUIPMENT/select_equip.ini`, `DATA/FONTS/fonts.ini`) and resolved `DATA/InitialWorld.ini` presence. Full-client-only path/search/BINI issues remain pending until upstream client/library TUs are compiled and linked.
+- **Validation (prototype):** `cmake --build linux/build-x86 --target freelancer_linux_client -j4` succeeds; `./linux/build-x86/freelancer_linux_client` exits 0 with DACOM initialized, core component created, `IFileSystem` exercised, and config/DATA checks passing.
+
+### Strategic correction (review-driven, in progress)
+- Freeze new simulation-only init logic in `linux_client_main.cpp`; treat current code as a temporary bring-up prototype.
+- Prioritize compiling/linking real upstream sources in dependency order (`zlib`/`qhull` -> `DALib` -> `Common` -> `EngBase`/`system` -> `src/freelancer` client init TUs) so MSVC/header/ABI/static-init/BINI/INI issues surface before M8.3+.
+- **Integration gate progress:** added 32-bit Linux static library targets `fl_upstream_zlib` and `fl_upstream_qhull` in `linux/CMakeLists.txt` (leaf deps) and verified they build in `linux/build-x86`. DALib/Common (and downstream upstream client/library TUs) compilation/linkage targets are still pending.
+- M8.2 remains `[~]` until upstream client/library code paths drive config/DATA/core initialization and acceptance is validated through them.
+
 ## Known stubs / deviations
 
-- `freelancer_linux_client` (M8.1): linkable 32-bit skeleton initializes DACOM/ReadFile/x86math only; no upstream `src/freelancer` client TUs linked, no upstream `WinMain` call, no window/render/input/audio/engine loop, and no real game boot/menu flow yet (M8.2+).
-- `client_stubs_m81.cpp`: movies/EULA/registry-write behaviors are intentional no-ops or bypass placeholders for bring-up; missing APIs/calls will be expanded and replaced as upstream client code is linked.
+- `freelancer_linux_client` (M8.2 bring-up prototype): initializes DACOM/config/DATA/core components and exercises `IFileSystem` in bring-up scope, but does not yet compile/link upstream `src/freelancer`/`DALib`/`Common` init paths or call upstream `WinMain`/`InitializeEngine`; no game window/message/frame loop/boot flow yet (M8.3+).
+- `linux_client_main.cpp` still contains temporary bring-up init/helper logic (INI parsing, config/data checks) pending replacement by real upstream client/library code paths; new simulation logic should be frozen.
+- `linux_client_main.cpp` uses an effective `DACOM.INI` with `[Libraries]` entries removed for source-only explicit-registration bring-up (external runtime module binaries not shipped); differs from retail auto-load behavior.
+- `linux_client_stubs.cpp`: movies/EULA/registry-write and Win32 bootstrap stubs remain intentional bring-up placeholders; additional stubs/shims will be required as upstream TUs are linked.
 - (To be expanded as M8 progresses.)
 
 ## Artifacts
 
-- CMake target: `freelancer_linux_client` (`linux/CMakeLists.txt`) — M8.1 32-bit minimal linkable skeleton (DACOM/ReadFile/x86math upstream wrapper TUs + Linux entry/stubs); non-32-bit fallback stub preserved for tools presets
+- CMake target: `freelancer_linux_client` (`linux/CMakeLists.txt`) — 32-bit bring-up client (DACOM/ReadFile/x86math upstream wrapper TUs + Linux entry/stubs), currently implements M8.1/M8.2 init scope; non-32-bit fallback stub preserved for tools presets
 - Upstream TU config helper: `fl_upstream_tu_iface` INTERFACE target in `linux/CMakeLists.txt` (shared include dirs/defs for guarded 32-bit upstream wrapper consumers)
-- Entry/stub/shim sources: `linux/src/client_entry_m81.cpp`, `linux/src/client_stubs_m81.cpp`, `linux/include/linux_port/win32_user.h`
+- Entry/stub/shim sources: `linux/src/linux_client_main.cpp` (M8.2 core init flow), `linux/src/linux_client_stubs.cpp`, `linux/include/linux_port/win32_user.h`
 - Dependency graph: `linux/docs/vcxproj-dependency-graph.json`, `linux/docs/vcxproj-dependency-graph.md` (refreshed in M8.0)
 - Smoke-test script: (to be created in M8.6)
 - Known-stubs/deviations list: (this document, section above)

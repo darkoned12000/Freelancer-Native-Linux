@@ -195,22 +195,31 @@ Treat it as a multi-stage siege. Sub-phases M8.0–M8.6 are tracked below.
     - [x] Added skeleton target in `linux/CMakeLists.txt` with minimal Linux stub TU (`linux/src/freelancer_client_stub.cpp`), no upstream `src/freelancer` TUs yet (M8.1 expansion)
 - [x] **M8.1 — Minimal linkable client skeleton**
   - [x] Create Linux entry point replacing/wrapping `WinMain`
-    - [x] Added `linux/src/client_entry_m81.cpp` (`main`) as the Linux process-entry wrapper for `freelancer_linux_client` (M8.1 skeleton), with startup logging, `/proc/self/exe`-first path resolution, and best-effort `bin/DACOM.INI` cwd selection; structured to invoke/wrap upstream `WinMain` in later bring-up
+    - [x] Added `linux/src/linux_client_main.cpp` (`main`) as the Linux process-entry wrapper for `freelancer_linux_client` (M8.1 skeleton), with startup logging, `/proc/self/exe`-first path resolution, and best-effort `bin/DACOM.INI` cwd selection; structured to invoke/wrap upstream `WinMain` in later bring-up
   - [x] Pull in absolute minimum objects for process start + DACOM acquisition
     - [x] 32-bit `freelancer_linux_client` links minimal upstream wrapper TUs for DACOM/ReadFile/x86math (`fl_upstream_dacom_tu`, `fl_upstream_readfile_tu`, `fl_upstream_x86math_tu`) plus port/platform libs; acquires DACOM manager at startup
   - [x] Wire explicit DACOM/ReadFile/x86math registration hooks
-    - [x] Installs FDUMP bridge and performs explicit dependency-ordered registration/init hooks (DACOM built-ins, ReadFile, x86math) in `client_entry_m81.cpp`; x86math registration failure is treated as fatal
+    - [x] Installs FDUMP bridge and performs explicit dependency-ordered registration/init hooks (DACOM built-ins, ReadFile, x86math) in `linux_client_main.cpp`; x86math registration failure is treated as fatal
   - [x] Stub/no-op every not-yet-implemented call (movies, EULA, registry writes, etc.)
-    - [x] Added `linux/src/client_stubs_m81.cpp` with logged no-op stubs/placeholders for movies, EULA gate bypass, registry-write no-op marker, and generic not-implemented marker; added `linux/include/linux_port/win32_user.h` (decls via `windows.h`) and C-linkage Win32 bootstrap stubs (`ShowCursor` count semantics, `SetForegroundWindow`, `SetFocus`, `UpdateWindow`) for M8.2 linkage compatibility
+    - [x] Added `linux/src/linux_client_stubs.cpp` with logged no-op stubs/placeholders for movies, EULA gate bypass, registry-write no-op marker, and generic not-implemented marker; added `linux/include/linux_port/win32_user.h` (decls via `windows.h`) and C-linkage Win32 bootstrap stubs (`ShowCursor` count semantics, `SetForegroundWindow`, `SetFocus`, `UpdateWindow`) for M8.2 linkage compatibility
   - [x] Resolve path resolution, logging (FDUMP bridge), basic timing/threading
     - [x] Startup uses `fl_port` logging + upstream DACOM FDUMP bridge, path/cwd resolution helpers for bin-context startup, and existing port/platform shim primitives for timing/threading
   - [x] Acceptance: binary links and reaches entry point without crashing
     - [x] `cmake --build linux/build-x86 --target freelancer_linux_client -j4` links successfully; running `linux/build-x86/freelancer_linux_client` reaches entry, completes DACOM/ReadFile/x86math init, and exits cleanly (code 0)
-- [ ] **M8.2 — Core engine initialization**
-  - [ ] Drive real initialization sequence used by original client
-  - [ ] Make `bin/DACOM.INI` + `freelancer.ini` + `DATA/` loading work end-to-end through client code paths
-  - [ ] Resolve remaining path/search-path/BINI loading issues appearing only under full client
-  - [ ] Acceptance: DACOM component system initializes, core components created, config/DATA loading succeeds
+- [~] **M8.2 — Core engine initialization** (bring-up prototype complete; upstream client/library TU linkage pending)
+  - [~] Drive real initialization sequence used by original client
+    - [x] `freelancer_linux_client` (32-bit) follows a client-oriented early/core init sequence in `linux/src/linux_client_main.cpp`: startup path/bin-context resolution, FDUMP bridge, DACOM acquisition, explicit core registrations (DACOM built-ins/ReadFile/x86math), DACOM config load, freelancer config/data-path resolution, core component creation, `IFileSystem` checks, and config/DATA access validation
+    - [x] Integration gate prep started: added/build-validated 32-bit static targets `fl_upstream_zlib` and `fl_upstream_qhull` in `linux/CMakeLists.txt`
+    - [ ] Pending: compile/link and invoke real upstream client/library initialization paths (e.g. `DALib`, `Common`, `EngBase`/`system`, `src/freelancer/Client/main.cpp`, `engine_init.cpp`) instead of bring-up-only init logic
+  - [~] Make `bin/DACOM.INI` + `freelancer.ini` + `DATA/` loading work end-to-end through client code paths
+    - [x] Bring-up path resolves/loads `bin/DACOM.INI` (effective explicit-registration config) and `bin/freelancer.ini`, derives `[Freelancer].data path`, resolves DATA root, creates `FileSystem/DOS`, exercises `IFileSystem` (`GetCurrentPath`/`GetPathAttributes`), and reads key config/data files via Linux-compatible path resolution + Win32 file shim paths
+    - [ ] Pending: validate and drive the same loading through compiled upstream client/DALib/Common code paths (INI/BINI/UTF/search-path behavior) rather than bring-up helper logic
+  - [~] Resolve remaining path/search-path/BINI loading issues appearing only under full client
+    - [x] Addressed for current bring-up scope (case-insensitive/backslash path resolution, bin/DATA root derivation, `IFileSystem` attribute checks, key DATA file reads)
+    - [ ] Pending: full-client-only path/search/BINI issues to be discovered/fixed when upstream client/library TUs are compiled and linked
+  - [~] Acceptance: DACOM component system initializes, core components created, config/DATA loading succeeds
+    - [x] Bring-up acceptance (prototype): `./linux/build-x86/freelancer_linux_client` initializes DACOM, creates `FileSystem/DOS`, exercises `IFileSystem`, resolves/loads `DACOM.INI`+`freelancer.ini`+key `DATA` files, and exits cleanly (code 0)
+    - [ ] Full M8.2 acceptance pending upstream client/library TU linkage and validation through real client code paths
 - [ ] **M8.3 — Window + input + render hookup**
   - [ ] Replace/adapt original window creation and message pump to use `fl_port::Window`
   - [ ] Map client input expectations onto SDL3 → VK mapping

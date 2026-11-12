@@ -263,6 +263,53 @@ if(FL_LINUX_BUILD_TOOLS)
     add_library(fl_upstream_x86math_tu OBJECT tests/upstream_x86math_tu.cpp)
     target_link_libraries(fl_upstream_x86math_tu PRIVATE fl_linux_port_platform fl_linux_port_path fl_upstream_tu_iface)
 
+    # M8.2 integration gate prep: leaf upstream libs (no Win32 API deps)
+    add_library(fl_upstream_zlib STATIC
+      "${FL_SRC_ROOT}/zlib/vendor/adler32.c"
+      "${FL_SRC_ROOT}/zlib/vendor/compress.c"
+      "${FL_SRC_ROOT}/zlib/vendor/crc32.c"
+      "${FL_SRC_ROOT}/zlib/vendor/deflate.c"
+      "${FL_SRC_ROOT}/zlib/vendor/gzclose.c"
+      "${FL_SRC_ROOT}/zlib/vendor/gzlib.c"
+      "${FL_SRC_ROOT}/zlib/vendor/gzread.c"
+      "${FL_SRC_ROOT}/zlib/vendor/gzwrite.c"
+      "${FL_SRC_ROOT}/zlib/vendor/inffast.c"
+      "${FL_SRC_ROOT}/zlib/vendor/inflate.c"
+      "${FL_SRC_ROOT}/zlib/vendor/inftrees.c"
+      "${FL_SRC_ROOT}/zlib/vendor/trees.c"
+      "${FL_SRC_ROOT}/zlib/vendor/uncompr.c"
+      "${FL_SRC_ROOT}/zlib/vendor/zutil.c"
+      "${FL_SRC_ROOT}/zlib/vendor/minizip/ioapi.c"
+      "${FL_SRC_ROOT}/zlib/vendor/minizip/unzip.c"
+      "${FL_SRC_ROOT}/zlib/vendor/minizip/zip.c"
+      "${FL_SRC_ROOT}/zlib/zlib_version_compat.c"
+    )
+    target_include_directories(fl_upstream_zlib PRIVATE
+      "${FL_SRC_ROOT}/zlib/vendor"
+      "${FL_SRC_ROOT}/zlib/vendor/minizip"
+    )
+    target_compile_definitions(fl_upstream_zlib PRIVATE ZLIB_WINAPI _CRT_NONSTDC_NO_DEPRECATE _LARGEFILE64_SOURCE=1)
+    target_compile_options(fl_upstream_zlib PRIVATE -w -Wno-implicit-function-declaration)
+
+    add_library(fl_upstream_qhull STATIC
+      "${FL_SRC_ROOT}/qhull/vendor/geom.c"
+      "${FL_SRC_ROOT}/qhull/vendor/geom2.c"
+      "${FL_SRC_ROOT}/qhull/vendor/global.c"
+      "${FL_SRC_ROOT}/qhull/vendor/io.c"
+      "${FL_SRC_ROOT}/qhull/vendor/mem.c"
+      "${FL_SRC_ROOT}/qhull/vendor/merge.c"
+      "${FL_SRC_ROOT}/qhull/vendor/poly.c"
+      "${FL_SRC_ROOT}/qhull/vendor/poly2.c"
+      "${FL_SRC_ROOT}/qhull/vendor/qhull.c"
+      "${FL_SRC_ROOT}/qhull/vendor/qset.c"
+      "${FL_SRC_ROOT}/qhull/vendor/stat.c"
+      "${FL_SRC_ROOT}/qhull/vendor/user.c"
+    )
+    target_include_directories(fl_upstream_qhull PRIVATE "${FL_SRC_ROOT}/qhull/vendor")
+    target_compile_definitions(fl_upstream_qhull PRIVATE _CRT_SECURE_NO_WARNINGS _CRT_NONSTDC_NO_DEPRECATE)
+    target_compile_options(fl_upstream_qhull PRIVATE -w)
+
+
     add_executable(m3_math_data_tests
       tests/m3_math_data_tests.cpp
       $<TARGET_OBJECTS:fl_upstream_dacom_tu>
@@ -271,12 +318,12 @@ if(FL_LINUX_BUILD_TOOLS)
     )
     target_link_libraries(m3_math_data_tests PRIVATE fl_linux_port_platform fl_linux_port_path fl_upstream_tu_iface)
 
-    # M8.1 — minimal linkable client skeleton (32-bit): Linux entry/wrapper + DACOM acquisition
-    # + explicit registration hooks, linked with upstream DACOM/ReadFile/x86math wrapper TUs.
-    # Upstream src/freelancer TUs are not linked yet (M8.2+).
+    # M8.1/M8.2 — Linux client bring-up executable (32-bit): entry + stubs + upstream
+    # DACOM/ReadFile/x86math wrapper TUs. Upstream src/freelancer/DALib/Common engine
+    # TUs are not yet linked (integration gate for true M8.2/M8.3 per review).
     add_executable(freelancer_linux_client
-      src/client_entry_m81.cpp
-      src/client_stubs_m81.cpp
+      src/linux_client_main.cpp
+      src/linux_client_stubs.cpp
       $<TARGET_OBJECTS:fl_upstream_dacom_tu>
       $<TARGET_OBJECTS:fl_upstream_readfile_tu>
       $<TARGET_OBJECTS:fl_upstream_x86math_tu>
