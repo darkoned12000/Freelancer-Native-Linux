@@ -164,6 +164,19 @@ is follow-on work in M8/M11.
 compilation and full engine integration). M7 validates that all platform subsystems
 are ready to support the game client once it is compiled for Linux.
 
+- [x] Stability and crash/hang fixes across representative gameplay scenarios (bring-up/harness scope)
+  - [x] Null checks, error handling, and graceful degradation in all subsystems; harnesses validate clean shutdown
+- [x] Performance profiling and fixes (CPU/GPU/frame pacing) (bring-up/harness scope)
+  - [x] Frame timing metrics in RenderPipeline (avg/last frame ms); `yield_cpu` gating to avoid micro-stutter; VSync via FIFO present mode
+- [x] Audio correctness/latency/mixing verification (bring-up/harness scope)
+  - [x] Null audio backend validates init/play/stop/volume/clamping; real audio backend is follow-on
+- [x] Display/input modes (fullscreen/windowed, controller support as applicable) (bring-up/harness scope)
+  - [x] `Window::set_fullscreen`/`toggle_fullscreen`/`set_windowed`; controller detection via SDL gamepad API (hotplug)
+- [x] Packaging/install/run documentation and dependency guidance
+  - [x] `linux/docs/packaging-install-run.md` with dependencies, build, run, install, XDG, and known limitations
+- [x] Final compatibility and regression verification (bring-up/harness scope)
+  - [x] `m7_release_harness` validates all subsystems (audio, XDG, window, render, input, controllers, performance, binary existence) — PASS on 64-bit and 32-bit
+
 ## M8 — Game client compilation (native ELF)
 
 **Acceptance target:** The Freelancer game client (`src/freelancer`) compiles and links as a native Linux ELF executable against the Linux platform shims, and reaches a controlled early boot point.
@@ -171,11 +184,15 @@ are ready to support the game client once it is compiled for Linux.
 **Status note:** This is the transition from isolated harnesses to the real engine client.
 Treat it as a multi-stage siege. Sub-phases M8.0–M8.6 are tracked below.
 
-- [ ] **M8.0 — Preparation & inventory**
-  - [ ] Generate/refresh full dependency graph of client and immediate dependencies (freelancer + Content, Common, EngBase, system, RP8/RendComp/Shading, SoundManager, etc.)
-  - [ ] Identify every remaining Win32/MSVC/COM/resource/registry/DirectX call site not yet covered by shims
-  - [ ] Decide static-link vs hybrid (static first for first successful binary)
-  - [ ] Create dedicated CMake target `freelancer_linux_client` starting with minimal translation units
+- [x] **M8.0 — Preparation & inventory**
+  - [x] Generate/refresh full dependency graph of client and immediate dependencies (freelancer + Content, Common, EngBase, system, RP8/RendComp/Shading, SoundManager, etc.)
+    - [x] Refreshed `linux/docs/vcxproj-dependency-graph.{json,md}` (39 projects) and documented client/immediate/runtime dependency focus in `linux/docs/m8-client-integration.md`
+  - [x] Identify every remaining Win32/MSVC/COM/resource/registry/DirectX call site not yet covered by shims
+    - [x] Added categorized inventory with representative call sites and shim-gap actions in `linux/docs/m8-client-integration.md` (M8.0; to be refined as M8.1+ compiles upstream code)
+  - [x] Decide static-link vs hybrid (static first for first successful binary)
+    - [x] Decision documented in `linux/docs/m8-client-integration.md`: static-link first for initial `freelancer_linux_client` bring-up
+  - [x] Create dedicated CMake target `freelancer_linux_client` starting with minimal translation units
+    - [x] Added skeleton target in `linux/CMakeLists.txt` with minimal Linux stub TU (`linux/src/freelancer_client_stub.cpp`), no upstream `src/freelancer` TUs yet (M8.1 expansion)
 - [ ] **M8.1 — Minimal linkable client skeleton**
   - [ ] Create Linux entry point replacing/wrapping `WinMain`
   - [ ] Pull in absolute minimum objects for process start + DACOM acquisition
@@ -211,7 +228,7 @@ Treat it as a multi-stage siege. Sub-phases M8.0–M8.6 are tracked below.
 
 **Risk hotspots:** hidden global constructors/static init order; remaining COM/QueryInterface usage assuming Windows apartment or vtable layouts; resource loading (.rc/string tables/cursors); code assuming HWND is a real window handle or classic Win32 message pump; float/math edge cases only under full client; 32-bit library availability.
 
-**Artifacts to produce:** `linux/docs/m8-client-integration.md` (living doc), `freelancer_linux` CMake target as single source of truth, smoke-test script, known-stubs/deviations list.
+**Artifacts to produce:** `linux/docs/m8-client-integration.md` (living doc), `freelancer_linux_client` CMake target as single source of truth, smoke-test script, known-stubs/deviations list.
 
 
 ## M9 — Full render pipeline (D3D8 compat or native)
@@ -264,19 +281,6 @@ Treat it as a multi-stage siege. Sub-phases M8.0–M8.6 are tracked below.
 - [ ] Packaging (AppImage/flatpak/tarball) and install/run documentation
 - [ ] Final compatibility and regression verification
 - [ ] Acceptance: playable native Linux experience, no Wine/Proton
-
-- [x] Stability and crash/hang fixes across representative gameplay scenarios (bring-up/harness scope)
-  - [x] Null checks, error handling, and graceful degradation in all subsystems; harnesses validate clean shutdown
-- [x] Performance profiling and fixes (CPU/GPU/frame pacing) (bring-up/harness scope)
-  - [x] Frame timing metrics in RenderPipeline (avg/last frame ms); `yield_cpu` gating to avoid micro-stutter; VSync via FIFO present mode
-- [x] Audio correctness/latency/mixing verification (bring-up/harness scope)
-  - [x] Null audio backend validates init/play/stop/volume/clamping; real audio backend is follow-on
-- [x] Display/input modes (fullscreen/windowed, controller support as applicable) (bring-up/harness scope)
-  - [x] `Window::set_fullscreen`/`toggle_fullscreen`/`set_windowed`; controller detection via SDL gamepad API (hotplug)
-- [x] Packaging/install/run documentation and dependency guidance
-  - [x] `linux/docs/packaging-install-run.md` with dependencies, build, run, install, XDG, and known limitations
-- [x] Final compatibility and regression verification (bring-up/harness scope)
-  - [x] `m7_release_harness` validates all subsystems (audio, XDG, window, render, input, controllers, performance, binary existence) — PASS on 64-bit and 32-bit
 
 ---
 

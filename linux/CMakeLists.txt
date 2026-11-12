@@ -193,6 +193,16 @@ if(FL_LINUX_BUILD_TOOLS)
     message(STATUS "m7_release_harness not built (requires usable target sdl3 and vulkan libraries)")
   endif()
 
+  # M8.0 — preparation/inventory skeleton for native client bring-up.
+  # Intentionally minimal: no upstream src/freelancer TUs linked yet (M8.1+).
+  # M8.1 note: when upstream src/freelancer TUs are linked, gate this target under
+  # if(FL_LINUX_32BIT) (with a STATUS skip when OFF) because upstream wrappers/TUs
+  # rely on 32-bit x86 layouts/ABIs. Keep unconditional for M8.0 stub to preserve
+  # linux-x64/linux-x86 preset builds.
+  add_executable(freelancer_linux_client src/freelancer_client_stub.cpp)
+  target_link_libraries(freelancer_linux_client PRIVATE fl_linux_port_platform fl_linux_port_path)
+  target_include_directories(freelancer_linux_client PRIVATE ${FL_LINUX_INCLUDE_DIR})
+
   # Standalone #4 Wayland/SDL3/Vulkan presentation PoC (scaffold; requires deps)
   if(FL_SDL3_USABLE AND FL_VULKAN_USABLE)
     add_executable(gfx_wayland_poc tests/gfx_wayland_poc.cpp)
