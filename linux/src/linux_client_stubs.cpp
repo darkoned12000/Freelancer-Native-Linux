@@ -1,6 +1,6 @@
-// M8.1 stub/no-op surface for not-yet-implemented client bring-up calls.
+// M8.1/M8.4 stub/no-op surface for not-yet-implemented client bring-up calls.
 // Keep stubs minimal, deterministic, and logged so missing behavior is visible.
-// Expand incrementally as upstream TUs are linked in M8.1+.
+// Expand incrementally as upstream TUs are linked.
 
 #include "linux_port/platform.h"
 
@@ -9,17 +9,49 @@
 #endif
 
 #include <cstdint>
+#include <string>
 
 extern "C" {
 
 // Movies / cutscenes (DirectShow/Bink/etc. placeholders)
-int fl_stub_movie_play(const char* /*path*/) {
-  fl_port::log_message(fl_port::LogLevel::Warning, "[stub] movie play requested (no-op)");
+int fl_stub_movie_play(const char* path) {
+  fl_port::log_message(fl_port::LogLevel::Warning,
+                       std::string("[stub] movie play requested (bypassed/no-op): ") + (path ? path : "(null)"));
   return 0;
 }
 int fl_stub_movie_stop(void) {
   fl_port::log_message(fl_port::LogLevel::Debug, "[stub] movie stop (no-op)");
   return 0;
+}
+int fl_stub_movie_is_playing(void) {
+  return 0;
+}
+
+// DirectShow/WMV bring-up blockers: deterministic bypass stubs (no playback)
+int fl_stub_directshow_playback(const char* path) {
+  fl_port::log_message(fl_port::LogLevel::Warning,
+                       std::string("[stub] DirectShow playback bypassed (no-op): ") + (path ? path : "(null)"));
+  return 0;
+}
+
+// IME blockers: stub minimal enable/disable/focus hooks for boot/menu bring-up
+int fl_stub_ime_enable(int enable) {
+  fl_port::log_message(fl_port::LogLevel::Debug,
+                       std::string("[stub] IME ") + (enable ? "enabled" : "disabled") + " (no-op)");
+  return 1;
+}
+int fl_stub_ime_set_focus(int focused) {
+  fl_port::log_message(fl_port::LogLevel::Debug,
+                       std::string("[stub] IME focus ") + (focused ? "gained" : "lost") + " (no-op)");
+  return 1;
+}
+void* fl_stub_ime_get_context(void* hwnd) {
+  (void)hwnd;
+  return nullptr;
+}
+int fl_stub_ime_release_context(void* hwnd, void* himc) {
+  (void)hwnd; (void)himc;
+  return 1;
 }
 
 // EULA / UI gating placeholders
@@ -28,9 +60,9 @@ int fl_stub_eula_accepted(void) {
   return 1;
 }
 
-// Registry write placeholders (persistence handled later via XDG-backed shims)
+// Registry write placeholders (legacy marker; Win32 Reg* APIs are XDG-backed in win32_registry.h)
 long fl_stub_registry_write_noop(void) {
-  fl_port::log_message(fl_port::LogLevel::Debug, "[stub] registry write ignored (no-op)");
+  fl_port::log_message(fl_port::LogLevel::Debug, "[stub] legacy registry write marker (no-op)");
   return 0; // ERROR_SUCCESS-like
 }
 
@@ -60,6 +92,14 @@ BOOL WINAPI SetForegroundWindow(HWND /*hWnd*/) { return TRUE; }
 HWND WINAPI SetFocus(HWND hWnd) { return hWnd; }
 
 BOOL WINAPI UpdateWindow(HWND /*hWnd*/) { return TRUE; }
+
+// Minimal Win32 calls often hit during boot/menu bring-up (no real window manager semantics)
+HWND WINAPI GetFocus(void) { return nullptr; }
+HWND WINAPI GetForegroundWindow(void) { return nullptr; }
+BOOL WINAPI IsWindow(HWND /*hWnd*/) { return TRUE; }
+BOOL WINAPI ShowWindow(HWND /*hWnd*/, int /*nCmdShow*/) { return TRUE; }
+BOOL WINAPI EnableWindow(HWND /*hWnd*/, BOOL /*bEnable*/) { return TRUE; }
+BOOL WINAPI DestroyWindow(HWND /*hWnd*/) { return TRUE; }
 
 } // extern "C"
 

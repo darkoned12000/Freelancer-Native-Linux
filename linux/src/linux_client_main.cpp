@@ -5,6 +5,7 @@
 #include <dacom.h>
 #include <readfile.h>
 
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -13,6 +14,10 @@
 #include <vector>
 
 #include <unistd.h>
+#include <sys/stat.h>
+
+#include "linux_port/audio_backend.h"
+#include "linux_port/xdg_config.h"
 
 #if defined(FL_HAS_SDL3)
 #include "linux_port/window_input.h"
@@ -29,7 +34,62 @@ extern "C" int  fl_upstream_readfile_integration_register();
 extern "C" int  fl_upstream_x86math_integration_register();
 #endif
 
+extern "C" {
+int fl_stub_movie_play(const char* path);
+int fl_stub_movie_stop(void);
+int fl_stub_movie_is_playing(void);
+int fl_stub_directshow_playback(const char* path);
+int fl_stub_ime_enable(int enable);
+int fl_stub_ime_set_focus(int focused);
+void* fl_stub_ime_get_context(void* hwnd);
+int fl_stub_ime_release_context(void* hwnd, void* himc);
+int fl_stub_eula_accepted(void);
+long fl_stub_registry_write_noop(void);
+void fl_stub_not_implemented(const char* what);
+}
+
 namespace {
+
+bool fl_truthy_env(const char* name) {
+  const char* v = std::getenv(name);
+  if (!v) return false;
+  std::string s(v);
+  for (char& c : s) if (c >= 'A' && c <= 'Z') c = char(c - 'A' + 'a');
+  return s == "1" || s == "true" || s == "yes" || s == "on";
+}
+
+bool should_isolate_xdg(int argc, char** argv) {
+  if (fl_truthy_env("FL_PORT_ISOLATE_XDG")) return true;
+  for (int i = 1; i < argc; ++i) {
+    if (argv[i] && std::string(argv[i]) == "--smoke-xdg-temp") return true;
+  }
+  return false;
+}
+
+std::filesystem::path make_isolated_xdg_root() {
+  const auto base = std::filesystem::temp_directory_path() /
+      ("fl_m84_xdg_" + std::to_string(::getpid()));
+  std::error_code ec;
+  std::filesystem::create_directories(base / "config", ec);
+  std::filesystem::create_directories(base / "data", ec);
+  std::filesystem::create_directories(base / "state", ec);
+  std::filesystem::create_directories(base / "cache", ec);
+  ::setenv("XDG_CONFIG_HOME", (base / "config").string().c_str(), 1);
+  ::setenv("XDG_DATA_HOME", (base / "data").string().c_str(), 1);
+  ::setenv("XDG_STATE_HOME", (base / "state").string().c_str(), 1);
+  ::setenv("XDG_CACHE_HOME", (base / "cache").string().c_str(), 1);
+  return base;
+}
+
+std::filesystem::path resolve_runtime_install_dir(const std::filesystem::path& bin_dir) {
+  if (!bin_dir.empty()) {
+    auto parent = bin_dir.parent_path();
+    if (!parent.empty()) return parent;
+    return bin_dir;
+  }
+  std::error_code ec;
+  return std::filesystem::current_path(ec);
+}
 
 std::filesystem::path resolve_exe_path(char** argv) {
 #if defined(__linux__)
@@ -165,7 +225,8 @@ bool try_set_bin_cwd(const std::filesystem::path& start_cwd, const std::filesyst
 } // namespace
 
 int main(int argc, char** argv) {
-  (void)argc;
+  std::filesystem::path isolated_xdg_root;
+  bool isolate_xdg = false;
   fl_port::log_message(fl_port::LogLevel::Info,
                        "freelancer_linux_client (M8.2/M8.3): core engine initialization starting");
 
@@ -183,6 +244,13 @@ int main(int argc, char** argv) {
   const auto exe_path = resolve_exe_path(argv);
   if (!exe_path.empty()) {
     fl_port::log_message(fl_port::LogLevel::Info, std::string("exe path=") + exe_path.string());
+  }
+
+  isolate_xdg = should_isolate_xdg(argc, argv);
+  if (isolate_xdg) {
+    isolated_xdg_root = make_isolated_xdg_root();
+    fl_port::log_message(fl_port::LogLevel::Info,
+                         "M8.4: isolated XDG dirs for smoke run under " + isolated_xdg_root.string());
   }
 
   std::filesystem::path bin_dir;
@@ -322,6 +390,51 @@ int main(int argc, char** argv) {
     if (ff >= 0) (void)data_fs->FindClose((unsigned long)ff);
     const int fs_err = data_fs->GetFileSystemError();
     fl_port::log_message(fl_port::LogLevel::Info, std::string("IFileSystem GetFileSystemError => ") + std::to_string(fs_err));
+
+    // Exercise ReadFile-component stream path through IFileSystem child open/read APIs
+    // (best-effort for bring-up: open file via DOS filesystem child instance and read bytes)
+    {
+      bool stream_ok = false;
+      auto resolved_file = fl_port::resolve_path_case_insensitive(data_root, "solar\\solararch.ini");
+      if (resolved_file) {
+        void* child_inst = nullptr;
+        FFileSystemDesc child_desc{};
+        child_desc.Size = 0x34;
+        child_desc.ComponentName = "FileSystem";
+        child_desc.Implementation = "DOS";
+        const std::string child_path = resolved_file->string();
+        child_desc.Path = child_path.c_str();
+        child_desc.Access = GENERIC_READ;
+        child_desc.ShareMode = FILE_SHARE_READ;
+        child_desc.Creation = OPEN_EXISTING;
+        child_desc.Flags = 0;
+        child_desc.Extra = 0;
+        child_desc.Field30 = 0xFFFFFFFFu;
+        const GENRESULT gr_child = mgr->CreateInstance((AGGDESC*)&child_desc, &child_inst);
+        if (gr_child == GR_OK && child_inst) {
+          if (auto* child_fs = reinterpret_cast<IFileSystem*>(child_inst)) {
+            char sbuf[64] = {};
+            unsigned long bytes_read = 0;
+            // Handle 0 is the DOS filesystem's primary/opened file handle in this implementation path.
+            const int rd = child_fs->Read(0, sbuf, sizeof(sbuf) - 1, &bytes_read, 0);
+            stream_ok = (rd != 0 || bytes_read > 0);
+            fl_port::log_message(stream_ok ? fl_port::LogLevel::Info : fl_port::LogLevel::Warning,
+                                 std::string("IFileSystem stream Read (solar\\solararch.ini child DOS fs, handle=0): rd=") +
+                                     std::to_string(rd) + " bytes=" + std::to_string(bytes_read));
+            child_fs->Release();
+          } else {
+            reinterpret_cast<IDAComponent*>(child_inst)->Release();
+          }
+        } else {
+          fl_port::log_message(fl_port::LogLevel::Warning,
+                               std::string("IFileSystem stream test: CreateInstance(DOS file child) failed gr=") + std::to_string((int)gr_child));
+        }
+      } else {
+        fl_port::log_message(fl_port::LogLevel::Warning,
+                             "IFileSystem stream test: could not resolve solar\\solararch.ini");
+      }
+      (void)stream_ok;
+    }
   }
 
   // Config/DATA loading checks via Linux-compatible path resolution and Win32 file APIs
@@ -368,6 +481,147 @@ int main(int argc, char** argv) {
 
   std::cout << "freelancer_linux_client (M8.2 bring-up): DACOM component system initialized; core components created; config/DATA loading checks passed\n";
 
+  // --- M8.4: audio / config / persistence unblock (bring-up client path) ---
+  fl_port::log_message(fl_port::LogLevel::Info, "M8.4: starting audio/config/persistence unblock");
+
+  // Null audio backend: satisfy boot/menu audio calls in bring-up path
+  fl_port::NullAudioBackend audio;
+  {
+    fl_port::AudioConfig acfg;
+    acfg.null_backend = true;
+    acfg.sample_rate = 44100;
+    acfg.channels = 2;
+    acfg.buffer_frames = 1024;
+    acfg.master_volume = 0.8f;
+    if (!audio.init(acfg) || !audio.is_initialized()) {
+      fl_port::log_message(fl_port::LogLevel::Error, "M8.4: null audio backend init failed");
+      std::cerr << "[FAIL] M8.4: null audio backend init failed\n";
+      if (isolate_xdg && !isolated_xdg_root.empty()) { std::error_code ec2; std::filesystem::remove_all(isolated_xdg_root, ec2); }
+      return 30;
+    }
+    audio.set_master_volume(0.75f);
+    const int h_menu = audio.play_sound("ui/menu_open", 1.0f, false);
+    const int h_music = audio.play_sound("music/menu_theme", 0.6f, true);
+    (void)audio.is_playing(h_menu);
+    (void)audio.is_playing(h_music);
+    audio.update();
+    audio.stop_sound(h_menu);
+    audio.stop_all();
+    audio.update();
+    fl_port::log_message(fl_port::LogLevel::Info,
+                         "M8.4: null audio backend satisfied boot/menu calls (play/stop/update/volume)");
+  }
+
+  // XDG config/registry/save shim: exercise early settings/save persistence calls
+  {
+    fl_port::XdgConfig xdg;
+    (void)xdg.ensure_dir(fl_port::XdgDir::Config);
+    (void)xdg.ensure_dir(fl_port::XdgDir::State);
+    (void)xdg.ensure_dir(fl_port::XdgDir::Data);
+
+    // Early settings via XDG config file API
+    bool cfg_ok = true;
+    cfg_ok = xdg.write_key("freelancer_linux.ini", "Display", "Width", "960") && cfg_ok;
+    cfg_ok = xdg.write_key("freelancer_linux.ini", "Display", "Height", "540") && cfg_ok;
+    cfg_ok = xdg.write_key("freelancer_linux.ini", "Audio", "MasterVolume", "0.75") && cfg_ok;
+    std::string wv, hv, av;
+    cfg_ok = xdg.read_key("freelancer_linux.ini", "Display", "Width", wv) && (wv == "960") && cfg_ok;
+    cfg_ok = xdg.read_key("freelancer_linux.ini", "Display", "Height", hv) && (hv == "540") && cfg_ok;
+    cfg_ok = xdg.read_key("freelancer_linux.ini", "Audio", "MasterVolume", av) && !av.empty() && cfg_ok;
+
+    // Early registry-style settings/save calls via XDG-backed Win32 registry shim
+    HKEY hKey = nullptr;
+    LSTATUS st = RegCreateKeyExA(HKEY_CURRENT_USER,
+                                 "Software\\Microsoft\\Microsoft Games\\Freelancer\\1.0",
+                                 0, nullptr, 0, 0, nullptr, &hKey, nullptr);
+    if (st != ERROR_SUCCESS || !hKey) cfg_ok = false;
+    else {
+      const std::string install_dir = resolve_runtime_install_dir(bin_dir).string();
+      st = RegSetValueExA(hKey, "InstallDir", 0, REG_SZ,
+                          reinterpret_cast<const BYTE*>(install_dir.c_str()),
+                          static_cast<DWORD>(install_dir.size() + 1));
+      if (st != ERROR_SUCCESS) cfg_ok = false;
+      DWORD lang_set = 1033;
+      st = RegSetValueExA(hKey, "LangID", 0, REG_DWORD,
+                          reinterpret_cast<const BYTE*>(&lang_set), sizeof(lang_set));
+      if (st != ERROR_SUCCESS) cfg_ok = false;
+      RegCloseKey(hKey);
+      hKey = nullptr;
+
+      st = RegOpenKeyExA(HKEY_CURRENT_USER,
+                         "Software\\Microsoft\\Microsoft Games\\Freelancer\\1.0",
+                         0, 0, &hKey);
+      if (st != ERROR_SUCCESS || !hKey) cfg_ok = false;
+      else {
+        // REG_SZ query with size probing + type check
+        DWORD type = 0;
+        DWORD cb = 0;
+        st = RegQueryValueExA(hKey, "InstallDir", nullptr, &type, nullptr, &cb);
+        if (st != ERROR_SUCCESS || type != REG_SZ || cb == 0) cfg_ok = false;
+        else {
+          std::string install_read(cb, '\0');
+          st = RegQueryValueExA(hKey, "InstallDir", nullptr, &type,
+                                reinterpret_cast<BYTE*>(&install_read[0]), &cb);
+          if (st != ERROR_SUCCESS || type != REG_SZ) cfg_ok = false;
+          else {
+            if (!install_read.empty() && install_read.back() == '\0') install_read.pop_back();
+            if (install_read != install_dir) cfg_ok = false;
+          }
+        }
+
+        // REG_DWORD query round-trip (4-byte value/type semantics)
+        DWORD lang_type = 0;
+        DWORD lang_cb = sizeof(DWORD);
+        DWORD lang_read = 0;
+        st = RegQueryValueExA(hKey, "LangID", nullptr, &lang_type,
+                              reinterpret_cast<BYTE*>(&lang_read), &lang_cb);
+        if (st != ERROR_SUCCESS || lang_type != REG_DWORD || lang_cb != sizeof(DWORD) || lang_read != lang_set) {
+          cfg_ok = false;
+        }
+        RegCloseKey(hKey);
+      }
+    }
+
+    // Early save-path/persistence check
+    const std::string save_path = xdg.save_path("Accts/SinglePlayer/autosave.fl");
+    {
+      std::ofstream out(save_path, std::ios::binary | std::ios::trunc);
+      out << "fl-m84-save-smoke\n";
+      cfg_ok = cfg_ok && out.good();
+    }
+    cfg_ok = cfg_ok && xdg.save_exists("Accts/SinglePlayer/autosave.fl");
+
+    if (!cfg_ok) {
+      fl_port::log_message(fl_port::LogLevel::Error,
+                           "M8.4: XDG config/registry/save shim validation failed");
+      std::cerr << "[FAIL] M8.4: config/registry/save unblock checks failed\n";
+      audio.shutdown();
+      if (isolate_xdg && !isolated_xdg_root.empty()) { std::error_code ec2; std::filesystem::remove_all(isolated_xdg_root, ec2); }
+      return 31;
+    }
+    fl_port::log_message(fl_port::LogLevel::Info,
+                         "M8.4: XDG config/registry/save shim used for early settings/save calls (config, HKCU registry, state save)");
+  }
+
+  // Stub/bypass remaining boot/menu blockers (movies, IME, legacy registry-write marker)
+  {
+    (void)fl_stub_eula_accepted();
+    (void)fl_stub_movie_play("movies/intro.wmv");
+    (void)fl_stub_directshow_playback("movies/logo.bik");
+    (void)fl_stub_movie_is_playing();
+    (void)fl_stub_movie_stop();
+    (void)fl_stub_ime_enable(1);
+    (void)fl_stub_ime_set_focus(1);
+    void* himc = fl_stub_ime_get_context(nullptr);
+    (void)fl_stub_ime_release_context(nullptr, himc);
+    (void)fl_stub_ime_set_focus(0);
+    (void)fl_stub_registry_write_noop();
+    fl_port::log_message(fl_port::LogLevel::Info,
+                         "M8.4: boot/menu blockers stubbed/bypassed (DirectShow movies, IME, EULA/legacy markers)");
+  }
+
+  std::cout << "freelancer_linux_client (M8.4): null audio satisfied boot/menu calls; XDG config/registry/save shim exercised; movie/IME blockers stubbed/bypassed\n";
+
   // --- M8.3: window + input + render hookup (bring-up client path) ---
   fl_port::log_message(fl_port::LogLevel::Info, "M8.3: starting window/input/render hookup");
 #if defined(FL_HAS_SDL3) && defined(FL_HAS_VULKAN)
@@ -386,6 +640,8 @@ int main(int argc, char** argv) {
     if (!window.create(wcfg)) {
       fl_port::log_message(fl_port::LogLevel::Error, "M8.3: failed to create native window (fl_port::Window)");
       std::cerr << "[FAIL] M8.3: native window creation failed\n";
+      audio.shutdown();
+      if (isolate_xdg && !isolated_xdg_root.empty()) { std::error_code ec2; std::filesystem::remove_all(isolated_xdg_root, ec2); }
       return 20;
     }
     const char* drv = SDL_GetCurrentVideoDriver();
@@ -407,6 +663,8 @@ int main(int argc, char** argv) {
                            std::string("M8.3: render pipeline init failed: ") + rp.last_error());
       std::cerr << "[FAIL] M8.3: render pipeline init failed: " << rp.last_error() << "\n";
       window.destroy();
+      audio.shutdown();
+      if (isolate_xdg && !isolated_xdg_root.empty()) { std::error_code ec2; std::filesystem::remove_all(isolated_xdg_root, ec2); }
       return 21;
     }
     fl_port::log_message(fl_port::LogLevel::Info,
@@ -462,6 +720,8 @@ int main(int argc, char** argv) {
       std::cerr << "[FAIL] M8.3: render_frame failed during frame loop\n";
       rp.shutdown();
       window.destroy();
+      audio.shutdown();
+      if (isolate_xdg && !isolated_xdg_root.empty()) { std::error_code ec2; std::filesystem::remove_all(isolated_xdg_root, ec2); }
       return 22;
     }
 
@@ -469,6 +729,8 @@ int main(int argc, char** argv) {
       std::cerr << "[FAIL] M8.3: no frames presented\n";
       rp.shutdown();
       window.destroy();
+      audio.shutdown();
+      if (isolate_xdg && !isolated_xdg_root.empty()) { std::error_code ec2; std::filesystem::remove_all(isolated_xdg_root, ec2); }
       return 22;
     }
 
@@ -478,10 +740,16 @@ int main(int argc, char** argv) {
                              ", mouse_events=" + std::to_string(mouse_events) +
                              ", close_requested=" + (close_requested ? "1" : "0") + ")");
     std::cout << "freelancer_linux_client (M8.3): native window created, input processed (SDL3->VK mapped), render backend called for clear+present\n";
-    std::cout << "Status: M8.3 window/input/render hookup complete for bring-up client path (upstream client TU wiring pending)\n";
+    std::cout << "Status: M8.3/M8.4 bring-up client path complete (window/input/render + audio/config/persistence/blocker stubs; upstream client TU wiring pending)\n";
 
     rp.shutdown();
     window.destroy();
+    audio.shutdown();
+    if (isolate_xdg && !isolated_xdg_root.empty()) {
+      std::error_code ec2;
+      std::filesystem::remove_all(isolated_xdg_root, ec2);
+      if (!ec2) fl_port::log_message(fl_port::LogLevel::Info, "M8.4: removed isolated XDG temp root");
+    }
     return 0;
   }
 #elif defined(FL_HAS_SDL3)

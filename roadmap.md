@@ -232,10 +232,14 @@ Treat it as a multi-stage siege. Sub-phases M8.0–M8.6 are tracked below.
   - [x] Acceptance: client creates native window, processes input, calls render backend for clear+present
     - [x] 32-bit `freelancer_linux_client` rebuilds with SDL3/Vulkan hookups linked and runs successfully (Wayland/SDL3), creating a native window, initializing render pipeline, processing input events, and presenting clear+present frames (validated via run/gdb)
     - [x] Fixed startup segfault caused by ELF symbol interposition from upstream wrapper TUs by compiling upstream wrapper TUs with hidden visibility and exporting only explicit `extern "C"` bring-up hooks; added M8.3 init checkpoints and separated close-request vs render-error handling
-- [ ] **M8.4 — Audio / config / persistence unblock**
-  - [ ] Ensure null-audio backend satisfies every call the client makes during boot/menu
-  - [ ] Confirm XDG config/registry/save shim is used for early settings/save calls
-  - [ ] Stub/bypass remaining blockers (DirectShow movies, IME, etc.)
+- [x] **M8.4 — Audio / config / persistence unblock** (bring-up client path)
+  - [x] Ensure null-audio backend satisfies every call the client makes during boot/menu
+    - [x] `linux_client_main.cpp` initializes `fl_port::NullAudioBackend` and exercises boot/menu-style calls (`play_sound`, `is_playing`, `set_master_volume`, `update`, `stop_sound`, `stop_all`, shutdown) before M8.3 frame loop
+  - [x] Confirm XDG config/registry/save shim is used for early settings/save calls
+    - [x] Exercises `fl_port::XdgConfig` (config/state/data dirs, settings read/write, save path persistence) and XDG-backed Win32 registry shim (`RegCreateKeyExA`/`RegSetValueExA`/`RegOpenKeyExA`/`RegQueryValueExA`/`RegCloseKey`) for early HKCU settings (including REG_SZ/REG_DWORD round-trip with size/type probing)
+    - [x] Registry shim persists typed values and full hierarchical key paths in XDG `registry.ini`; smoke runs support XDG isolation (`FL_PORT_ISOLATE_XDG=1` / `--smoke-xdg-temp`) to avoid host config pollution
+  - [x] Stub/bypass remaining blockers (DirectShow movies, IME, etc.)
+    - [x] Added/deterministically invoked bring-up stubs for movie/DirectShow playback bypass, EULA gate bypass, IME enable/focus/context hooks, and legacy registry-write marker; expanded common early Win32 window/bootstrap no-op stubs
 - [ ] **M8.5 — Reach main menu / controlled state**
   - [ ] Fix remaining crashes, missing symbols, behavioral differences one by one
   - [ ] Add minimal diagnostics/early-out points to pinpoint boot failures

@@ -332,7 +332,7 @@ if(FL_LINUX_BUILD_TOOLS)
       $<TARGET_OBJECTS:fl_upstream_readfile_tu>
       $<TARGET_OBJECTS:fl_upstream_x86math_tu>
     )
-    target_link_libraries(freelancer_linux_client PRIVATE fl_linux_port_platform fl_linux_port_path fl_upstream_tu_iface)
+    target_link_libraries(freelancer_linux_client PRIVATE fl_linux_port_platform fl_linux_port_path fl_linux_port_gameplay fl_upstream_tu_iface)
     # M8.3 window/input/render hookups (optional when 32-bit SDL3/Vulkan libs unavailable)
     if(FL_SDL3_USABLE AND TARGET fl_linux_port_window)
       target_link_libraries(freelancer_linux_client PRIVATE fl_linux_port_window ${FL_SDL3_PC_LIBRARIES})

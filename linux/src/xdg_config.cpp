@@ -158,6 +158,8 @@ bool XdgConfig::reg_read(const std::string& hive_path, const std::string& value_
                          std::string& out) const {
   std::string section = fl_port::normalize_path_separators(hive_path);
   while (!section.empty() && (section.front()=='/' || section.front()=='\\')) section.erase(section.begin());
+  while (!section.empty() && (section.back()=='/' || section.back()=='\\')) section.pop_back();
+  // Preserve full hierarchical key path as INI section to avoid collisions (e.g. ...\1.0 vs ...\2.0).
   return read_key("registry.ini", section, value_name, out);
 }
 
@@ -165,6 +167,8 @@ bool XdgConfig::reg_write(const std::string& hive_path, const std::string& value
                           const std::string& value) const {
   std::string section = fl_port::normalize_path_separators(hive_path);
   while (!section.empty() && (section.front()=='/' || section.front()=='\\')) section.erase(section.begin());
+  while (!section.empty() && (section.back()=='/' || section.back()=='\\')) section.pop_back();
+  // Preserve full hierarchical key path as INI section to avoid collisions (e.g. ...\1.0 vs ...\2.0).
   return write_key("registry.ini", section, value_name, value);
 }
 
