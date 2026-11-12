@@ -340,6 +340,7 @@ if(FL_LINUX_BUILD_TOOLS)
       add_executable(freelancer_linux_client
         src/linux_client_main.cpp
         src/linux_client_stubs.cpp
+        src/m87_upstream_bootstrap.cpp
         $<TARGET_OBJECTS:fl_dalib_core_bringup>
         $<TARGET_OBJECTS:fl_upstream_dacom_tu>
         $<TARGET_OBJECTS:fl_upstream_readfile_tu>
@@ -363,6 +364,25 @@ if(FL_LINUX_BUILD_TOOLS)
       else()
         message(STATUS "freelancer_linux_client: Vulkan render hooks unavailable (client will fail M8.3+ acceptance at runtime)")
       endif()
+
+      # M8.7 integration probes (EXCLUDE_FROM_ALL): compile experiments for upstream
+      # DALib/Common/freelancer TUs. These targets are not part of normal builds and may
+      # fail while porting; use --target <name> to iterate on blockers.
+      add_library(fl_m87_dalib_upstream_core_probe OBJECT EXCLUDE_FROM_ALL
+        src/dalib_upstream_core_m87.cpp
+      )
+      target_link_libraries(fl_m87_dalib_upstream_core_probe PRIVATE fl_linux_port_platform fl_upstream_tu_iface)
+      target_include_directories(fl_m87_dalib_upstream_core_probe BEFORE PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/include/m87_dalib_stubs"
+      )
+      target_compile_definitions(fl_m87_dalib_upstream_core_probe PRIVATE DALIB_EXPORTS)
+
+      add_library(fl_m87_common_ini_probe OBJECT EXCLUDE_FROM_ALL
+        "${FL_SRC_ROOT}/Common/common_ini.cpp"
+      )
+      target_link_libraries(fl_m87_common_ini_probe PRIVATE fl_linux_port_platform fl_upstream_tu_iface)
+      target_compile_definitions(fl_m87_common_ini_probe PRIVATE COMMON_EXPORTS DALIB_EXPORTS)
+      target_compile_options(fl_m87_common_ini_probe PRIVATE -fdeclspec -fms-extensions -w)
 
       # Opt-in smoke test (requires display + 32-bit SDL3/Vulkan runtime/data files in repo checkout)
       if(BUILD_TESTING)

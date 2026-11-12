@@ -38,9 +38,15 @@ extern "C" int  fl_upstream_x86math_integration_register();
 namespace DALib {
 extern ICOManager* Dacom;
 extern IFileSystem* Data;
+bool __cdecl Startup(HWND hwnd, const char* ini_path);
 void __cdecl OpenData(const char* DataPath);
 void __cdecl CloseData();
+void __cdecl Shutdown(HWND hwnd);
 }
+
+// M8.7 guarded upstream bootstrap integration hook (implemented in linux/src/m87_upstream_bootstrap.cpp).
+// Returns 1 if real upstream bootstrap/init path was invoked, 0 if not available in this build.
+extern "C" int fl_m87_try_invoke_upstream_bootstrap(void* native_window_or_null, const char* ini_path_or_null);
 
 extern "C" {
 int fl_stub_movie_play(const char* path);
@@ -324,12 +330,20 @@ int main(int argc, char** argv) {
   }
 
   // --- Early/core init sequence (client-oriented bring-up): DACOM + config + DATA ---
-  boot_checkpoint(BootPhase::DacomInit, "acquiring DACOM manager");
+  boot_checkpoint(BootPhase::DacomInit, "acquiring DACOM manager and invoking DALib::Startup (M8.7 upstream API path)");
   ICOManager* mgr = DACOM_Acquire();
   if (!mgr) {
     fl_port::log_message(fl_port::LogLevel::Error, "M8.5 early-out [DacomInit]: DACOM_Acquire() failed");
     std::cerr << "[FAIL][DacomInit] DACOM_Acquire() failed\n";
     return 1;
+  }
+  DALib::Dacom = mgr;
+  // M8.7: exercise upstream DALib startup API path (bring-up stub until full SystemContainer/init is ported).
+  {
+    const bool dalib_startup_ok = DALib::Startup(nullptr, nullptr);
+    fl_port::log_message(dalib_startup_ok ? fl_port::LogLevel::Info : fl_port::LogLevel::Warning,
+                         dalib_startup_ok ? "M8.7: DALib::Startup (upstream API) returned success (bring-up subset)"
+                                          : "M8.7: DALib::Startup (upstream API) returned failure");
   }
   fl_port::log_message(fl_port::LogLevel::Info, "DACOM_Acquire() ok");
 
@@ -404,7 +418,18 @@ int main(int argc, char** argv) {
     std::cerr << "[FAIL][ConfigAndData] DALib::OpenData failed\n";
     return 7;
   }
-  fl_port::log_message(fl_port::LogLevel::Info, "M8.2: DALib::OpenData succeeded (DALib::Data filesystem ready)");
+  fl_port::log_message(fl_port::LogLevel::Info, "M8.7: DALib::OpenData succeeded via upstream-derived DALib core TU (DALib::Data filesystem ready)");
+
+  // M8.7: attempt guarded upstream client bootstrap/init integration hook (no-op/fallback in current build).
+  {
+    const int upstream_boot = fl_m87_try_invoke_upstream_bootstrap(nullptr, freelancer_ini_resolved ? freelancer_ini_resolved->string().c_str() : nullptr);
+    if (upstream_boot) {
+      fl_port::log_message(fl_port::LogLevel::Info, "M8.7: upstream client bootstrap/init hook invoked successfully");
+    } else {
+      fl_port::log_message(fl_port::LogLevel::Warning,
+                           "M8.7: upstream client bootstrap/init TUs not yet linked; using guarded bring-up fallback flow");
+    }
+  }
 
   boot_checkpoint(BootPhase::IFileSystemProbe, "exercising FileSystem/DOS interface and stream reads");
   // Exercise IFileSystem interface directly (path/search/stream behavior in ReadFile component)
