@@ -2,6 +2,22 @@
 
 Snapshot of bring-up work for native Linux (Wayland) target.
 
+## M5 — Graphics bring-up (completed, pending review)
+
+**Status:** implemented in working tree for review (not committed). Builds/tests validated on host (64-bit and 32-bit presets).
+
+### Completed in M5
+- **Scoped native Vulkan backend:** added `fl_port::RenderPipeline` (`linux/include/linux_port/render_pipeline.h`, `linux/src/render_pipeline.cpp`) implementing an `IRenderPipeline`-style method surface (lifecycle, device/surface/swapchain, clear+present, viewport/window/transforms, basic render states, draw submission) as a standalone class for portability.
+- **Integration with M4 window:** `init_for_window(Window*, config)` binds backend to M4 window (SDL Vulkan surface); `render_frame(t)` + `run_loop` integration demonstrated.
+- **Harness/proof:** added `m5_graphics_harness` (`linux/tests/m5_graphics_harness.cpp`, `fl_linux_port_render` library) rendering and presenting 120/120 frames.
+
+### Validation highlights
+- 64-bit preset (`linux/linux-x64`): `m5_graphics_harness` → **PASS** (120/120 frames presented).
+- 32-bit preset (`linux/linux-x86`): `m5_graphics_harness` → **PASS** (120/120 frames presented).
+- M1–M4 harnesses remain passing on both presets.
+
+See `linux/docs/m5-graphics-bringup.md`.
+
 ## M4 — Windowing and input (completed, pending review)
 
 **Status:** implemented in working tree for review (not committed). Builds/tests validated on host (64-bit and 32-bit presets).

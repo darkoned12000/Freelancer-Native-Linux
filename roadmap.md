@@ -123,10 +123,14 @@ Goal: establish tooling, shims, harnesses, and feasibility evidence to reduce ri
 **Acceptance target:** A Freelancer scene/frame (or minimal in-engine render target) can render and present.
 
 - [x] Standalone SDL3+Vulkan presentation feasibility PoC (Phase 0 de-risk)
-- [ ] Trace and define minimal `IRenderPipeline`/buffer/texture/state/draw subset required for early boot/menu
-- [ ] Choose and implement path per evidence: D3D8-compat integration in native ELF x86 **or** scoped native backend behind `IRenderPipeline`/related contracts
-- [ ] Integrate minimal render path into engine initialization/frame loop
-- [ ] Render/present a minimal in-engine target/frame
+- [x] Trace and define minimal `IRenderPipeline`/buffer/texture/state/draw subset required for early boot/menu
+  - [x] Scoped subset documented in `linux/docs/irenderpipeline-rp8-scope.md` and implemented in `linux/src/render_pipeline.cpp` (lifecycle, device/surface/swapchain, clear/present, viewport/window/transforms, basic render states, draw submission stubs)
+- [x] Choose and implement path per evidence: D3D8-compat integration in native ELF x86 **or** scoped native backend behind `IRenderPipeline`/related contracts
+  - [x] Implemented scoped native Vulkan backend (`fl_port::RenderPipeline`) behind an `IRenderPipeline`-style method surface (standalone class for portability; method names match for future wiring)
+- [x] Integrate minimal render path into engine initialization/frame loop
+  - [x] `init_for_window(Window*, config)` binds backend to M4 window; `render_frame(t)` + `run_loop` integration demonstrated in harness
+- [x] Render/present a minimal in-engine target/frame
+  - [x] `m5_graphics_harness` creates native window, initializes backend, presents 120/120 frames (PASS on 64-bit and 32-bit presets)
 
 ## M6 — Gameplay bring-up
 

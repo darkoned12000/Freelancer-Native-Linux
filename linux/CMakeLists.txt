@@ -125,6 +125,33 @@ if(FL_LINUX_BUILD_TOOLS)
     message(STATUS "m4_window_input_harness not built (requires usable 32-bit/target sdl3 libraries)")
   endif()
 
+  # M5 graphics bring-up (scoped Vulkan backend behind IRenderPipeline).
+  if(FL_SDL3_USABLE AND FL_VULKAN_USABLE)
+    add_library(fl_linux_port_render STATIC src/render_pipeline.cpp)
+    target_link_libraries(fl_linux_port_render PUBLIC fl_linux_port_window fl_linux_port_platform ${FL_SDL3_PC_LIBRARIES} ${FL_VULKAN_PC_LIBRARIES})
+    target_include_directories(fl_linux_port_render BEFORE PUBLIC
+      "${CMAKE_CURRENT_SOURCE_DIR}/include/linux_port"
+      ${FL_LINUX_INCLUDE_DIR}
+      "${FL_SRC_ROOT}/include"
+      "${FL_SRC_ROOT}"
+      PRIVATE ${FL_SDL3_PC_INCLUDE_DIRS} ${FL_VULKAN_PC_INCLUDE_DIRS})
+    target_link_directories(fl_linux_port_render PUBLIC ${FL_SDL3_PC_LIBRARY_DIRS} ${FL_VULKAN_PC_LIBRARY_DIRS})
+    target_compile_definitions(fl_linux_port_render PUBLIC FL_HAS_SDL3=1 FL_HAS_VULKAN=1)
+
+    add_executable(m5_graphics_harness tests/m5_graphics_harness.cpp)
+    target_link_libraries(m5_graphics_harness PRIVATE fl_linux_port_render fl_linux_port_window fl_linux_port_platform ${FL_SDL3_PC_LIBRARIES} ${FL_VULKAN_PC_LIBRARIES})
+    target_include_directories(m5_graphics_harness BEFORE PRIVATE
+      "${CMAKE_CURRENT_SOURCE_DIR}/include/linux_port"
+      ${FL_LINUX_INCLUDE_DIR}
+      "${FL_SRC_ROOT}/include"
+      "${FL_SRC_ROOT}"
+      ${FL_SDL3_PC_INCLUDE_DIRS} ${FL_VULKAN_PC_INCLUDE_DIRS})
+    target_link_directories(m5_graphics_harness PRIVATE ${FL_SDL3_PC_LIBRARY_DIRS} ${FL_VULKAN_PC_LIBRARY_DIRS})
+    target_compile_definitions(m5_graphics_harness PRIVATE FL_HAS_SDL3=1 FL_HAS_VULKAN=1)
+  else()
+    message(STATUS "m5_graphics_harness not built (requires usable target sdl3 and vulkan libraries)")
+  endif()
+
   # Standalone #4 Wayland/SDL3/Vulkan presentation PoC (scaffold; requires deps)
   if(FL_SDL3_USABLE AND FL_VULKAN_USABLE)
     add_executable(gfx_wayland_poc tests/gfx_wayland_poc.cpp)
