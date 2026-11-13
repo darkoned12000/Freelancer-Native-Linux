@@ -138,6 +138,177 @@ using LONG_PTR  = std::intptr_t;
 using INT_PTR   = std::intptr_t;
 using UINT_PTR  = std::uintptr_t;
 
+using WPARAM = UINT_PTR;
+using LPARAM = LONG_PTR;
+using LRESULT = LONG_PTR;
+
+using CHAR = char;
+using WCHAR = wchar_t;
+using SHORT = std::int16_t;
+using USHORT = std::uint16_t;
+using FLOAT = float;
+
+using HDC = void*;
+using HFONT = void*;
+using HBRUSH = void*;
+using HPEN = void*;
+using HICON = void*;
+using HCURSOR = void*;
+using HMENU = void*;
+using HRGN = void*;
+using HGDIOBJ = void*;
+using HBITMAP = void*;
+using HPALETTE = void*;
+using ATOM = WORD;
+
+typedef struct tagPOINT {
+  LONG x;
+  LONG y;
+} POINT, *PPOINT, *LPPOINT;
+
+struct POINTS {
+  SHORT x;
+  SHORT y;
+};
+
+typedef struct tagSIZE {
+  LONG cx;
+  LONG cy;
+} SIZE, *PSIZE, *LPSIZE;
+
+typedef struct tagRECT {
+  LONG left;
+  LONG top;
+  LONG right;
+  LONG bottom;
+} RECT, *PRECT, *LPRECT;
+
+typedef struct tagMSG {
+  HWND hwnd;
+  UINT message;
+  WPARAM wParam;
+  LPARAM lParam;
+  DWORD time;
+  POINT pt;
+#ifdef _MAC
+  DWORD lPrivate;
+#endif
+} MSG, *PMSG, *LPMSG;
+
+struct WNDCLASSA {
+  UINT      style;
+  void*     lpfnWndProc;
+  int       cbClsExtra;
+  int       cbWndExtra;
+  HINSTANCE hInstance;
+  HICON     hIcon;
+  HCURSOR   hCursor;
+  HBRUSH    hbrBackground;
+  LPCSTR    lpszMenuName;
+  LPCSTR    lpszClassName;
+};
+
+struct WNDCLASSEXA {
+  UINT      cbSize;
+  UINT      style;
+  void*     lpfnWndProc;
+  int       cbClsExtra;
+  int       cbWndExtra;
+  HINSTANCE hInstance;
+  HICON     hIcon;
+  HCURSOR   hCursor;
+  HBRUSH    hbrBackground;
+  LPCSTR    lpszMenuName;
+  LPCSTR    lpszClassName;
+  HICON     hIconSm;
+};
+
+#ifndef LOGFONTA_DEFINED
+#define LOGFONTA_DEFINED
+struct LOGFONTA {
+  LONG lfHeight;
+  LONG lfWidth;
+  LONG lfEscapement;
+  LONG lfOrientation;
+  LONG lfWeight;
+  BYTE lfItalic;
+  BYTE lfUnderline;
+  BYTE lfStrikeOut;
+  BYTE lfCharSet;
+  BYTE lfOutPrecision;
+  BYTE lfClipPrecision;
+  BYTE lfQuality;
+  BYTE lfPitchAndFamily;
+  CHAR lfFaceName[32];
+};
+#endif
+
+
+#ifndef _TEXTMETRICA_DEFINED
+#define _TEXTMETRICA_DEFINED
+typedef struct tagTEXTMETRICA {
+  LONG tmHeight;
+  LONG tmAscent;
+  LONG tmDescent;
+  LONG tmInternalLeading;
+  LONG tmExternalLeading;
+  LONG tmAveCharWidth;
+  LONG tmMaxCharWidth;
+  LONG tmWeight;
+  LONG tmOverhang;
+  LONG tmDigitizedAspectX;
+  LONG tmDigitizedAspectY;
+  BYTE tmFirstChar;
+  BYTE tmLastChar;
+  BYTE tmDefaultChar;
+  BYTE tmBreakChar;
+  BYTE tmItalic;
+  BYTE tmUnderlined;
+  BYTE tmStruckOut;
+  BYTE tmPitchAndFamily;
+  BYTE tmCharSet;
+} TEXTMETRICA, *PTEXTMETRICA, *LPTEXTMETRICA;
+typedef TEXTMETRICA TEXTMETRIC;
+#endif
+
+#ifndef MAKELONG
+#  define MAKELONG(a, b) ((LONG)(((WORD)(((DWORD_PTR)(a)) & 0xffff)) | ((DWORD)((WORD)(((DWORD_PTR)(b)) & 0xffff))) << 16))
+#endif
+#ifndef MAKEWORD
+#  define MAKEWORD(a, b) ((WORD)(((BYTE)(((DWORD_PTR)(a)) & 0xff)) | ((WORD)((BYTE)(((DWORD_PTR)(b)) & 0xff))) << 8))
+#endif
+#ifndef MAKELPARAM
+#  define MAKELPARAM(l, h) ((LPARAM)(DWORD)MAKELONG(l, h))
+#endif
+#ifndef MAKEWPARAM
+#  define MAKEWPARAM(l, h) ((WPARAM)(DWORD)MAKELONG(l, h))
+#endif
+#ifndef GET_X_LPARAM
+#  define GET_X_LPARAM(lp) ((int)(short)LOWORD(lp))
+#endif
+#ifndef GET_Y_LPARAM
+#  define GET_Y_LPARAM(lp) ((int)(short)HIWORD(lp))
+#endif
+
+#ifndef TRUE
+#  define TRUE 1
+#endif
+#ifndef FALSE
+#  define FALSE 0
+#endif
+#ifndef MAX_PATH
+#  define MAX_PATH 260
+#endif
+
+#ifndef LOBYTE
+#  define LOBYTE(w) ((BYTE)(((DWORD_PTR)(w)) & 0xff))
+#endif
+#ifndef HIBYTE
+#  define HIBYTE(w) ((BYTE)((((DWORD_PTR)(w)) >> 8) & 0xff))
+#endif
+
+using WNDPROC = LRESULT (CALLBACK*)(HWND, UINT, WPARAM, LPARAM);
+
 // Win32 last-error accessors (implemented in linux file shim/platform shims).
 DWORD GetLastError();
 void SetLastError(DWORD err);
@@ -469,5 +640,128 @@ inline void* InterlockedExchangePointer(void* volatile* target, void* value) { v
 // NOTE: Do not define COM method macros (STDMETHOD/IFACEMETHOD) here yet;
 // introduce them alongside a concrete DACOM/COM-interface porting strategy to
 // avoid conflicts with upstream headers and calling-convention requirements.
+
+
+// --- Probe/port compatibility additions (Linux bring-up) ---
+// Keep these inside #if !defined(_WIN32) so Windows builds use the native SDK.
+
+#ifndef PM_NOREMOVE
+#define PM_NOREMOVE 0x0000
+#define PM_REMOVE   0x0001
+#define PM_NOYIELD  0x0002
+#endif
+#ifndef WM_NULL
+#define WM_NULL 0x0000
+#define WM_CREATE 0x0001
+#define WM_DESTROY 0x0002
+#define WM_MOVE 0x0003
+#define WM_SIZE 0x0005
+#define WM_ACTIVATE 0x0006
+#define WM_SETFOCUS 0x0007
+#define WM_KILLFOCUS 0x0008
+#define WM_ENABLE 0x000A
+#define WM_PAINT 0x000F
+#define WM_CLOSE 0x0010
+#define WM_QUIT 0x0012
+#define WM_SHOWWINDOW 0x0018
+#define WM_ACTIVATEAPP 0x001C
+#define WM_SETCURSOR 0x0020
+#define WM_MOUSEACTIVATE 0x0021
+#define WM_GETMINMAXINFO 0x0024
+#define WM_WINDOWPOSCHANGING 0x0046
+#define WM_WINDOWPOSCHANGED 0x0047
+#define WM_NCCREATE 0x0081
+#define WM_NCDESTROY 0x0082
+#define WM_NCACTIVATE 0x0086
+#define WM_KEYDOWN 0x0100
+#define WM_KEYUP 0x0101
+#define WM_CHAR 0x0102
+#define WM_SYSKEYDOWN 0x0104
+#define WM_SYSKEYUP 0x0105
+#define WM_INITDIALOG 0x0110
+#define WM_COMMAND 0x0111
+#define WM_SYSCOMMAND 0x0112
+#define WM_TIMER 0x0113
+#define WM_MOUSEMOVE 0x0200
+#define WM_LBUTTONDOWN 0x0201
+#define WM_LBUTTONUP 0x0202
+#define WM_RBUTTONDOWN 0x0204
+#define WM_RBUTTONUP 0x0205
+#define WM_MBUTTONDOWN 0x0207
+#define WM_MBUTTONUP 0x0208
+#define WM_MOUSEWHEEL 0x020A
+#endif
+
+#ifndef MB_OK
+#define MB_OK 0x00000000L
+#define MB_OKCANCEL 0x00000001L
+#define MB_YESNO 0x00000004L
+#define MB_ICONERROR 0x00000010L
+#define MB_ICONWARNING 0x00000030L
+#define MB_ICONINFORMATION 0x00000040L
+#define IDOK 1
+#define IDCANCEL 2
+#define IDYES 6
+#define IDNO 7
+#endif
+
+#ifndef _MEMORYSTATUS_DEFINED
+#define _MEMORYSTATUS_DEFINED
+typedef struct _MEMORYSTATUS {
+  DWORD dwLength;
+  DWORD dwMemoryLoad;
+  SIZE_T dwTotalPhys;
+  SIZE_T dwAvailPhys;
+  SIZE_T dwTotalPageFile;
+  SIZE_T dwAvailPageFile;
+  SIZE_T dwTotalVirtual;
+  SIZE_T dwAvailVirtual;
+} MEMORYSTATUS, *LPMEMORYSTATUS;
+#endif
+
+#if defined(__cplusplus)
+extern "C" {
+#endif
+inline BOOL WINAPI PeekMessageA(MSG* lpMsg, HWND, UINT, UINT, UINT) { if (lpMsg) *lpMsg = MSG{}; return FALSE; }
+inline BOOL WINAPI GetMessageA(MSG* lpMsg, HWND, UINT, UINT) { if (lpMsg) *lpMsg = MSG{}; return FALSE; }
+inline BOOL WINAPI TranslateMessage(const MSG*) { return FALSE; }
+inline LRESULT WINAPI DispatchMessageA(const MSG*) { return 0; }
+inline int WINAPI MessageBoxW(void*, const wchar_t*, const wchar_t*, unsigned int) { return IDOK; }
+inline BOOL WINAPI SetWindowTextA(HWND, LPCSTR) { return TRUE; }
+inline BOOL WINAPI SetWindowTextW(HWND, const wchar_t*) { return TRUE; }
+inline HWND WINAPI GetDlgItem(HWND, int) { return nullptr; }
+inline BOOL WINAPI EndDialog(HWND, INT_PTR) { return TRUE; }
+inline INT_PTR WINAPI DialogBoxParamA(HINSTANCE, LPCSTR, HWND, void*, LPARAM) { return 0; }
+inline INT_PTR WINAPI DialogBoxParamW(HINSTANCE, const wchar_t*, HWND, void*, LPARAM) { return 0; }
+inline void WINAPI GlobalMemoryStatus(LPMEMORYSTATUS lpBuffer) {
+  if (!lpBuffer) return;
+  lpBuffer->dwLength = sizeof(MEMORYSTATUS);
+  lpBuffer->dwMemoryLoad = 0;
+  lpBuffer->dwTotalPhys = lpBuffer->dwAvailPhys = 512u * 1024u * 1024u;
+  lpBuffer->dwTotalPageFile = lpBuffer->dwAvailPageFile = 512u * 1024u * 1024u;
+  lpBuffer->dwTotalVirtual = lpBuffer->dwAvailVirtual = 512u * 1024u * 1024u;
+}
+BOOL WINAPI EnableWindow(HWND, BOOL);
+HWND WINAPI GetDesktopWindow(void);
+BOOL WINAPI GetWindowRect(HWND, LPRECT);
+BOOL WINAPI GetClientRect(HWND, LPRECT);
+LRESULT WINAPI SendMessageA(HWND, UINT, WPARAM, LPARAM);
+LRESULT WINAPI SendMessageW(HWND, UINT, WPARAM, LPARAM);
+#if defined(__cplusplus)
+} // extern "C"
+#endif
+
+#ifndef BM_GETCHECK
+#define BM_GETCHECK 0x00F0
+#define BM_SETCHECK 0x00F1
+#endif
+#ifndef MAKEINTRESOURCEA
+#define MAKEINTRESOURCEA(i) ((LPSTR)((ULONG_PTR)((WORD)(i))))
+#define MAKEINTRESOURCEW(i) ((wchar_t*)((ULONG_PTR)((WORD)(i))))
+#define MAKEINTRESOURCE MAKEINTRESOURCEA
+#endif
+#ifndef _control87
+inline unsigned int _control87(unsigned int, unsigned int) { return 0; }
+#endif
 
 #endif // !_WIN32

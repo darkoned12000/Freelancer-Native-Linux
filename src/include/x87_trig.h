@@ -34,11 +34,8 @@
 // Out-of-range operands (|x| >= 2^63) behave as the instruction does: FSIN / FCOS / FPTAN set
 // C2 and leave the operand unchanged; retail has no fallback either.
 
-#if !defined(_M_IX86)
-#error "x87_trig.h: inline x87 assembly requires 32-bit x86"
-#endif
+#if defined(_MSC_VER) && defined(_M_IX86)
 
-// FLD; FSIN; FSTP qword.
 inline double X87Sin(double Angle)
 {
     double Result;
@@ -51,7 +48,6 @@ inline double X87Sin(double Angle)
     return Result;
 }
 
-// FLD; FSIN; FSTP dword.
 inline float X87SinF(double Angle)
 {
     float Result;
@@ -64,7 +60,6 @@ inline float X87SinF(double Angle)
     return Result;
 }
 
-// FLD; FCOS; FSTP qword.
 inline double X87Cos(double Angle)
 {
     double Result;
@@ -77,7 +72,6 @@ inline double X87Cos(double Angle)
     return Result;
 }
 
-// FLD; FCOS; FSTP dword.
 inline float X87CosF(double Angle)
 {
     float Result;
@@ -90,7 +84,6 @@ inline float X87CosF(double Angle)
     return Result;
 }
 
-// FLD; FPTAN; FSTP ST0 (drops the 1.0 FPTAN pushes); FSTP qword.
 inline double X87Tan(double Angle)
 {
     double Result;
@@ -104,7 +97,6 @@ inline double X87Tan(double Angle)
     return Result;
 }
 
-// FLD; FPTAN; FSTP ST0; FSTP dword.
 inline float X87TanF(double Angle)
 {
     float Result;
@@ -118,7 +110,6 @@ inline float X87TanF(double Angle)
     return Result;
 }
 
-// atan(X) as VC6 inlines it: FLD X; FLD1; FPATAN (= atan(ST1 / ST0)); FSTP qword.
 inline double X87Atan(double X)
 {
     double Result;
@@ -132,7 +123,6 @@ inline double X87Atan(double X)
     return Result;
 }
 
-// FLD X; FLD1; FPATAN; FSTP dword.
 inline float X87AtanF(double X)
 {
     float Result;
@@ -146,8 +136,6 @@ inline float X87AtanF(double X)
     return Result;
 }
 
-// atan2(Y, X) as VC6 inlines it: FLD Y; FLD X; FPATAN (= atan(ST1 / ST0), quadrant from both
-// signs); FSTP qword.
 inline double X87Atan2(double Y, double X)
 {
     double Result;
@@ -161,7 +149,6 @@ inline double X87Atan2(double Y, double X)
     return Result;
 }
 
-// FLD Y; FLD X; FPATAN; FSTP dword.
 inline float X87Atan2F(double Y, double X)
 {
     float Result;
@@ -174,3 +161,24 @@ inline float X87Atan2F(double Y, double X)
     }
     return Result;
 }
+
+#elif defined(__i386__) || defined(__i386) || defined(i386) || defined(_M_IX86)
+// Linux-port/x86 bring-up fallback: portable libm implementation.
+// Deviation from retail bit-exact x87 instruction behavior; acceptable for guarded
+// bring-up/probe builds until GCC/Clang inline-x87 parity helpers are added.
+#include <cmath>
+
+inline double X87Sin(double Angle) { return std::sin(Angle); }
+inline float X87SinF(double Angle) { return static_cast<float>(std::sin(Angle)); }
+inline double X87Cos(double Angle) { return std::cos(Angle); }
+inline float X87CosF(double Angle) { return static_cast<float>(std::cos(Angle)); }
+inline double X87Tan(double Angle) { return std::tan(Angle); }
+inline float X87TanF(double Angle) { return static_cast<float>(std::tan(Angle)); }
+inline double X87Atan(double X) { return std::atan(X); }
+inline float X87AtanF(double X) { return static_cast<float>(std::atan(X)); }
+inline double X87Atan2(double Y, double X) { return std::atan2(Y, X); }
+inline float X87Atan2F(double Y, double X) { return static_cast<float>(std::atan2(Y, X)); }
+
+#else
+#error "x87_trig.h: requires 32-bit x86 (MSVC inline asm or portable x86 fallback)"
+#endif

@@ -710,12 +710,14 @@ namespace Archetype
         std::vector<DockingSphere> DockingSpheres; // +0x84 (Debug) / +0x88 (Release)
     };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(sizeof(EqObj) == 0x94, "EqObj sizeof 0x94");
     static_assert(offsetof(EqObj, CollisionGroups) == 0x5C, "EqObj+0x5C CollisionGroup*");
     static_assert(offsetof(EqObj, ShieldIdNext) == 0x60, "EqObj+0x60 ShieldIdMaker");
     static_assert(offsetof(EqObj, ShieldLinks) == 0x68, "EqObj+0x68 shield_link");
     static_assert(offsetof(EqObj, bNomad) == 0x80, "EqObj+0x80 nomad");
     static_assert(offsetof(EqObj, bDockingCamera) == 0x81, "EqObj+0x81 docking_camera");
+#endif
 
     // Thin: extra fields from Solar ctor 0x93380 / read 0x93470. sizeof 0xAC.
     struct COMMON_API Solar : public EqObj
@@ -737,10 +739,12 @@ namespace Archetype
         ID_String Loadout;        // +0xA8
     };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(sizeof(Solar) == 0xAC, "Solar sizeof 0xAC");
     static_assert(offsetof(Solar, bDestructible) == 0x94, "Solar+0x94 destructible");
     static_assert(offsetof(Solar, SolarRadius) == 0x98, "Solar+0x98 solar_radius");
     static_assert(offsetof(Solar, Loadout) == 0xA8, "Solar+0xA8 loadout");
+#endif
 
     // One element of retail's Ship+0x130 vector -- 0x14 bytes: the HpAttachmentType at +0x00 and a
     // VC6 std::vector<CacheString> at +0x04 (Common.dll .text:062f29b8 strides by 0x14, .text:062f29c4
@@ -812,9 +816,11 @@ namespace Archetype
         int ShieldBatteryLimit;                 // retail +0x144
     };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(offsetof(Ship, BayDoorAnim) == 0xDC, "Ship+0xDC bay_door_anim");
     static_assert(offsetof(Ship, HoldSize) == 0x100, "Ship+0x100 hold_size");
     static_assert(offsetof(Ship, MaxBankAngle) == 0x12C, "Ship+0x12C max_bank_angle");
+#endif
 
     // Thin: Root + equipment scalars. sizeof 0x70. Leaf classes for alloc_equip switch.
     struct COMMON_API Equipment : public Root
@@ -1215,9 +1221,11 @@ namespace Archetype
         unsigned char Pad72[2];
     };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(sizeof(Light) == 0x74, "Light sizeof 0x74");
     static_assert(offsetof(Light, bAlwaysOn) == 0x70, "Light+0x70 always_on");
     static_assert(offsetof(Light, bDockingLight) == 0x71, "Light+0x71 docking_light");
+#endif
 
     struct COMMON_API Tractor : public Equipment
     {

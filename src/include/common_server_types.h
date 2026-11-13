@@ -106,7 +106,9 @@ struct SLoginInfo {
     unsigned int Pad_C4;        // +0xC4: padding
 };
 #pragma pack(pop)
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(SLoginInfo) == 0xC8, "SLoginInfo size mismatch");
+#endif
 
 // ===========================================================================
 // IServer payload structures.

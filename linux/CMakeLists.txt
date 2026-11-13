@@ -417,6 +417,26 @@ if(FL_LINUX_BUILD_TOOLS)
       # fail while porting; use --target <name> to iterate on blockers.
       # (common_ini probe removed: minimal Common INI subset is now linked into freelancer_linux_client)
 
+      # Combined EXCLUDE_FROM_ALL compile probe for upstream client bootstrap/init TUs.
+      # Build with: --target fl_m87_freelancer_client_probe (iterative blocker triage).
+      add_library(fl_m87_freelancer_client_probe OBJECT EXCLUDE_FROM_ALL
+        "${FL_SRC_ROOT}/freelancer/Client/engine_init.cpp"
+        "${FL_SRC_ROOT}/freelancer/Client/main.cpp"
+      )
+      target_link_libraries(fl_m87_freelancer_client_probe PRIVATE fl_linux_port_platform fl_upstream_tu_iface)
+      target_compile_definitions(fl_m87_freelancer_client_probe PRIVATE
+        FL_LINUX_PORT_UPSTREAM_TU=1 FL_LINUX_PORT_LAYOUT_RELAXED=1 FREELANCER_EXPORTS COMMON_EXPORTS DALIB_EXPORTS WIN32 _WINDOWS
+      )
+      target_include_directories(fl_m87_freelancer_client_probe PRIVATE
+        "${FL_SRC_ROOT}/freelancer/Client"
+        "${FL_SRC_ROOT}/Content"
+        "${FL_SRC_ROOT}/imeui"
+      )
+      target_compile_options(fl_m87_freelancer_client_probe PRIVATE -fms-extensions -w)
+      if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        target_compile_options(fl_m87_freelancer_client_probe PRIVATE -fdeclspec)
+      endif()
+
       # Opt-in smoke test (requires display + 32-bit SDL3/Vulkan runtime/data files in repo checkout)
       if(BUILD_TESTING)
         add_test(NAME m85_client_smoke

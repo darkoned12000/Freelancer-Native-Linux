@@ -53,6 +53,7 @@ namespace Timing
         unsigned long StopTickCount;    // +0x1c  GetTickCount stop
         bool bStarted;                  // +0x20
         bool bStopped;                  // +0x21
+        unsigned char Pad22[6];         // +0x22  explicit tail padding to match retail/MSVC size (0x28)
     };
 }
 

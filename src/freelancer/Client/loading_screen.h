@@ -54,8 +54,10 @@ private:
     LoadingProgressBar& operator=(LoadingProgressBar const&) = delete;
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(void*) != 4 || sizeof(LoadingProgressBar) == 0x384,
               "retail LoadingProgressBar is 0x384 bytes");
+#endif
 
 // DAT_0067c3b8.
 class LoadingScreen : public ILoadingScreen
