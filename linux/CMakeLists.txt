@@ -320,6 +320,39 @@ if(FL_LINUX_BUILD_TOOLS)
     target_compile_definitions(fl_upstream_qhull PRIVATE _CRT_SECURE_NO_WARNINGS _CRT_NONSTDC_NO_DEPRECATE)
     target_compile_options(fl_upstream_qhull PRIVATE -w)
 
+    # M8.7 phase 2 — minimal upstream Common/EngBase/system prerequisites for early client init
+    add_library(fl_upstream_system_tu OBJECT "${FL_SRC_ROOT}/system/system.cpp")
+    target_link_libraries(fl_upstream_system_tu PRIVATE fl_linux_port_platform fl_upstream_tu_iface)
+    target_compile_definitions(fl_upstream_system_tu PRIVATE FL_LINUX_PORT_UPSTREAM_TU=1)
+    target_compile_options(fl_upstream_system_tu PRIVATE -fms-extensions -w)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+      target_compile_options(fl_upstream_system_tu PRIVATE -fdeclspec)
+    endif()
+
+    add_library(fl_upstream_engbase_tu OBJECT
+      "${FL_SRC_ROOT}/EngBase/EngBase.cpp"
+      "${FL_SRC_ROOT}/EngBase/EngBaseMixer.cpp"
+    )
+    target_link_libraries(fl_upstream_engbase_tu PRIVATE fl_linux_port_platform fl_upstream_tu_iface)
+    target_compile_definitions(fl_upstream_engbase_tu PRIVATE FL_LINUX_PORT_UPSTREAM_TU=1)
+    target_compile_options(fl_upstream_engbase_tu PRIVATE -fms-extensions -w)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+      target_compile_options(fl_upstream_engbase_tu PRIVATE -fdeclspec)
+    endif()
+
+    # Minimal upstream Common subset for early init (config/INI readers + required file/text/parse runtime support)
+    add_library(fl_upstream_common_ini_tu OBJECT
+      "${FL_SRC_ROOT}/Common/common_ini.cpp"
+      "${FL_SRC_ROOT}/Common/common_textfile.cpp"
+      "${FL_SRC_ROOT}/Common/msvcrt_atof.cpp"
+    )
+    target_link_libraries(fl_upstream_common_ini_tu PRIVATE fl_linux_port_platform fl_upstream_tu_iface)
+    target_compile_definitions(fl_upstream_common_ini_tu PRIVATE COMMON_EXPORTS DALIB_EXPORTS FL_LINUX_PORT_UPSTREAM_TU=1)
+    target_compile_options(fl_upstream_common_ini_tu PRIVATE -fms-extensions -w)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+      target_compile_options(fl_upstream_common_ini_tu PRIVATE -fdeclspec)
+    endif()
+
 
     add_executable(m3_math_data_tests
       tests/m3_math_data_tests.cpp
@@ -356,6 +389,9 @@ if(FL_LINUX_BUILD_TOOLS)
         $<TARGET_OBJECTS:fl_upstream_dacom_tu>
         $<TARGET_OBJECTS:fl_upstream_readfile_tu>
         $<TARGET_OBJECTS:fl_upstream_x86math_tu>
+        $<TARGET_OBJECTS:fl_upstream_system_tu>
+        $<TARGET_OBJECTS:fl_upstream_engbase_tu>
+        $<TARGET_OBJECTS:fl_upstream_common_ini_tu>
       )
       target_link_libraries(freelancer_linux_client PRIVATE fl_linux_port_platform fl_linux_port_path fl_linux_port_gameplay fl_upstream_tu_iface fl_upstream_zlib)
       # M8.3 window/input/render hookups (optional when 32-bit SDL3/Vulkan libs unavailable)
@@ -379,15 +415,7 @@ if(FL_LINUX_BUILD_TOOLS)
       # M8.7 integration probes (EXCLUDE_FROM_ALL): compile experiments for upstream
       # DALib/Common/freelancer TUs. These targets are not part of normal builds and may
       # fail while porting; use --target <name> to iterate on blockers.
-      add_library(fl_m87_common_ini_probe OBJECT EXCLUDE_FROM_ALL
-        "${FL_SRC_ROOT}/Common/common_ini.cpp"
-      )
-      target_link_libraries(fl_m87_common_ini_probe PRIVATE fl_linux_port_platform fl_upstream_tu_iface)
-      target_compile_definitions(fl_m87_common_ini_probe PRIVATE COMMON_EXPORTS DALIB_EXPORTS)
-      target_compile_options(fl_m87_common_ini_probe PRIVATE -fms-extensions -w)
-      if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-        target_compile_options(fl_m87_common_ini_probe PRIVATE -fdeclspec)
-      endif()
+      # (common_ini probe removed: minimal Common INI subset is now linked into freelancer_linux_client)
 
       # Opt-in smoke test (requires display + 32-bit SDL3/Vulkan runtime/data files in repo checkout)
       if(BUILD_TESTING)

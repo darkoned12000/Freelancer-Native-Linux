@@ -5,6 +5,7 @@
 #include <dacom.h>
 #include <readfile.h>
 #include <DALib.h>
+#include <common_ini.h>
 
 #include <chrono>
 #include <cstdlib>
@@ -34,6 +35,8 @@ extern "C" void fl_upstream_dacom_install_fdump_bridge();
 extern "C" void fl_upstream_dacom_register_builtin_components();
 extern "C" int  fl_upstream_readfile_integration_register();
 extern "C" int  fl_upstream_x86math_integration_register();
+extern "C" void fl_upstream_system_register_component(ICOManager* dacom);
+extern "C" void fl_upstream_engbase_register_components();
 #endif
 
 // M8.7 guarded upstream bootstrap integration hook (implemented in linux/src/m87_upstream_bootstrap.cpp).
@@ -129,28 +132,27 @@ std::string lower_ascii(std::string s) {
   return s;
 }
 
+// M8.7: use upstream Common INI_Reader for validated config reads (replaces bring-up std::ifstream parser).
 std::string get_ini_first_value(const std::filesystem::path& ini_path,
                                 const std::string& section_want,
                                 const std::string& key_want) {
-  std::ifstream in(ini_path);
-  if (!in) return {};
-  std::string line;
-  std::string current;
-  const std::string sec = lower_ascii(section_want);
-  while (std::getline(in, line)) {
-    auto sc = line.find(';');
-    std::string s = trim_copy(sc == std::string::npos ? line : line.substr(0, sc));
-    if (s.empty()) continue;
-    if (s.front() == '[' && s.back() == ']') {
-      current = lower_ascii(trim_copy(s.substr(1, s.size() - 2)));
-      continue;
-    }
-    if (current != sec) continue;
-    auto eq = s.find('=');
-    if (eq == std::string::npos) continue;
-    std::string k = trim_copy(s.substr(0, eq));
-    if (lower_ascii(k) == lower_ascii(key_want)) return trim_copy(s.substr(eq + 1));
+  INI_Reader reader;
+  if (!reader.open(ini_path.string().c_str(), false)) {
+    return {};
   }
+  while (reader.read_header()) {
+    if (!reader.is_header(section_want.c_str())) continue;
+    while (reader.read_value()) {
+      if (reader.is_value(key_want.c_str())) {
+        const char* v = reader.get_value_string();
+        if (v) {
+          reader.close();
+          return std::string(v);
+        }
+      }
+    }
+  }
+  reader.close();
   return {};
 }
 
@@ -276,7 +278,7 @@ int main(int argc, char** argv) {
   std::filesystem::path isolated_xdg_root;
   bool isolate_xdg = false;
   fl_port::log_message(fl_port::LogLevel::Info,
-                       "freelancer_linux_client (M8.5 bring-up): boot sequence starting");
+                       "freelancer_linux_client (M8.7 bring-up): boot sequence starting");
   boot_checkpoint(BootPhase::Startup, "process entry reached");
 
 #if defined(__i386__) || defined(__i386) || defined(i386) || defined(_M_IX86)
@@ -362,7 +364,7 @@ int main(int argc, char** argv) {
     }
   }
 
-  boot_checkpoint(BootPhase::CoreRegistrations, "registering ReadFile/x86math");
+  boot_checkpoint(BootPhase::CoreRegistrations, "registering ReadFile/x86math and minimal upstream system/EngBase/Common prerequisites");
   const int rf_ok = fl_upstream_readfile_integration_register();
   fl_port::log_message(rf_ok ? fl_port::LogLevel::Info : fl_port::LogLevel::Error,
                        rf_ok ? "ReadFile explicitly registered" : "ReadFile registration failed");
@@ -370,6 +372,12 @@ int main(int argc, char** argv) {
   const int math_ok = fl_upstream_x86math_integration_register();
   fl_port::log_message(math_ok ? fl_port::LogLevel::Info : fl_port::LogLevel::Error,
                        math_ok ? "x86math explicitly registered" : "x86math explicit registration failed");
+
+  // M8.7 phase 2: register minimal upstream system/EngBase components (Common INI TU linked for early-init config/runtime services).
+  fl_upstream_system_register_component(mgr);
+  fl_port::log_message(fl_port::LogLevel::Info, "M8.7: upstream system component registration hook invoked");
+  fl_upstream_engbase_register_components();
+  fl_port::log_message(fl_port::LogLevel::Info, "M8.7: upstream EngBase component registration hook invoked");
 
   if (!rf_ok) { fl_port::log_message(fl_port::LogLevel::Error, "M8.5 early-out [CoreRegistrations]: ReadFile registration failed"); std::cerr << "[FAIL][CoreRegistrations] ReadFile registration failed\n"; return 2; }
   if (!math_ok) { fl_port::log_message(fl_port::LogLevel::Error, "M8.5 early-out [CoreRegistrations]: x86math registration failed"); std::cerr << "[FAIL][CoreRegistrations] x86math registration failed\n"; return 3; }
@@ -711,7 +719,7 @@ int main(int argc, char** argv) {
 #if defined(FL_HAS_SDL3) && defined(FL_HAS_VULKAN)
   {
     fl_port::WindowConfig wcfg;
-    wcfg.title = "Freelancer Linux Client (M8.5 bring-up)";
+    wcfg.title = "Freelancer Linux Client (M8.7 bring-up)";
     wcfg.width = 960;
     wcfg.height = 540;
     wcfg.resizable = true;
@@ -851,8 +859,8 @@ int main(int argc, char** argv) {
                              ", key_events=" + std::to_string(key_events) +
                              ", mouse_events=" + std::to_string(mouse_events) +
                              ", close_requested=" + (close_requested ? "1" : "0") + ")");
-    std::cout << "freelancer_linux_client (M8.5): native client initialized engine bring-up, opened window, reached main menu (controlled stable in-engine state)\n";
-    std::cout << "Status: M8.5 bring-up acceptance satisfied (equivalent controlled main-menu state); upstream client TU linkage still pending for real menu/game flow\n";
+    std::cout << "freelancer_linux_client (M8.7 bring-up): native client initialized engine bring-up, opened window, reached main menu (controlled stable in-engine state)\n";
+    std::cout << "Status: M8.7 bring-up acceptance satisfied (DALib/Common/EngBase/system prerequisites linked; equivalent controlled main-menu state); upstream client TU linkage still pending for real menu/game flow\n";
 
     return cleanup_all(0);
   }

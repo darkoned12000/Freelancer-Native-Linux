@@ -17,6 +17,16 @@
 #include <map>
 #include <new>
 
+#if !defined(_MSC_VER)
+#include <cctype>
+static inline char* fl_port_strdup(const char* s) { return s ? ::strdup(s) : nullptr; }
+static inline char* fl_port_strlwr(char* str) {
+    if (!str) return str;
+    for (char* p = str; *p; ++p) *p = (char)std::tolower((unsigned char)*p);
+    return str;
+}
+#endif
+
 #pragma comment(lib, "dacom.lib")
 
 // Typed math calls preserve the caller's float buffers and their spill boundaries.
@@ -352,8 +362,13 @@ unsigned long DACOM_API FHardpointInner::AddRef()
 // _strdup + _strlwr, the pair every hardpoint-record builder calls through the MSVCRT imports.
 static char* DuplicateLoweredName(char const* Name)
 {
+#if defined(_MSC_VER)
     char* Copy = _strdup(Name);
     _strlwr(Copy);
+#else
+    char* Copy = fl_port_strdup(Name);
+    fl_port_strlwr(Copy);
+#endif
     return Copy;
 }
 
@@ -674,9 +689,17 @@ FAnimTrack::FAnimTrack(const FAnimTrack& Other)
     if (Channel != nullptr)
         Channel->AddRef();
     if (Other.ParentName != nullptr)
+#if defined(_MSC_VER)
         ParentName = _strdup(Other.ParentName);
+#else
+        ParentName = fl_port_strdup(Other.ParentName);
+#endif
     if (Other.ChildName != nullptr)
+#if defined(_MSC_VER)
         ChildName = _strdup(Other.ChildName);
+#else
+        ChildName = fl_port_strdup(Other.ChildName);
+#endif
 }
 
 FAnimTrack::~FAnimTrack()
@@ -3710,7 +3733,11 @@ static FArchetypeHandle* DACOM_API EngineCreateCompoundArchetype(FEngineObject* 
         Local.Text = Anonymous;
         do
         {
+#if defined(_MSC_VER)
             wsprintfA(Anonymous, G_AnonymousFormat, G_AnonymousIndex++);
+#else
+            std::snprintf(Anonymous, sizeof(Anonymous), G_AnonymousFormat, G_AnonymousIndex++);
+#endif
             Local.Crc = DACOM_CRC::GetCRC32(Anonymous);
         } while (LookupArchetype(This, &Local) != G_InvalidArchetype);
         Local.Crc = DACOM_CRC::GetCRC32(Anonymous);
@@ -4670,7 +4697,11 @@ static void LoadChannelNode(FAnimTrack* Track, void* FileSystem)
 // FUN_06611440, thiscall on the name value, RET 8 (Name, FileSystem); returns AL = 1, which no
 static void LoadAnimScriptMaps(FAnimNameEntry* Entry, const char* Name, void* FileSystem)
 {
+#if defined(_MSC_VER)
     Entry->Name = _strdup(Name);
+#else
+    Entry->Name = fl_port_strdup(Name);
+#endif
     IFileSystem* Fs = AsFileSystem(FileSystem);
     WIN32_FIND_DATAA FindData;
     const int FindHandle = Fs->FindFirst(G_NameStar, // +0x48
@@ -8188,6 +8219,15 @@ void RegisterEngBaseComponents()
     }
 }
 
+#if defined(FL_LINUX_PORT_UPSTREAM_TU) || defined(FL_LINUX_PORT_DALIB_PORTABLE)
+// Linux port bring-up: explicit registration hook (no DllMain auto-attach).
+extern "C" void fl_upstream_engbase_register_components()
+{
+    RegisterEngBaseComponents();
+}
+#endif
+
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU) && !defined(FL_LINUX_PORT_DALIB_PORTABLE)
 BOOL APIENTRY DllMain(HMODULE Module, DWORD Reason, LPVOID Reserved)
 {
     (void)Reserved;
@@ -8198,3 +8238,4 @@ BOOL APIENTRY DllMain(HMODULE Module, DWORD Reason, LPVOID Reserved)
     }
     return TRUE;
 }
+#endif

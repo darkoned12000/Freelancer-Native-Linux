@@ -616,6 +616,19 @@ static void RegisterSystemContainer(ICOManager* Dacom)
     Factory->Release();
 }
 
+#if defined(FL_LINUX_PORT_UPSTREAM_TU) || defined(FL_LINUX_PORT_DALIB_PORTABLE)
+// Linux port bring-up: explicit registration hook (no DllMain auto-attach).
+extern "C" void fl_upstream_system_register_component(ICOManager* Dacom)
+{
+    if (Dacom == nullptr)
+        Dacom = DACOM_Acquire();
+    if (GDacom == nullptr)
+        GDacom = Dacom;
+    RegisterSystemContainer(Dacom);
+}
+#endif
+
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU) && !defined(FL_LINUX_PORT_DALIB_PORTABLE)
 BOOL WINAPI DllMain(HINSTANCE Instance, DWORD Reason, LPVOID)
 {
     // FUN_06f117f0: DEC reason; JNZ → return 1. DETACH / THREAD_* are no-ops
@@ -630,3 +643,4 @@ BOOL WINAPI DllMain(HINSTANCE Instance, DWORD Reason, LPVOID)
     }
     return TRUE;
 }
+#endif
