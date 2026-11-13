@@ -195,6 +195,90 @@ bool read_text_via_win32(const std::filesystem::path& p, std::string& out, size_
   return true;
 }
 
+// M8.7 phase 4: read bytes through upstream ReadFile IFileSystem path (DALib::Data / child instance).
+bool read_bytes_via_ifilesystem(IFileSystem* data_fs, ICOManager* mgr, const std::filesystem::path& data_root,
+                                const std::string& rel_path, std::string& out, size_t max_bytes = 512) {
+  out.clear();
+  auto try_read = [&](auto* factory, const char* label, const std::string& path) -> bool {
+    if (!factory) return false;
+    void* child_inst = nullptr;
+    FFileSystemDesc child_desc{};
+    child_desc.Size = 0x34;
+    child_desc.ComponentName = "FileSystem";
+    child_desc.Implementation = "DOS";
+    child_desc.Path = path.c_str();
+    child_desc.Access = GENERIC_READ;
+    child_desc.ShareMode = FILE_SHARE_READ;
+    child_desc.Creation = OPEN_EXISTING;
+    child_desc.Flags = 0;
+    child_desc.Extra = 0;
+    child_desc.Field30 = 0xFFFFFFFFu;
+    const GENRESULT gr_child = factory->CreateInstance((AGGDESC*)&child_desc, &child_inst);
+    if (gr_child != GR_OK || !child_inst) {
+      fl_port::log_message(fl_port::LogLevel::Warning,
+                           std::string("M8.7 IFileSystem read [") + label + "] CreateInstance failed for " + rel_path +
+                               " gr=" + std::to_string((int)gr_child));
+      return false;
+    }
+    bool ok = false;
+    if (auto* child_fs = reinterpret_cast<IFileSystem*>(child_inst)) {
+      std::vector<char> buf(max_bytes);
+      size_t total = 0;
+      bool read_err = false;
+      while (total < max_bytes) {
+        unsigned long bytes_read = 0;
+        const unsigned long want = static_cast<unsigned long>(max_bytes - total);
+        const int rd = child_fs->Read(0, buf.data() + total, want, &bytes_read, 0);
+        if (rd == 0) { // Win32/IFileSystem-style failure
+          read_err = true;
+          break;
+        }
+        if (bytes_read == 0) break; // clean EOF
+        total += bytes_read;
+      }
+      ok = !read_err && total > 0;
+      if (ok) out.assign(buf.data(), buf.data() + total);
+      fl_port::log_message(ok ? fl_port::LogLevel::Info : fl_port::LogLevel::Warning,
+                           std::string("M8.7 IFileSystem read [") + label + "] " + rel_path +
+                               " bytes=" + std::to_string(total) + (read_err ? " (read error)" : ""));
+      child_fs->Release();
+    } else {
+      reinterpret_cast<IDAComponent*>(child_inst)->Release();
+    }
+    return ok;
+  };
+
+  if (try_read(static_cast<IComponentFactory*>(data_fs), "data_fs", rel_path)) return true;
+  auto resolved_file = fl_port::resolve_path_case_insensitive(data_root, rel_path);
+  if (resolved_file) {
+    if (try_read(mgr, "mgr-resolved", resolved_file->string())) return true;
+  }
+  return false;
+}
+
+bool validate_ini_via_upstream_reader(const std::string& path, const char* label, bool expect_header = true) {
+  INI_Reader reader;
+  if (!reader.open(path.c_str(), false)) {
+    fl_port::log_message(fl_port::LogLevel::Warning,
+                         std::string("M8.7 INI_Reader: failed to open ") + label + " (" + path + ")");
+    return false;
+  }
+  int headers = 0;
+  int values = 0;
+  bool saw_header = false;
+  while (reader.read_header()) {
+    ++headers;
+    saw_header = true;
+    while (reader.read_value()) ++values;
+  }
+  reader.close();
+  const bool ok = !expect_header || saw_header;
+  fl_port::log_message(ok ? fl_port::LogLevel::Info : fl_port::LogLevel::Warning,
+                       std::string("M8.7 INI_Reader parsed ") + label + " headers=" + std::to_string(headers) +
+                           " values=" + std::to_string(values) + (ok ? "" : " (unexpected empty/invalid)"));
+  return ok;
+}
+
 bool try_set_bin_cwd(const std::filesystem::path& start_cwd, const std::filesystem::path& exe_path,
                      std::filesystem::path& out_bin_dir) {
   const auto has_dacom = [](const std::filesystem::path& dir) {
@@ -526,8 +610,11 @@ int main(int argc, char** argv) {
     }
   }
 
-  // Config/DATA loading checks via Linux-compatible path resolution and Win32 file APIs
-  auto check_read = [&](const std::filesystem::path& base, const char* rel, const char* label, size_t nbytes) -> bool {
+  // M8.7 phase 4: Config/DATA/BINI/path validation through upstream DALib/Common/ReadFile paths.
+  // - INI parsing/reads validated via upstream Common INI_Reader (text/BINI-capable)
+  // - DATA asset access validated via DALib::OpenData/IFileSystem stream + path/search behavior
+  // - Win32 shim path-resolution/read checks retained as compatibility diagnostics
+  auto check_read_compat = [&](const std::filesystem::path& base, const char* rel, const char* label, size_t nbytes) -> bool {
     auto resolved = fl_port::resolve_path_case_insensitive(base, rel);
     if (!resolved) {
       fl_port::log_message(fl_port::LogLevel::Error, std::string("resolve failed: ") + label + " (" + rel + ")");
@@ -543,19 +630,155 @@ int main(int argc, char** argv) {
   };
 
   bool data_ok = true;
-  data_ok = check_read(freelancer_ini_resolved->parent_path(), "freelancer.ini", "freelancer.ini", 256) && data_ok;
-  data_ok = check_read(freelancer_ini_resolved->parent_path(), "DACOM.INI", "DACOM.INI", 256) && data_ok;
-  // Key DATA files (case-insensitive/backslash-safe resolution on Linux)
-  data_ok = check_read(data_root, "solar\\solararch.ini", "DATA solararch.ini", 256) && data_ok;
-  data_ok = check_read(data_root, "UNIVERSE\\universe.ini", "DATA universe.ini", 256) && data_ok;
-  data_ok = check_read(data_root, "EQUIPMENT\\select_equip.ini", "DATA select_equip.ini", 256) && data_ok;
-  data_ok = check_read(data_root, "FONTS\\fonts.ini", "DATA fonts.ini", 256) && data_ok;
+  bool upstream_config_ok = true;
 
-  // BINI/specialized content presence check (resolved path) - full BINI decode is deeper client-path work
+  // DACOM.INI / freelancer.ini: upstream INI_Reader parse validation + compat reads
+  upstream_config_ok = validate_ini_via_upstream_reader(dacom_ini_resolved->string(), "DACOM.INI") && upstream_config_ok;
+  upstream_config_ok = validate_ini_via_upstream_reader(freelancer_ini_resolved->string(), "freelancer.ini") && upstream_config_ok;
+  // Re-validate key freelancer.ini value through upstream INI_Reader (already used for data path extraction).
   {
-    auto bini = fl_port::resolve_path_case_insensitive(data_root, "INITIALWORLD.INI");
-    if (bini) fl_port::log_message(fl_port::LogLevel::Info, "resolved DATA INITIALWORLD.INI: " + bini->string());
-    else fl_port::log_message(fl_port::LogLevel::Warning, "DATA INITIALWORLD.INI not resolved (non-fatal in source-only checkout)");
+    const std::string dp = get_ini_first_value(*freelancer_ini_resolved, "Freelancer", "data path");
+    if (dp.empty()) {
+      fl_port::log_message(fl_port::LogLevel::Error, "M8.7 INI_Reader: freelancer.ini [Freelancer].data path missing/empty on recheck");
+      upstream_config_ok = false;
+    } else {
+      fl_port::log_message(fl_port::LogLevel::Info, "M8.7 INI_Reader: freelancer.ini [Freelancer].data path=" + dp);
+    }
+  }
+  data_ok = check_read_compat(freelancer_ini_resolved->parent_path(), "freelancer.ini", "freelancer.ini", 256) && data_ok;
+  data_ok = check_read_compat(freelancer_ini_resolved->parent_path(), "DACOM.INI", "DACOM.INI", 256) && data_ok;
+
+  // Key DATA files: validate via DALib::OpenData/IFileSystem stream reads and upstream INI_Reader parsing
+  struct DataCheck { const char* rel; const char* label; bool skip_ifs_read; };
+  const DataCheck data_checks[] = {
+    {"solar\\solararch.ini", "DATA solararch.ini", true}, // stream read already validated in IFileSystemProbe (smoke marker)
+    {"UNIVERSE\\universe.ini", "DATA universe.ini", false},
+    {"EQUIPMENT\\select_equip.ini", "DATA select_equip.ini", false},
+    {"FONTS\\fonts.ini", "DATA fonts.ini", false},
+  };
+  for (const auto& dc : data_checks) {
+    bool asset_ok = true;
+    if (!dc.skip_ifs_read) {
+      std::string bytes;
+      asset_ok = read_bytes_via_ifilesystem(data_fs, mgr, data_root, dc.rel, bytes, 512);
+      if (!asset_ok) data_ok = false;
+    } else {
+      // Avoid duplicating the critical IFileSystemProbe stream-read check/log for solararch.ini.
+      fl_port::log_message(fl_port::LogLevel::Info,
+                           std::string("M8.7: reusing IFileSystemProbe stream validation for ") + dc.rel);
+    }
+    if (asset_ok) {
+      // Upstream INI_Reader parse validation on resolved path (text/BINI-capable reader path).
+      auto resolved = fl_port::resolve_path_case_insensitive(data_root, dc.rel);
+      if (resolved) {
+        upstream_config_ok = validate_ini_via_upstream_reader(resolved->string(), dc.label) && upstream_config_ok;
+      } else {
+        fl_port::log_message(fl_port::LogLevel::Warning, std::string("M8.7: could not resolve path for INI_Reader validation: ") + dc.rel);
+        upstream_config_ok = false;
+      }
+    }
+    // Compatibility/path-resolution diagnostic (Win32 shim read)
+    data_ok = check_read_compat(data_root, dc.rel, dc.label, 256) && data_ok;
+  }
+
+  // M8.7 phase 4: exercise un-normalized relative path handling through upstream IFileSystem/INI_Reader paths
+  // (no fl_port pre-resolution for the open path itself) to validate case/backslash resolution behavior.
+  {
+    bool unnorm_ok = true;
+
+    // IFileSystem::OpenByDesc on DALib::Data with un-normalized backslash/mixed-case relative paths.
+    auto open_by_desc_probe = [&](const char* rel, const char* label) -> bool {
+      FFileSystemDesc desc{};
+      desc.Size = 0x34;
+      desc.ComponentName = "FileSystem";
+      desc.Implementation = "DOS";
+      desc.Path = rel;
+      desc.Access = GENERIC_READ;
+      desc.ShareMode = FILE_SHARE_READ;
+      desc.Creation = OPEN_EXISTING;
+      desc.Flags = 0;
+      desc.Extra = 0;
+      desc.Field30 = 0xFFFFFFFFu;
+      const int handle = data_fs->OpenByDesc(&desc);
+      if (handle < 0) {
+        fl_port::log_message(fl_port::LogLevel::Warning,
+                             std::string("M8.7 OpenByDesc probe failed: ") + label + " path=" + rel +
+                                 " handle=" + std::to_string(handle));
+        return false;
+      }
+      char buf[64] = {};
+      unsigned long bytes_read = 0;
+      const int rd = data_fs->Read(static_cast<unsigned long>(handle), buf, sizeof(buf), &bytes_read, 0);
+      const bool ok = (rd != 0 && bytes_read > 0);
+      (void)data_fs->CloseFile(static_cast<unsigned long>(handle));
+      fl_port::log_message(ok ? fl_port::LogLevel::Info : fl_port::LogLevel::Warning,
+                           std::string("M8.7 OpenByDesc probe ") + label + " path=" + rel +
+                               " rd=" + std::to_string(rd) + " bytes=" + std::to_string(bytes_read));
+      return ok;
+    };
+
+    unnorm_ok = open_by_desc_probe("solar\\solararch.ini", "data_fs-backslash") && unnorm_ok;
+    unnorm_ok = open_by_desc_probe("SOLAR\\SolarArch.INI", "data_fs-mixedcase") && unnorm_ok;
+
+    // Upstream INI_Reader::open on un-normalized relative path (case/backslash) from current working context.
+    // CWD is typically bin dir at this point; try data-relative and root-relative forms.
+    const char* ini_rel_candidates[] = {
+      "..\\DATA\\SOLAR\\SolarArch.INI",
+      "DATA\\SOLAR\\SolarArch.INI",
+      "..\\data\\solar\\solararch.ini",
+    };
+    bool ini_rel_ok = false;
+    for (const char* p : ini_rel_candidates) {
+      INI_Reader r;
+      if (r.open(p, false)) {
+        int headers = 0;
+        while (r.read_header()) { ++headers; break; }
+        r.close();
+        if (headers > 0) {
+          fl_port::log_message(fl_port::LogLevel::Info,
+                               std::string("M8.7 INI_Reader un-normalized relative open probe succeeded: ") + p);
+          ini_rel_ok = true;
+          break;
+        }
+      }
+    }
+    if (!ini_rel_ok) {
+      fl_port::log_message(fl_port::LogLevel::Warning,
+                           "M8.7 INI_Reader un-normalized relative open probe did not succeed (non-fatal diagnostic; path/shim behavior may vary by cwd)");
+      // Keep non-fatal for now: this probes upstream-style relative usage without pre-resolution and
+      // should become a hard requirement as upstream init paths are linked/validated.
+    }
+
+    if (unnorm_ok) {
+      fl_port::log_message(fl_port::LogLevel::Info,
+                           "M8.7: un-normalized path/search-path probes passed for DALib::Data IFileSystem OpenByDesc/Read");
+    } else {
+      fl_port::log_message(fl_port::LogLevel::Warning,
+                           "M8.7: un-normalized path/search-path probes reported issues (see logs)");
+      upstream_config_ok = false;
+    }
+  }
+
+  // InitialWorld.ini / BINI-capable INI path validation through upstream reader (resolved via IFileSystem/path resolution)
+  {
+    auto iw = fl_port::resolve_path_case_insensitive(data_root, "INITIALWORLD.INI");
+    if (iw) {
+      fl_port::log_message(fl_port::LogLevel::Info, "resolved DATA INITIALWORLD.INI: " + iw->string());
+      upstream_config_ok = validate_ini_via_upstream_reader(iw->string(), "DATA INITIALWORLD.INI") && upstream_config_ok;
+      std::string iw_bytes;
+      (void)read_bytes_via_ifilesystem(data_fs, mgr, data_root, "InitialWorld.ini", iw_bytes, 256);
+    } else {
+      fl_port::log_message(fl_port::LogLevel::Warning, "DATA INITIALWORLD.INI not resolved (non-fatal in source-only checkout)");
+    }
+  }
+
+  if (!upstream_config_ok) {
+    fl_port::log_message(fl_port::LogLevel::Error,
+                         "M8.7 phase 4: upstream DALib/Common/INI_Reader/IFileSystem config-DATA validation reported issues");
+    data_ok = false;
+  } else {
+    fl_port::log_message(fl_port::LogLevel::Info,
+                         "M8.7 phase 4: upstream DALib/Common (INI_Reader) + IFileSystem config/DATA/BINI-path checks passed for validated assets");
   }
 
   if (DALib::Data) {
