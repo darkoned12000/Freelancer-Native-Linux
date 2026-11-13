@@ -7,10 +7,14 @@
 #pragma once
 
 // Preserve per-module class exports for header-defined members; bodies live in DALib.
+#if defined(_MSC_VER)
 #if defined(DALIB_EXPORTS) || defined(COMMON_EXPORTS) || defined(SERVER_EXPORTS) || defined(FREELANCER_EXPORTS)
 #define MD5HASH_API __declspec(dllexport)
 #else
 #define MD5HASH_API __declspec(dllimport)
+#endif
+#else
+#define MD5HASH_API
 #endif
 
 class MD5HASH_API MD5Hash

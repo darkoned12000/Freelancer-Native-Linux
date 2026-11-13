@@ -17,7 +17,32 @@
 // DirectPlay8 SDK (dx8\include, appended to the END of $(IncludePath) by each .vcxproj that
 // includes this header -- DALib and freelancer; see src/include/render/d3d8_min.h for why the
 // old SDK must not precede the Windows 10 SDK).
+#if defined(FL_LINUX_PORT_DALIB_PORTABLE) && !defined(_DPLAY8_H_)
+// M8.7 Linux portable: DirectPlay8 SDK unavailable. Provide minimal type stubs so
+// DALib message-queue and non-DirectPlay networking primitives can compile/link.
+// Full CDPClient/CDPServer/CDPClientProxy DirectPlay functionality remains unported.
+struct IDirectPlay8Client;
+struct IDirectPlay8Server;
+struct IDirectPlay8Address;
+struct _DPNMSG_ENUM_HOSTS_RESPONSE;
+struct _DPN_CONNECTION_INFO { char _opaque[0x80]; };
+struct _DPN_APPLICATION_DESC { char _opaque[0x50]; };
+typedef struct _DPN_APPLICATION_DESC DPN_APPLICATION_DESC;
+#ifndef DPNHANDLE_DEFINED
+typedef DWORD DPNHANDLE;
+#define DPNHANDLE_DEFINED
+#endif
+#ifndef __IUnknown_INTERFACE_DEFINED__
+#define __IUnknown_INTERFACE_DEFINED__
+struct IUnknown {
+    virtual long __stdcall QueryInterface(const void* riid, void** ppvObject) = 0;
+    virtual unsigned long __stdcall AddRef() = 0;
+    virtual unsigned long __stdcall Release() = 0;
+};
+#endif
+#else
 #include <dplay8.h>
+#endif
 
 #include <list>
 #include <cstddef>

@@ -7,11 +7,14 @@
 #include "DALib.h"
 #include "dacom.h"
 
-#if !defined(FL_LINUX_PORT_DALIB_CORE_ONLY)
+#if !defined(FL_LINUX_PORT_DALIB_CORE_ONLY) && !defined(FL_LINUX_PORT_DALIB_PORTABLE)
 #include "alchemy.h"
 #include "soundmanager.h"
 #include "soundstreamer.h"
 #include "system.h"
+#endif
+#if defined(FL_LINUX_PORT_DALIB_PORTABLE)
+#include "dacom_iids.h"
 #endif
 
 #include <stdarg.h>
@@ -19,7 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if !defined(FL_LINUX_PORT_DALIB_CORE_ONLY)
+#if !defined(FL_LINUX_PORT_DALIB_CORE_ONLY) && !defined(FL_LINUX_PORT_DALIB_PORTABLE)
 #include <io.h>
 #include <unknwn.h>
 #else
@@ -117,7 +120,7 @@ namespace
     }
 }
 
-#if !defined(FL_LINUX_PORT_DALIB_CORE_ONLY)
+#if !defined(FL_LINUX_PORT_DALIB_CORE_ONLY) && !defined(FL_LINUX_PORT_DALIB_PORTABLE)
 // Retail .text:065c1160 DALib::Startup(HWND, const char*).
 bool __cdecl DALib::Startup(HWND Hwnd, const char* IniPath)
 {
@@ -302,14 +305,102 @@ Exit:
     return bResult;
 }
 #else
-// M8.7 Linux core-only build: upstream DALib::Startup (SystemContainer/engine/audio/render/
-// DirectPlay subsystems) is not yet ported. Acquire DACOM for upstream OpenData/data-path use.
-bool __cdecl DALib::Startup(HWND /*Hwnd*/, const char* /*IniPath*/)
+// M8.7 phase 3 (Linux portable bring-up): upstream-structured DALib::Startup with best-effort
+// subsystem acquisition. Attempts SystemContainer creation and interface discovery using
+// upstream-style flows/IIDs where possible, but tolerates missing/unported components so
+// early bring-up (DACOM/config/DATA paths) can continue as dependencies become portable.
+bool __cdecl DALib::Startup(HWND Hwnd, const char* IniPath)
 {
+    (void)Hwnd;
+    (void)IniPath;
+
     Dacom = DACOM_Acquire();
-    fl_port::log_message(fl_port::LogLevel::Warning,
-                         "DALib::Startup (M8.7 upstream core-only TU): subsystem init pending; DACOM acquired for data-path bring-up");
-    return Dacom != nullptr;
+    if (Dacom == nullptr)
+    {
+        fl_port::log_message(fl_port::LogLevel::Error, "DALib::Startup (M8.7 portable): DACOM_Acquire failed");
+        return false;
+    }
+
+    fl_port::log_message(fl_port::LogLevel::Info, "DALib::Startup (M8.7 portable): beginning upstream-structured subsystem acquisition");
+
+    // Best-effort SystemContainer creation (AGGDESC 0x1C: size/name/ini-path in retail flow).
+    IDAComponent* container = nullptr;
+    struct FPortableSystemContainerAggDesc {
+        unsigned long Size;
+        const char* ComponentName;
+        const void* IniPath;
+        unsigned long Reserved0C;
+        unsigned long Reserved10;
+        unsigned long Reserved14;
+        unsigned long Reserved18;
+    } agg{};
+    agg.Size = 0x1c;
+    agg.ComponentName = "SystemContainer";
+    agg.IniPath = IniPath;
+    const GENRESULT gr_sys = Dacom->CreateInstance(reinterpret_cast<AGGDESC*>(&agg), reinterpret_cast<void**>(&container));
+    if (gr_sys == GR_OK && container) {
+        fl_port::log_message(fl_port::LogLevel::Info, "DALib::Startup (M8.7 portable): SystemContainer created");
+
+        // Best-effort interface discovery via QueryInterface using known IIDs/names.
+        auto qi = [&](IDAComponent* comp, const char* iid, void** out, const char* label) -> bool {
+            if (!comp || !iid || !out) return false;
+            *out = nullptr;
+            const GENRESULT q = comp->QueryInterface(iid, out);
+            if (q == GR_OK && *out) {
+                fl_port::log_message(fl_port::LogLevel::Info, std::string("DALib::Startup (M8.7 portable): acquired ") + label);
+                return true;
+            }
+            return false;
+        };
+
+        // Core engine/component interfaces (names vary by component/version; try common forms).
+        qi(container, "Engine", reinterpret_cast<void**>(&Engine), "Engine");
+        qi(container, Iids::Engine, reinterpret_cast<void**>(&Engine), "IEngine");
+        qi(container, "Engine2", reinterpret_cast<void**>(&Engine2), "Engine2");
+        qi(container, Iids::Engine2, reinterpret_cast<void**>(&Engine2), "IEngine2");
+        qi(container, "Hardpoint", reinterpret_cast<void**>(&Hardpoint), "Hardpoint");
+        qi(container, Iids::Hardpoint, reinterpret_cast<void**>(&Hardpoint), "IHardpoint");
+        qi(container, "Animation", reinterpret_cast<void**>(&Anim), "Animation");
+        qi(container, Iids::Animation, reinterpret_cast<void**>(&Anim), "IAnimation");
+        qi(container, Iids::Animation2, reinterpret_cast<void**>(&Anim), "IAnimation2");
+        qi(container, "Channel", reinterpret_cast<void**>(&Channel), "Channel");
+        qi(container, Iids::Channel, reinterpret_cast<void**>(&Channel), "IChannel");
+        qi(container, "Deformable", reinterpret_cast<void**>(&Deform), "Deformable");
+        qi(container, Iids::Deformable, reinterpret_cast<void**>(&Deform), "IDeformable");
+        qi(container, "Renderer", reinterpret_cast<void**>(&Renderer), "Renderer");
+        qi(container, Iids::Renderer2, reinterpret_cast<void**>(&Renderer), "IRenderer2");
+
+        // Render/asset interfaces
+        qi(container, Iids::RenderPipeline8B, reinterpret_cast<void**>(&Pipeline), "IRenderPipeline8B");
+        qi(container, Iids::TextureLibrary2, reinterpret_cast<void**>(&TextureLib), "ITextureLibrary2");
+        qi(container, Iids::MaterialLibrary, reinterpret_cast<void**>(&MaterialLib), "IMaterialLibrary");
+        qi(container, Iids::MaterialBatcher2, reinterpret_cast<void**>(&MaterialBatcher), "IMaterialBatcher2");
+        qi(container, Iids::VertexBufferManager, reinterpret_cast<void**>(&VertexBuffer), "IVertexBufferManager");
+        qi(container, Iids::RPDraw, reinterpret_cast<void**>(&RPDraw), "IRPDraw");
+
+        // Audio/streaming/fx/asset optional interfaces (best-effort)
+        qi(container, Iids::SoundManager, reinterpret_cast<void**>(&Sound), "ISoundManager");
+        qi(container, Iids::Streamer2, reinterpret_cast<void**>(&Streamer), "IStreamer2");
+        qi(container, Iids::Alchemy, reinterpret_cast<void**>(&Alchemy), "IAlchemy");
+        qi(container, Iids::FxRuntime, reinterpret_cast<void**>(&FxRuntime), "IFxRuntime");
+        qi(container, Iids::FxEffectLibrary, reinterpret_cast<void**>(&FxEffectLibrary), "IFxEffectLibrary");
+        qi(container, Iids::MatAnimLibrary, reinterpret_cast<void**>(&MatAnimLibrary), "IMatAnimLibrary");
+        qi(container, Iids::VMeshLibrary, reinterpret_cast<void**>(&VMeshLibrary), "IVMeshLibrary");
+
+        // Upstream performs audio device/streamer startup and engine component loading here.
+        // Those paths depend on unported subsystem implementations and platform backends
+        // (DirectSound/DirectPlay/render/device stacks); defer until portable components exist.
+        fl_port::log_message(fl_port::LogLevel::Warning,
+                             "DALib::Startup (M8.7 portable): subsystem device/init steps deferred (SystemContainer acquired, interface discovery attempted)");
+
+        container->Release();
+    } else {
+        fl_port::log_message(fl_port::LogLevel::Warning,
+                             std::string("DALib::Startup (M8.7 portable): SystemContainer unavailable gr=") + std::to_string((int)gr_sys) +
+                             " (continuing with DACOM/data-path bring-up)");
+    }
+
+    return true;
 }
 #endif
 // Retail .text:065c1610 DALib::OpenData -- 0x34-byte "FileSystem"/"DOS" descriptor, result
@@ -336,7 +427,7 @@ void __cdecl DALib::CloseData()
     ReleaseGlobal(Data);
 }
 
-#if !defined(FL_LINUX_PORT_DALIB_CORE_ONLY)
+#if !defined(FL_LINUX_PORT_DALIB_CORE_ONLY) && !defined(FL_LINUX_PORT_DALIB_PORTABLE)
 // Retail .text:065c16b0 DALib::Shutdown. DALib::Data is not touched (CloseData is the host's
 // job); MatAnimLibrary and VMeshLibrary are neither released nor cleared.
 void __cdecl DALib::Shutdown(HWND /*Hwnd*/)
@@ -403,15 +494,67 @@ void __cdecl DALib::Shutdown(HWND /*Hwnd*/)
     OutputDebugStringA("DALib::Shutdown () EXIT\n");
 }
 #else
-// M8.7 Linux core-only build: full subsystem teardown is not yet ported.
-// Data lifecycle is managed explicitly via CloseData in bring-up flow.
+// M8.7 phase 3 (Linux portable bring-up): upstream-structured subsystem teardown.
+// Releases any DALib-owned subsystem globals that were acquired (safe no-ops when null)
+// and performs minimal cleanup without assuming full subsystem initialization.
 void __cdecl DALib::Shutdown(HWND /*Hwnd*/)
 {
-    fl_port::log_message(fl_port::LogLevel::Warning,
-                         "DALib::Shutdown (M8.7 upstream core-only TU): full subsystem teardown pending");
+    fl_port::log_message(fl_port::LogLevel::Info,
+                         "DALib::Shutdown (M8.7 Linux portable): releasing acquired subsystem globals (best-effort)");
+
+    if (FxEffectLibrary != nullptr) {
+        // Upstream calls ClearEffects() via vtable slot +0x24 before release when present.
+        // In Linux bring-up FxEffectLibrary is typically null/unported; guard defensively.
+        // ((void(__stdcall*)(IFxEffectLibrary*))FxEffectLibrary->vtable[0x24 / 4])(FxEffectLibrary);
+    }
+
+    IRenderPipeline* const SavedPipeline = Pipeline;
+    ReleaseGlobal(FxEffectLibrary);
+    ReleaseGlobal(Channel);
+    ReleaseGlobal(Anim);
+    ReleaseGlobal(Renderer);
+    ReleaseGlobal(Hardpoint);
+    ReleaseGlobal(Deform);
+    ReleaseGlobal(Engine2);
+    ReleaseGlobal(Engine);
+
+    if (Pipeline != nullptr) {
+        // Upstream releases Pipeline once in this path (count/behavior captured in GLastReleaseCount).
+        if (((IDAComponent*)Pipeline)->Release() != 0) {
+            Pipeline = nullptr;
+        } else {
+            Pipeline = nullptr;
+        }
+    }
+
+    if (VertexBuffer != nullptr) {
+        const unsigned long VertexBufferRefs = ((IDAComponent*)VertexBuffer)->Release();
+        VertexBuffer = nullptr;
+        if (VertexBufferRefs != 0) {
+            fl_port::log_message(fl_port::LogLevel::Warning,
+                                 "DALib::Shutdown (Linux portable): IVertexBufferManager refcount non-zero on release");
+        }
+    }
+
+    ReleaseGlobal(MaterialBatcher);
+    ReleaseGlobal(MaterialLib);
+    ReleaseGlobal(TextureLib);
+    ReleaseGlobal(Sound);
+    ReleaseGlobal(Streamer);
+    ReleaseGlobal(Alchemy);
+    ReleaseGlobal(RPDraw);
+    ReleaseGlobal(FxRuntime);
+    ReleaseGlobal(MatAnimLibrary);
+    ReleaseGlobal(VMeshLibrary);
+
+    // Upstream performs additional pipeline/DACOM shutdown when a pipeline was active and
+    // subsystem/container state was fully initialized. In current Linux bring-up those
+    // subsystems are not fully ported/acquired; avoid unsafe shutdown side effects.
+    (void)SavedPipeline;
 }
 #endif
-#if !defined(FL_LINUX_PORT_DALIB_CORE_ONLY)
+
+#if !defined(FL_LINUX_PORT_DALIB_CORE_ONLY) && !defined(FL_LINUX_PORT_DALIB_PORTABLE)
 // Retail .text:065c5d40 DllMain: on DLL_PROCESS_ATTACH (reason 1) stash the module handle in
 // .data:065ca2ac and opt out of thread notifications; every reason returns 1.
 BOOL WINAPI DllMain(HMODULE Module, DWORD Reason, LPVOID)

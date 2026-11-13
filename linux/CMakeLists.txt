@@ -330,13 +330,23 @@ if(FL_LINUX_BUILD_TOOLS)
     target_link_libraries(m3_math_data_tests PRIVATE fl_linux_port_platform fl_linux_port_path fl_upstream_tu_iface)
 
     # M8.1–M8.7 — Linux client bring-up executable (32-bit): entry + stubs + upstream
-    # DACOM/ReadFile/x86math wrapper TUs. M8.7 phase 2 compiles upstream src/DALib/DALib.cpp
-    # as a core-only TU (OpenData/CloseData/data-path + globals/hooks; Startup/Shutdown
-    # subsystem init guarded pending porting) and links it into freelancer_linux_client.
+    # DACOM/ReadFile/x86math wrapper TUs. M8.7 links real upstream DALib TU(s) in Linux-portable
+    # mode (DALib.cpp globals/OpenData/CloseData/portable Startup+Shutdown, md5hash, CDPNetCodec,
+    # CDPMsgList) into freelancer_linux_client; DirectPlay/CDP client/server/proxy/GUN TUs remain
+    # dependency-blocked (dplay8/COM runtime).
     if(FL_LINUX_BUILD_CLIENT)
-      add_library(fl_dalib_core_bringup OBJECT "${FL_SRC_ROOT}/DALib/DALib.cpp")
+      add_library(fl_dalib_core_bringup OBJECT
+        "${FL_SRC_ROOT}/DALib/DALib.cpp"
+        "${FL_SRC_ROOT}/DALib/CDPNetCodec.cpp"
+        "${FL_SRC_ROOT}/DALib/md5hash.cpp"
+        "${FL_SRC_ROOT}/DALib/CDPMsgList.cpp"
+      )
       target_link_libraries(fl_dalib_core_bringup PRIVATE fl_linux_port_platform fl_upstream_tu_iface)
-      target_compile_definitions(fl_dalib_core_bringup PRIVATE FL_LINUX_PORT_DALIB_CORE_ONLY DALIB_EXPORTS)
+      target_compile_definitions(fl_dalib_core_bringup PRIVATE FL_LINUX_PORT_DALIB_CORE_ONLY FL_LINUX_PORT_DALIB_PORTABLE DALIB_EXPORTS ZLIB_WINAPI)
+      target_include_directories(fl_dalib_core_bringup PRIVATE
+        "${FL_SRC_ROOT}/DALib"
+        "${FL_SRC_ROOT}/zlib/vendor"
+      )
 
       add_executable(freelancer_linux_client
         src/linux_client_main.cpp
@@ -347,7 +357,7 @@ if(FL_LINUX_BUILD_TOOLS)
         $<TARGET_OBJECTS:fl_upstream_readfile_tu>
         $<TARGET_OBJECTS:fl_upstream_x86math_tu>
       )
-      target_link_libraries(freelancer_linux_client PRIVATE fl_linux_port_platform fl_linux_port_path fl_linux_port_gameplay fl_upstream_tu_iface)
+      target_link_libraries(freelancer_linux_client PRIVATE fl_linux_port_platform fl_linux_port_path fl_linux_port_gameplay fl_upstream_tu_iface fl_upstream_zlib)
       # M8.3 window/input/render hookups (optional when 32-bit SDL3/Vulkan libs unavailable)
       if(FL_SDL3_USABLE AND TARGET fl_linux_port_window)
         target_link_libraries(freelancer_linux_client PRIVATE fl_linux_port_window ${FL_SDL3_PC_LIBRARIES})
