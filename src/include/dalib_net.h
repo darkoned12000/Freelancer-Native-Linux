@@ -17,9 +17,9 @@
 // DirectPlay8 SDK (dx8\include, appended to the END of $(IncludePath) by each .vcxproj that
 // includes this header -- DALib and freelancer; see src/include/render/d3d8_min.h for why the
 // old SDK must not precede the Windows 10 SDK).
-#if defined(FL_LINUX_PORT_DALIB_PORTABLE) && !defined(_DPLAY8_H_)
-// M8.7 Linux portable: DirectPlay8 SDK unavailable. Provide minimal type stubs so
-// DALib message-queue and non-DirectPlay networking primitives can compile/link.
+#if ((defined(FL_LINUX_PORT_DALIB_PORTABLE) || defined(FL_LINUX_PORT_UPSTREAM_TU)) && !defined(_WIN32)) && !defined(_DPLAY8_H_)
+// M8.7 Linux portable/probe: DirectPlay8 SDK unavailable on Linux. Provide minimal type stubs so
+// DALib message-queue and non-DirectPlay networking primitives/probe TUs can compile.
 // Full CDPClient/CDPServer/CDPClientProxy DirectPlay functionality remains unported.
 struct IDirectPlay8Client;
 struct IDirectPlay8Server;
@@ -91,8 +91,10 @@ struct IUnknown {
 // C4251: the std:: members of the exported classes below need no dll-interface -- every module
 // that touches them compiles them from this header with the same STL.
 // C4275: CGunWrapper's base IGunQueueReader is not exported, as in retail (no export names it).
+#ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 4251 4275)
+#endif
 
 class CDPMessage;
 class CDPClientProxy;
@@ -132,12 +134,12 @@ public:
     virtual ~CDPMessage() = default;
 
     // .text:065c3240: MOV EAX,[ECX+0x8]; RET.
-    unsigned char* const GetData()
+    unsigned char* GetData()
     {
         return Data;
     }
     // .text:065c3250: MOV EAX,[ECX+0xc]; RET (ICF-shared with CGunWrapper::GetConnection).
-    const unsigned long GetSize()
+    unsigned long GetSize()
     {
         return Size;
     }
@@ -153,8 +155,11 @@ public:
 
 static_assert(sizeof(DPNHANDLE) == 4 && sizeof(HRESULT) == 4, "DirectPlay message words");
 static_assert(sizeof(CDPMessage) == 0x20, "CDPMessage footprint");
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Winvalid-offsetof"
 static_assert(offsetof(CDPMessage, ReceiveBufferHandle) == 0x10, "receive-buffer handle");
 static_assert(offsetof(CDPMessage, ConnectResult) == 0x1c, "connect result");
+#pragma clang diagnostic pop
 
 // Synchronized message queue with a manual-reset nonempty event.
 class DALIB_NET_BASE_API CDPMsgList
@@ -504,4 +509,6 @@ private:
     unsigned long RetryTime;                // +0x24 -- timeGetTime() deadline for the next reconnect
 };
 
+#ifdef _MSC_VER
 #pragma warning(pop)
+#endif

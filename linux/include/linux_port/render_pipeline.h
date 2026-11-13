@@ -26,6 +26,9 @@
 #include <functional>
 #include <string>
 #include <vector>
+#include "linux_port/vertex_buffer.h"
+#include "linux_port/texture_manager.h"
+#include "linux_port/font_manager.h"
 
 struct SDL_Window;
 
@@ -82,7 +85,7 @@ class RenderPipeline : public IComponentFactory {
   GENRESULT DACOM_API GetDepthRange(float* OutMinZ, float* OutMaxZ) RP_OVERRIDE;
   GENRESULT DACOM_API SetWindow(HWND Hwnd, int X, int Y, int W, int H) RP_OVERRIDE;
   GENRESULT DACOM_API GetWindow(HWND* OutHwnd, int* OutLeft, int* OutRight, int* OutW,
-                                int* OutH); // no RP_OVERRIDE: OutRight semantics (right edge) differ from upstream naming
+                                int* OutH) override; // no RP_OVERRIDE: OutRight semantics (right edge) differ from upstream naming
   GENRESULT DACOM_API SetWorld(const float* M12) RP_OVERRIDE;
   GENRESULT DACOM_API GetWorld(float* Out12) RP_OVERRIDE;
   GENRESULT DACOM_API SetView(const float* M12) RP_OVERRIDE;
@@ -92,11 +95,11 @@ class RenderPipeline : public IComponentFactory {
   GENRESULT DACOM_API SetProjection(const float* M16) RP_OVERRIDE;
   GENRESULT DACOM_API GetProjection(float* Out16) RP_OVERRIDE;
   GENRESULT DACOM_API SetLookat(float EyeX, float EyeY, float EyeZ, float AtX, float AtY,
-                                float AtZ, float UpX, float UpY, float UpZ); // no RP_OVERRIDE: matches upstream signature
+                                float AtZ, float UpX, float UpY, float UpZ) override; // no RP_OVERRIDE: matches upstream signature
   GENRESULT DACOM_API SetOrtho(float Left, float Right, float Bottom, float Top,
-                               float NearPlane, float FarPlane); // no RP_OVERRIDE: matches upstream signature
+                               float NearPlane, float FarPlane) override; // no RP_OVERRIDE: matches upstream signature
   GENRESULT DACOM_API SetPerspective(float FovDeg, float Aspect, float NearPlane,
-                                     float FarPlane); // no RP_OVERRIDE: matches upstream signature
+                                     float FarPlane) override; // no RP_OVERRIDE: matches upstream signature
   GENRESULT DACOM_API SetLight(void* Handle, const D3DLIGHT8* Light) RP_OVERRIDE;
   GENRESULT DACOM_API DestroyLight(void* Handle) RP_OVERRIDE;
   GENRESULT DACOM_API GetLight(void* Handle, D3DLIGHT8* OutLight) RP_OVERRIDE;
@@ -106,18 +109,18 @@ class RenderPipeline : public IComponentFactory {
   GENRESULT DACOM_API GetMaterial(D3DMATERIAL8* Material) RP_OVERRIDE;
   GENRESULT DACOM_API CreateTexture(int Width, int Height, unsigned int* Format,
                                     unsigned int Levels, unsigned int Flags,
-                                    void** OutHandle); // no RP_OVERRIDE: stub (unsupported)
+                                    void** OutHandle) override; // no RP_OVERRIDE: stub (unsupported)
   GENRESULT DACOM_API DestroyTexture(void* Handle) RP_OVERRIDE;
   GENRESULT DACOM_API IsTexture(void* Handle) RP_OVERRIDE;
   GENRESULT DACOM_API LockTexture(void* Handle, int Level, void* Out) RP_OVERRIDE;
   GENRESULT DACOM_API UnlockTexture(void* Handle, int Level) RP_OVERRIDE;
   GENRESULT DACOM_API GetTextureFormat(void* Handle, int* OutFormat) RP_OVERRIDE;
   GENRESULT DACOM_API GetTextureDim(void* Handle, unsigned int* OutW, unsigned int* OutH,
-                                    int* OutLevels);
+                                    int* OutLevels) override;
   GENRESULT DACOM_API GetTextureInterface(void* Handle, void* UnusedA, void* UnusedB) RP_OVERRIDE;
   GENRESULT DACOM_API SetTextureLevelData(void* Handle, int Level, int SrcW, int SrcH,
                                           unsigned int Pitch, unsigned int* SrcFormat,
-                                          const void* Pixels, void* A, void* B);
+                                          const void* Pixels, void* A, void* B) override;
   GENRESULT DACOM_API BlitTexture(void* DstHandle, int DstLevel, void* SrcHandle, int SrcLevel) RP_OVERRIDE;
   GENRESULT DACOM_API SetRenderTarget(void* Handle, void* UnusedA, void* UnusedB) RP_OVERRIDE;
   GENRESULT DACOM_API GetRenderTarget(void* Handle) RP_OVERRIDE;
@@ -134,16 +137,16 @@ class RenderPipeline : public IComponentFactory {
   GENRESULT DACOM_API GetTextureStageTexture(int Stage, void** OutHandle) RP_OVERRIDE;
   GENRESULT DACOM_API VerifyState() RP_OVERRIDE;
   GENRESULT DACOM_API DrawPrimitive(unsigned long Prim, unsigned int Fvf, const void* Verts,
-                                    unsigned int Count, void* Unused); // no RP_OVERRIDE: stub (unsupported)
+                                    unsigned int Count, void* Unused) override; // no RP_OVERRIDE: stub (unsupported)
   GENRESULT DACOM_API DrawIndexedPrimitiveUp(unsigned long Prim, unsigned int Fvf,
                                              const void* Verts, unsigned int VertCount,
                                              const void* Indices, unsigned int IndexCount,
-                                             unsigned long Unused);
+                                             unsigned long Unused) override;
   GENRESULT DACOM_API DrawPrimitiveVb(unsigned long Prim, void* Vb, unsigned int StartVertex,
-                                      unsigned int Count, void* Unused);
+                                      unsigned int Count, void* Unused) override;
   GENRESULT DACOM_API DrawIndexedPrimitiveVb(unsigned long Prim, void* Vb, unsigned int BaseVertex,
                                              unsigned int NumVerts, const void* Indices,
-                                             unsigned int IndexCount, unsigned long Unused);
+                                             unsigned int IndexCount, unsigned long Unused) override;
   GENRESULT DACOM_API AddLight(void* Handle) RP_OVERRIDE;
   GENRESULT DACOM_API RemoveLight(void* Handle) RP_OVERRIDE;
   GENRESULT DACOM_API UpdateLight(void* Handle) RP_OVERRIDE;
@@ -152,13 +155,20 @@ class RenderPipeline : public IComponentFactory {
   // IComponentFactory
   GENRESULT DACOM_API CreateInstance(AGGDESC* Desc, void** Instance) RP_OVERRIDE;
   GENRESULT DACOM_API QueryInterface(const char* iid, void** Out) RP_OVERRIDE;
-  unsigned long DACOM_API AddRef() { return 1; }
-  unsigned long DACOM_API Release() { return 1; }
+  unsigned long DACOM_API AddRef() override { return 1; }
+  unsigned long DACOM_API Release() override { return 1; }
 
   // Bring-up helpers (not part of IRenderPipeline).
   bool init_for_window(Window* window, const RenderPipelineConfig& config = {});
   void shutdown();
   bool is_initialized() const { return initialized_; }
+  // M9.1: access to vertex/index buffer manager.
+  VertexBufferManager& vertex_buffers() { return vb_manager_; }
+  TextureManager& textures() { return tex_manager_; }
+  FontManager& fonts() { return font_manager_; }
+  const FontManager& fonts() const { return font_manager_; }
+  const TextureManager& textures() const { return tex_manager_; }
+  const VertexBufferManager& vertex_buffers() const { return vb_manager_; }
   // Runs a full frame: begin scene, clear, draw triangle, end scene, present.
   // Returns false on fatal error.
   bool render_frame(float t_seconds);
@@ -168,6 +178,16 @@ class RenderPipeline : public IComponentFactory {
   void reset_frame_stats() { frame_count_ = 0; avg_frame_ms_ = 0.0; last_frame_ms_ = 0.0; }
   // Resize handling (recreate swapchain).
   bool resize(int w, int h);
+  // M9.3: create a default graphics pipeline from compiled SPIR-V (if available).
+  bool create_default_pipeline();
+  void destroy_default_pipeline();
+  bool create_skybox_pipeline();
+  void destroy_skybox_pipeline();
+  bool create_nebula_pipeline();
+  void destroy_nebula_pipeline();
+  bool create_text_pipeline();
+  void destroy_text_pipeline();
+  void draw_text(VkCommandBuffer cmd, const char* text, float x, float y, float scale);
 
   // Dynamic clear color (used by render_frame clear pass).
   void set_clear_color(float r, float g, float b, float a = 1.0f);
@@ -180,6 +200,24 @@ class RenderPipeline : public IComponentFactory {
   // Vulkan state (scoped native backend).
   struct VkState;
   VkState* vk_{nullptr};
+  // M9.1: vertex/index buffer management (lifecycle tied to device).
+  VertexBufferManager vb_manager_;
+  TextureManager tex_manager_;
+  FontManager font_manager_;
+  VkPipelineLayout graphics_pipeline_layout_ = VK_NULL_HANDLE;
+  VkPipeline graphics_pipeline_ = VK_NULL_HANDLE;
+  VkPipelineLayout skybox_pipeline_layout_ = VK_NULL_HANDLE;
+  VkPipeline skybox_pipeline_ = VK_NULL_HANDLE;
+  VkPipelineLayout nebula_pipeline_layout_ = VK_NULL_HANDLE;
+  VkPipeline nebula_pipeline_ = VK_NULL_HANDLE;
+  VkPipelineLayout text_pipeline_layout_ = VK_NULL_HANDLE;
+  VkPipeline text_pipeline_ = VK_NULL_HANDLE;
+  VkDescriptorSetLayout text_dsl_ = VK_NULL_HANDLE;
+  VkDescriptorPool text_desc_pool_ = VK_NULL_HANDLE;
+  VkDescriptorSet text_desc_set_ = VK_NULL_HANDLE;
+  VkBuffer demo_vb_ = VK_NULL_HANDLE;
+  VkDeviceMemory demo_vb_mem_ = VK_NULL_HANDLE;
+  bool demo_vb_ready_ = false;
 
   Window* window_{nullptr};
   RenderPipelineConfig config_{};

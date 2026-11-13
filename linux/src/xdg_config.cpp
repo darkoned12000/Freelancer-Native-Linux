@@ -138,7 +138,7 @@ bool XdgConfig::write_key(const std::string& file, const std::string& section,
   }
 
   if (key_idx >= 0) {
-    lines[key_idx] = key + "=" + value;
+    lines[static_cast<std::size_t>(key_idx)] = key + "=" + value;
   } else if (section_idx >= 0) {
     // Insert after section header
     lines.insert(lines.begin() + section_idx + 1, key + "=" + value);

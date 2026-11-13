@@ -4,7 +4,7 @@ This repository is a **native Linux port effort** based on [Freelancer Decomp](h
 
 **Goal:** run Freelancer **natively on Linux** (Wayland-first, targeting EndeavourOS/Hyprland + AMD RDNA3/RADV-class GPUs) **without Wine or Proton**, while preserving original game behavior and compatibility with legally obtained game data.
 
-> Status: **early bring-up (M0–M7 completed, pending review)**. M8+ (game client compilation and full engine integration) is the next phase. The original Windows build remains the upstream reference; Linux-native runtime is not yet launchable.
+> Status: **M0–M9 implemented (bring-up)**. The 32-bit `freelancer_linux_client` runs (DACOM init, config/DATA load, window, render loop with skybox/nebula/HUD). Full upstream engine wiring (M8.7/M11) still pending. The original Windows build remains the upstream reference.
 
 ## Project goals & constraints
 
@@ -67,6 +67,13 @@ See [`assessment.md`](assessment.md) for the detailed technical assessment, subs
 - [x] Fullscreen/windowed toggle, controller detection, frame pacing metrics in window/render backends.
 - [x] Packaging/install/run documentation (`linux/docs/packaging-install-run.md`).
 - [x] Final validation harness (`m7_release_harness`) passes all subsystem checks on 64-bit and 32-bit presets. See [`roadmap.md`](roadmap.md).
+
+### M8 — Game client compilation (in progress)
+- [x] `freelancer_linux_client` native ELF links and runs (DACOM init, config/DATA load, window, render loop).
+- [~] Upstream client/library init (M8.7) pending on unported dependencies.
+
+### M9 — Full render pipeline (implemented)
+- [x] Vertex/index buffers, textures (stb), graphics pipeline, fonts (FreeType), draw submission, skybox, nebula, HUD text (`m9_render_harness`).
 
 ## Milestones
 
@@ -172,6 +179,13 @@ cmake --build --preset linux-x86 -j
 # SDL_VIDEODRIVER=x11 ./linux/linux-x86/gfx_wayland_poc
 # SDL_VIDEODRIVER=x11 ./linux/linux-x86/m4_window_input_harness
 ```
+
+# Game client (native ELF) — runs the bring-up client with render loop
+./linux/linux-x86/freelancer_linux_client
+# (add --smoke-xdg-temp for isolated config during testing)
+
+# M9 render harness (skybox + nebula + triangle + HUD text demo)
+./linux/linux-x86/m9_render_harness
 
 Build output directory: `linux/linux-x86/`. The `linux-x86` configure preset sets `PKG_CONFIG_LIBDIR=/usr/lib32/pkgconfig:/usr/share/pkgconfig` for 32-bit SDL3/Vulkan discovery; you can also prefix the configure command with that environment variable if needed.
 

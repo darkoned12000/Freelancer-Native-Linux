@@ -35,5 +35,7 @@
 #endif
 
 // Exported classes may contain std::vector / std::map; consumers do not need their dll-interface.
+#ifdef _MSC_VER
 #pragma warning(disable : 4251)
 #pragma warning(disable : 4275)
+#endif

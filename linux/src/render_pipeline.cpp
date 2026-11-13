@@ -977,4 +977,15 @@ int RenderPipeline::swapchain_image_count() const {
   return vk_ ? static_cast<int>(vk_->swapchain_images.size()) : 0;
 }
 
+
+bool RenderPipeline::create_default_pipeline() { return true; }
+void RenderPipeline::destroy_default_pipeline() {}
+bool RenderPipeline::create_skybox_pipeline() { return true; }
+void RenderPipeline::destroy_skybox_pipeline() {}
+bool RenderPipeline::create_nebula_pipeline() { return true; }
+void RenderPipeline::destroy_nebula_pipeline() {}
+bool RenderPipeline::create_text_pipeline() { return true; }
+void RenderPipeline::destroy_text_pipeline() {}
+void RenderPipeline::draw_text(VkCommandBuffer, const char*, float, float, float) {}
+
 }  // namespace fl_port

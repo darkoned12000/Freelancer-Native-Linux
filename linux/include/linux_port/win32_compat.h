@@ -643,6 +643,72 @@ inline void* InterlockedExchangePointer(void* volatile* target, void* value) { v
 
 
 // --- Probe/port compatibility additions (Linux bring-up) ---
+
+// Additional probe/port compatibility stubs (M8.7 path B incremental)
+#ifndef CP_UTF8
+#define CP_UTF8 65001
+#endif
+#ifndef FILE_MAP_READ
+#define FILE_MAP_READ 0x0004
+#endif
+#ifndef FILE_MAP_WRITE
+#define FILE_MAP_WRITE 0x0002
+#endif
+#ifndef KEY_QUERY_VALUE
+#define KEY_QUERY_VALUE 0x0001
+#endif
+#ifndef EXCEPTION_EXECUTE_HANDLER
+#define EXCEPTION_EXECUTE_HANDLER 1
+#endif
+
+#ifndef _STARTUPINFOA_DEFINED
+#define _STARTUPINFOA_DEFINED
+typedef struct _STARTUPINFOA {
+  DWORD cb;
+  LPSTR lpReserved;
+  LPSTR lpDesktop;
+  LPSTR lpTitle;
+  DWORD dwX, dwY, dwXSize, dwYSize;
+  DWORD dwXCountChars, dwYCountChars;
+  DWORD dwFillAttribute;
+  DWORD dwFlags;
+  WORD wShowWindow;
+  WORD cbReserved2;
+  BYTE* lpReserved2;
+  HANDLE hStdInput, hStdOutput, hStdError;
+} STARTUPINFOA, *LPSTARTUPINFOA;
+#endif
+#ifndef _PROCESS_INFORMATION_DEFINED
+#define _PROCESS_INFORMATION_DEFINED
+typedef struct _PROCESS_INFORMATION {
+  HANDLE hProcess;
+  HANDLE hThread;
+  DWORD dwProcessId;
+  DWORD dwThreadId;
+} PROCESS_INFORMATION, *LPPROCESS_INFORMATION;
+#endif
+#ifndef _EXCEPTION_POINTERS_DEFINED
+#define _EXCEPTION_POINTERS_DEFINED
+typedef struct _EXCEPTION_POINTERS { void* ExceptionRecord; void* ContextRecord; } EXCEPTION_POINTERS, *PEXCEPTION_POINTERS;
+#endif
+
+inline DWORD GetTempPathA(DWORD nBufferLength, LPSTR lpBuffer) {
+  const char* tmp = "/tmp/";
+  if (!lpBuffer || nBufferLength == 0) return 5;
+  strncpy(lpBuffer, tmp, nBufferLength - 1);
+  lpBuffer[nBufferLength - 1] = '\0';
+  return (DWORD)strlen(lpBuffer);
+}
+inline HANDLE GetCurrentProcess() { return (HANDLE)(intptr_t)-1; }
+inline DWORD GetCurrentProcessId() { return 1; }
+inline DWORD GetCurrentThreadId() { return 1; }
+inline BOOL DuplicateHandle(HANDLE, HANDLE, HANDLE, HANDLE*, DWORD, BOOL, DWORD) { return FALSE; }
+inline HANDLE CreateMutexA(void*, BOOL, LPCSTR) { return nullptr; }
+#ifndef wsprintfA
+#define wsprintfA sprintf
+#endif
+
+
 // Keep these inside #if !defined(_WIN32) so Windows builds use the native SDK.
 
 #ifndef PM_NOREMOVE
@@ -731,8 +797,8 @@ inline BOOL WINAPI SetWindowTextA(HWND, LPCSTR) { return TRUE; }
 inline BOOL WINAPI SetWindowTextW(HWND, const wchar_t*) { return TRUE; }
 inline HWND WINAPI GetDlgItem(HWND, int) { return nullptr; }
 inline BOOL WINAPI EndDialog(HWND, INT_PTR) { return TRUE; }
-inline INT_PTR WINAPI DialogBoxParamA(HINSTANCE, LPCSTR, HWND, void*, LPARAM) { return 0; }
-inline INT_PTR WINAPI DialogBoxParamW(HINSTANCE, const wchar_t*, HWND, void*, LPARAM) { return 0; }
+inline INT_PTR WINAPI DialogBoxParamA(HINSTANCE, LPCSTR, HWND, INT_PTR (CALLBACK*)(HWND, UINT, WPARAM, LPARAM), LPARAM) { return 0; }
+inline INT_PTR WINAPI DialogBoxParamW(HINSTANCE, const wchar_t*, HWND, INT_PTR (CALLBACK*)(HWND, UINT, WPARAM, LPARAM), LPARAM) { return 0; }
 inline void WINAPI GlobalMemoryStatus(LPMEMORYSTATUS lpBuffer) {
   if (!lpBuffer) return;
   lpBuffer->dwLength = sizeof(MEMORYSTATUS);

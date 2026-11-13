@@ -134,14 +134,32 @@ if(FL_LINUX_BUILD_TOOLS)
   target_include_directories(fl_linux_port_gameplay PUBLIC ${FL_LINUX_INCLUDE_DIR})
 
   # M5 graphics bring-up (scoped Vulkan backend behind IRenderPipeline).
+  # M9.3: compile minimal GLSL shaders to SPIR-V at build time.
   if(FL_SDL3_USABLE AND FL_VULKAN_USABLE)
-    add_library(fl_linux_port_render STATIC src/render_pipeline.cpp)
-    target_link_libraries(fl_linux_port_render PUBLIC fl_linux_port_window fl_linux_port_platform ${FL_SDL3_PC_LIBRARIES} ${FL_VULKAN_PC_LIBRARIES})
+    find_program(GLSLC_EXECUTABLE glslc)
+    if(GLSLC_EXECUTABLE)
+      set(SHADER_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/shaders)
+      set(SHADER_BIN_DIR ${CMAKE_CURRENT_BINARY_DIR}/shaders)
+      file(MAKE_DIRECTORY ${SHADER_BIN_DIR})
+      foreach(sh triangle.vert triangle.frag skybox.vert skybox.frag text.vert text.frag nebula.vert nebula.frag)
+        set(src ${SHADER_SRC_DIR}/${sh})
+        set(out ${SHADER_BIN_DIR}/${sh}.spv)
+        add_custom_command(OUTPUT ${out}
+          COMMAND ${GLSLC_EXECUTABLE} ${src} -o ${out}
+          DEPENDS ${src}
+          COMMENT "Compiling ${sh} to SPIR-V")
+        list(APPEND SHADER_SPVS ${out})
+      endforeach()
+      add_custom_target(fl_linux_shaders ALL DEPENDS ${SHADER_SPVS})
+    endif()
+    add_library(fl_linux_port_render STATIC src/render_pipeline.cpp src/vertex_buffer.cpp src/vb_adapter.cpp src/texture_manager.cpp src/texture_adapter.cpp src/font_manager.cpp)
+    target_link_libraries(fl_linux_port_render PUBLIC fl_linux_port_window fl_linux_port_platform ${FL_SDL3_PC_LIBRARIES} ${FL_VULKAN_PC_LIBRARIES} freetype)
     target_include_directories(fl_linux_port_render BEFORE PUBLIC
       "${CMAKE_CURRENT_SOURCE_DIR}/include/linux_port"
       ${FL_LINUX_INCLUDE_DIR}
       "${FL_SRC_ROOT}/include"
       "${FL_SRC_ROOT}"
+      "/usr/include/freetype2"
       PRIVATE ${FL_SDL3_PC_INCLUDE_DIRS} ${FL_VULKAN_PC_INCLUDE_DIRS})
     target_link_directories(fl_linux_port_render PUBLIC ${FL_SDL3_PC_LIBRARY_DIRS} ${FL_VULKAN_PC_LIBRARY_DIRS})
     target_compile_definitions(fl_linux_port_render PUBLIC FL_HAS_SDL3=1 FL_HAS_VULKAN=1)
@@ -150,6 +168,13 @@ if(FL_LINUX_BUILD_TOOLS)
     endif()
 
     add_executable(m5_graphics_harness tests/m5_graphics_harness.cpp)
+    add_executable(m9_render_harness tests/m9_render_harness.cpp)
+    target_link_libraries(m9_render_harness PRIVATE fl_linux_port_render fl_linux_port_window fl_linux_port_platform ${FL_SDL3_PC_LIBRARIES} ${FL_VULKAN_PC_LIBRARIES})
+    target_include_directories(m9_render_harness PRIVATE
+      "${CMAKE_CURRENT_SOURCE_DIR}/include/linux_port"
+      ${FL_LINUX_INCLUDE_DIR}
+      "${FL_SRC_ROOT}/include"
+      "${FL_SRC_ROOT}")
     target_link_libraries(m5_graphics_harness PRIVATE fl_linux_port_render fl_linux_port_window fl_linux_port_platform ${FL_SDL3_PC_LIBRARIES} ${FL_VULKAN_PC_LIBRARIES})
     target_include_directories(m5_graphics_harness BEFORE PRIVATE
       "${CMAKE_CURRENT_SOURCE_DIR}/include/linux_port"
@@ -353,6 +378,17 @@ if(FL_LINUX_BUILD_TOOLS)
       target_compile_options(fl_upstream_common_ini_tu PRIVATE -fdeclspec)
     endif()
 
+    # M8.7 path A: upstream Common timing TU (portable/guarded build) for early runtime init
+    add_library(fl_upstream_common_timing_tu OBJECT
+      "${FL_SRC_ROOT}/Common/common_timing.cpp"
+    )
+    target_link_libraries(fl_upstream_common_timing_tu PRIVATE fl_linux_port_platform fl_upstream_tu_iface)
+    target_compile_definitions(fl_upstream_common_timing_tu PRIVATE COMMON_EXPORTS DALIB_EXPORTS FL_LINUX_PORT_UPSTREAM_TU=1)
+    target_compile_options(fl_upstream_common_timing_tu PRIVATE -fms-extensions -w)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+      target_compile_options(fl_upstream_common_timing_tu PRIVATE -fdeclspec)
+    endif()
+
 
     add_executable(m3_math_data_tests
       tests/m3_math_data_tests.cpp
@@ -392,6 +428,7 @@ if(FL_LINUX_BUILD_TOOLS)
         $<TARGET_OBJECTS:fl_upstream_system_tu>
         $<TARGET_OBJECTS:fl_upstream_engbase_tu>
         $<TARGET_OBJECTS:fl_upstream_common_ini_tu>
+        $<TARGET_OBJECTS:fl_upstream_common_timing_tu>
       )
       target_link_libraries(freelancer_linux_client PRIVATE fl_linux_port_platform fl_linux_port_path fl_linux_port_gameplay fl_upstream_tu_iface fl_upstream_zlib)
       # M8.3 window/input/render hookups (optional when 32-bit SDL3/Vulkan libs unavailable)
@@ -435,6 +472,43 @@ if(FL_LINUX_BUILD_TOOLS)
       target_compile_options(fl_m87_freelancer_client_probe PRIVATE -fms-extensions -w)
       if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         target_compile_options(fl_m87_freelancer_client_probe PRIVATE -fdeclspec)
+      endif()
+
+      # M8.7 path A/B probes: incremental upstream Common init/data TU triage (below client UI layer)
+      add_library(fl_m87_common_timing_probe OBJECT EXCLUDE_FROM_ALL
+        "${FL_SRC_ROOT}/Common/common_timing.cpp"
+      )
+      target_link_libraries(fl_m87_common_timing_probe PRIVATE fl_linux_port_platform fl_upstream_tu_iface)
+      target_compile_definitions(fl_m87_common_timing_probe PRIVATE
+        FL_LINUX_PORT_UPSTREAM_TU=1 FL_LINUX_PORT_LAYOUT_RELAXED=1 COMMON_EXPORTS DALIB_EXPORTS WIN32 _WINDOWS
+      )
+      target_compile_options(fl_m87_common_timing_probe PRIVATE -fms-extensions -w)
+      if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        target_compile_options(fl_m87_common_timing_probe PRIVATE -fdeclspec)
+      endif()
+
+      add_library(fl_m87_common_misc_probe OBJECT EXCLUDE_FROM_ALL
+        "${FL_SRC_ROOT}/Common/common_misc.cpp"
+      )
+      target_link_libraries(fl_m87_common_misc_probe PRIVATE fl_linux_port_platform fl_upstream_tu_iface)
+      target_compile_definitions(fl_m87_common_misc_probe PRIVATE
+        FL_LINUX_PORT_UPSTREAM_TU=1 FL_LINUX_PORT_LAYOUT_RELAXED=1 COMMON_EXPORTS DALIB_EXPORTS WIN32 _WINDOWS
+      )
+      target_compile_options(fl_m87_common_misc_probe PRIVATE -fms-extensions -w)
+      if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        target_compile_options(fl_m87_common_misc_probe PRIVATE -fdeclspec)
+      endif()
+
+      add_library(fl_m87_common_dataconfig_probe OBJECT EXCLUDE_FROM_ALL
+        "${FL_SRC_ROOT}/Common/common_dataconfig.cpp"
+      )
+      target_link_libraries(fl_m87_common_dataconfig_probe PRIVATE fl_linux_port_platform fl_upstream_tu_iface)
+      target_compile_definitions(fl_m87_common_dataconfig_probe PRIVATE
+        FL_LINUX_PORT_UPSTREAM_TU=1 FL_LINUX_PORT_LAYOUT_RELAXED=1 COMMON_EXPORTS DALIB_EXPORTS WIN32 _WINDOWS
+      )
+      target_compile_options(fl_m87_common_dataconfig_probe PRIVATE -fms-extensions -w)
+      if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        target_compile_options(fl_m87_common_dataconfig_probe PRIVATE -fdeclspec)
       endif()
 
       # Opt-in smoke test (requires display + 32-bit SDL3/Vulkan runtime/data files in repo checkout)

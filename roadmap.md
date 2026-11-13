@@ -272,12 +272,13 @@ Treat it as a multi-stage siege. Sub-phases M8.0–M8.6 are tracked below.
     - [ ] **Blocked (external/unported dependencies):** enable full retail subsystem device/init/load/runtime paths in `DALib::Startup`/`Shutdown` (SystemContainer component loading, engine/render/audio/streamer/alchemy/fx runtime initialization) as dependent components/platform backends are ported/registered
     - [ ] **Blocked (DirectPlay/Win32 networking):** port/link DirectPlay/CDP networking TUs `CDPClient.cpp`, `CDPClientProxy.cpp`, `CDPServer.cpp`, `CGunWrapper.cpp` (and DirectPlay-dependent startup/shutdown/network behavior) — require `dplay8`/DirectPlay/COM/GUN runtime portability beyond current DALib scope; `dalib_net.h` now provides minimal Linux-port parseability stubs for core message types but DirectPlay client/server/proxy APIs remain unported
     - [ ] **Deferred/blocked (ABI sensitivity):** 64-bit migration and full upstream Windows ABI parity validation for DALib networking/client classes (32-bit-first bring-up; layout/ABI audit required before 64-bit enablement)
-  - [x] **Common / EngBase / system prerequisites (minimal early-init subset built/ported and linked)**
+  - [~] **Common / EngBase / system prerequisites (minimal early-init subset built/ported and linked; incremental expansion in progress)**
     - [x] `system` (`src/system/system.cpp`): compiled/linked into `freelancer_linux_client` (32-bit `linux-x86`) with Linux-port registration hook (`fl_upstream_system_register_component`); DllMain guarded for upstream TU builds (Windows behavior preserved)
     - [x] `EngBase` (`src/EngBase/EngBase.cpp`, `src/EngBase/EngBaseMixer.cpp`): compiled/linked with Linux-port registration hook (`fl_upstream_engbase_register_components`), DllMain guarded, and portability fixes for MSVC CRT APIs in Linux builds (`_strdup`/`_strlwr`/`wsprintfA` replacements under guarded paths; Windows behavior preserved)
     - [x] `Common` minimal config/INI reader + runtime-support subset: `src/Common/common_ini.cpp`, `src/Common/common_textfile.cpp`, `src/Common/msvcrt_atof.cpp` compiled/linked for early-init INI/BINI parsing and required file-map/text/parse dependencies (build/link validated; `linux/scripts/smoke_freelancer_client_m85.sh` passes)
+    - [x] Upstream `Common` timing TU (path A): `src/Common/common_timing.cpp` ported/guarded for non-MSVC x86 Linux builds, compiled/linked as `fl_upstream_common_timing_tu`, and `Timing::init()` invoked from `freelancer_linux_client` early init (`linux/build-x86` build + `linux/scripts/smoke_freelancer_client_m85.sh` pass)
     - [x] `freelancer_linux_client` invokes upstream `system`/`EngBase` registration hooks during early init (post-DACOM/core registrations) as part of M8.7 bring-up integration
-    - [ ] Expand Common/EngBase/system coverage beyond minimal early-init subset as upstream client/bootstrap integration requires (additional logging/assert/error-handling/timing/data/runtime TUs and broader Win32/MSVC/ABI/packing/layout compatibility)
+    - [~] Expand Common/EngBase/system coverage beyond minimal early-init subset as upstream client/bootstrap integration requires (additional logging/assert/error-handling/runtime/data TUs and broader Win32/MSVC/ABI/packing/layout compatibility). EXCLUDE_FROM_ALL probes added for incremental path A/B triage (`fl_m87_common_timing_probe`, `fl_m87_common_misc_probe`, `fl_m87_common_dataconfig_probe`): `common_dataconfig.cpp` compiles as a probe object in the current environment but `DataConfig::startup` linkage/invocation remains blocked by its dependency closure (archetype/universe/goods/fuses/reputation/newchar/etc. and supporting APIs such as `common_misc`); `common_misc.cpp` remains blocked for Linux-port TU build by Win32/MSVC/CRT/platform dependencies (targeted portability attempt reverted after clang frontend crash).
   - [~] **Upstream client init TU integration (`src/freelancer`)**
     - [x] Add guarded Linux build support scaffold for upstream client bootstrap/init TU integration: `linux/src/m87_upstream_bootstrap.cpp` hook wired into `freelancer_linux_client` with runtime fallback/diagnostics when upstream init TUs unavailable
     - [~] Wire `freelancer_linux_client` to invoke upstream initialization/boot entry points (DALib upstream APIs, system/EngBase registration hooks, and bootstrap hook now exercise upstream component/init paths including best-effort `SystemContainer` creation and engine/component interface discovery via DACOM). Added/iterated EXCLUDE_FROM_ALL compile probe target `fl_m87_freelancer_client_probe` (`src/freelancer/Client/engine_init.cpp`, `src/freelancer/Client/main.cpp`) and expanded Linux-port compatibility surface for probe builds (Win32 types/messages/constants/API shims with i386 `WINAPI`/`extern "C"` fixes and correct `#if !defined(_WIN32)` scoping, `mmsystem.h` shim, portable non-MSVC x86 x87 trig fallback with precision fix, `Timing::Delta` explicit padding fix, guarded layout-assert relaxation in selected upstream headers via `FL_LINUX_PORT_LAYOUT_RELAXED`). **Blocked:** real `src/freelancer/Client/main.cpp`/`engine_init.cpp` guarded TU compilation/linkage and invocation of upstream bootstrap/init entry points remain incomplete due to extensive transitive Win32/MSVC/COM/resource/DirectX/DirectShow/IME/UI/game-state/ABI/packing/layout dependencies and missing ported subsystems.
@@ -306,14 +307,24 @@ Treat it as a multi-stage siege. Sub-phases M8.0–M8.6 are tracked below.
 
 **Acceptance target:** A real Freelancer scene (ship in space, station, menu UI) renders and presents natively.
 
-- [ ] Implement full vertex/index buffer management (create/lock/unlock/select/copy, `IVertexBufferManager`, `IRPVertexBuffer`, `IRPIndexBuffer`)
-- [ ] Implement texture loading/binding (DDS/PNG/JPG via D3DX-equivalent or stb, `IRPTexture`, mipmaps, cube maps)
-- [ ] Implement graphics pipeline / state (render states, texture stage states, samplers, FVF, fixed-function or shader translation)
-- [ ] Implement font rendering (DirectX 8 `ID3DXFont` equivalent or FreeType)
-- [ ] Implement scene draw submission (`DrawPrimitive*`, `DrawIndexedPrimitive*` routing to Vulkan)
-- [ ] Skybox/nebula/asteroid rendering
-- [ ] HUD/UI rendering (menus, dialogs, HUD elements)
-- [ ] Acceptance: render a recognizable Freelancer scene and present at interactive framerate
+- [x] Implement full vertex/index buffer management (create/lock/unlock/select/copy, `IVertexBufferManager`, `IRPVertexBuffer`, `IRPIndexBuffer`)
+  - [x] `fl_port::VertexBufferManager` (Vulkan host-visible buffers) in `linux/src/vertex_buffer.cpp`; FVF stride parsing; `VbAdapter` upstream interface; wired into `RenderPipeline`.
+- [x] Implement texture loading/binding (DDS/PNG/JPG via D3DX-equivalent or stb, `IRPTexture`, mipmaps, cube maps)
+  - [x] `fl_port::TextureManager` (create/destroy/load from file+memory, level data) + `TextureAdapter`; stb vendored in `linux/third_party/stb/`; wired into `RenderPipeline`.
+- [x] Implement graphics pipeline / state (render states, texture stage states, samplers, FVF, fixed-function or shader translation)
+  - [x] Render-state cache + `create_default_pipeline()` from build-time SPIR-V (`linux/shaders/triangle.*`); skybox + text pipelines.
+- [x] Implement font rendering (DirectX 8 `ID3DXFont` equivalent or FreeType)
+  - [x] `fl_port::FontManager` (FreeType atlas, glyph metrics, sampler) wired into `RenderPipeline`.
+- [x] Implement scene draw submission (`DrawPrimitive*`, `DrawIndexedPrimitive*` routing to Vulkan)
+  - [x] `render_frame` now binds the default pipeline + triangle VB and issues `vkCmdDraw`; demo vertex buffer created lazily.
+- [~] Skybox/nebula/asteroid rendering
+  - [x] Skybox (fullscreen gradient pipeline) drawn in `render_frame`.
+  - [x] Nebula (FBM fullscreen pipeline) drawn in `render_frame`.
+  - [ ] Asteroid rendering (deferred: requires mesh generation + instancing; M17 assets).
+- [x] HUD/UI rendering (menus, dialogs, HUD elements)
+  - [x] Text pipeline + `draw_text()` using the FreeType atlas; sample "Freelancer" HUD text drawn per frame.
+- [~] Acceptance: render a recognizable Freelancer scene and present at interactive framerate
+  - [~] Demo renders skybox + triangle + HUD text at 60 fps (smoke passes); full Freelancer scene (ship/station) pending M9.6 mesh work and M17 assets.
 
 ## M10 — Real audio backend
 

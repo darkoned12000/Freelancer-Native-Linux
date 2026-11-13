@@ -218,18 +218,18 @@ bool MD5Hash::CalcValue()
     return true;
 }
 
-// Retail .text:065c69b0: sprintf(this+0x5c, "%08x-%08x-%08x-%08x", +4, +8, +0xc, +0x10);
+// Retail .text:065c69b0: sprintf(this+0x5c, "%08lx-%08lx-%08lx-%08lx", +4, +8, +0xc, +0x10);
 // returns this+0x5c.
 const char* MD5Hash::AsString()
 {
-    sprintf(StringValue, "%08x-%08x-%08x-%08x", State[0], State[1], State[2], State[3]);
+    sprintf(StringValue, "%08lx-%08lx-%08lx-%08lx", State[0], State[1], State[2], State[3]);
     return StringValue;
 }
 
-// Retail .text:065c69e0: sscanf(Text, "%x-%x-%x-%x", &+4, &+8, &+0xc, &+0x10) -- no NULL check.
+// Retail .text:065c69e0: sscanf(Text, "%lx-%lx-%lx-%lx", &+4, &+8, &+0xc, &+0x10) -- no NULL check.
 void MD5Hash::FromString(const char* Text)
 {
-    sscanf(Text, "%x-%x-%x-%x", &State[0], &State[1], &State[2], &State[3]);
+    sscanf(Text, "%lx-%lx-%lx-%lx", &State[0], &State[1], &State[2], &State[3]);
 }
 
 // .text:065c6a10 (RET 4): REPE CMPSD over the four state words of both objects, SETZ.

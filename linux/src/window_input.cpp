@@ -286,7 +286,6 @@ void Window::handle_event(const SDL_Event& ev, const WindowCallbacks& callbacks)
         state_.vk_down[ke.win_vk] = (ke.action == InputAction::Press);
         // Mirror specific modifier into generic Win32 counterpart so legacy
         // engine code checking VK_SHIFT/CONTROL/MENU sees combined state.
-        const bool pressed = (ke.action == InputAction::Press);
         if (ke.win_vk == 0xA0 || ke.win_vk == 0xA1) {
           // Recompute combined state accurately on both press and release.
           state_.vk_down[0x10] = state_.vk_down[0xA0] || state_.vk_down[0xA1];

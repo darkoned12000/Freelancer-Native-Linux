@@ -6,6 +6,7 @@
 #include <readfile.h>
 #include <DALib.h>
 #include <common_ini.h>
+#include <common_timing.h>
 
 #include <chrono>
 #include <cstdlib>
@@ -456,6 +457,10 @@ int main(int argc, char** argv) {
   const int math_ok = fl_upstream_x86math_integration_register();
   fl_port::log_message(math_ok ? fl_port::LogLevel::Info : fl_port::LogLevel::Error,
                        math_ok ? "x86math explicitly registered" : "x86math explicit registration failed");
+
+  // M8.7 path A: upstream Common timing init (linked Common timing TU)
+  Timing::init();
+  fl_port::log_message(fl_port::LogLevel::Info, "M8.7: upstream Common Timing::init invoked");
 
   // M8.7 phase 2: register minimal upstream system/EngBase components (Common INI TU linked for early-init config/runtime services).
   fl_upstream_system_register_component(mgr);

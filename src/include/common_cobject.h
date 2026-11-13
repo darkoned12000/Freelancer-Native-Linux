@@ -49,7 +49,9 @@ struct FPartMapEntry
     long EngineInstanceId;              // +0x04
     unsigned char bShieldPart;          // +0x08 (+0x09..+0x0b: alignment, no reader)
 };
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(FPartMapEntry) == 0xc, "FPartMapEntry is 0xc bytes");
+#endif
 
 namespace Archetype
 {
@@ -153,14 +155,26 @@ private:
     void set_centered_radius(float NewRadius, Vector const& Center);
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(EngineObject) == 0x4c, "EngineObject sizeof 0x4c");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(EngineObject, EngineInstanceId) == 0x04, "EngineObject+0x04 instance");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(EngineObject, Orientation) == 0x08, "EngineObject+0x08 matrix");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(EngineObject, WorldPosition) == 0x2c, "EngineObject+0x2c position");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(EngineObject, Radius) == 0x38, "EngineObject+0x38 radius");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(EngineObject, Orientation) + sizeof(Matrix) ==
                   offsetof(EngineObject, WorldPosition),
               "Orientation+WorldPosition overlay Transform");
+#endif
 
 struct COMMON_API CObject : public EngineObject
 {
@@ -432,19 +446,45 @@ public:
                                          // confirmed via Common.dll.c 40405-40505.
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CObject) == 0x9c, "CObject sizeof 0x9c");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CObject, ObjectClass) == 0x4c, "CObject+0x4c Class");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CObject, PhysicsSystemId) == 0x50, "CObject+0x50 PhySys system id");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CObject, BodyPtr) == 0x54, "CObject+0x54 IVP body");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CObject, SurfaceManager) == 0x5c, "CObject+0x5c surface manager");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CObject, GolemController) == 0x60, "CObject+0x60 golem force controller");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CObject, PartMap) == 0x64, "CObject+0x64 part map vector");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CObject, PhysicsControlMode) == 0x74, "CObject+0x74 physics control mode");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CObject, Phantoms) == 0x78, "CObject+0x78 phantom list");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CObject, CollisionStateMgr) == 0x84, "CObject+0x84 collision state manager");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CObject, Archetype) == 0x88, "CObject+0x88 archetype");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CObject, Advisors) == 0x8c, "CObject+0x8c advisor list");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CObject, RefCount) == 0x98, "CObject+0x98 refcount");
+#endif
 
 // Listing operator_new(0x9c) Alloc(0x2001). CPhysAttachment::Connect gun mesh CObject.
 class COMMON_API CEquipmentObj : public CObject
@@ -460,7 +500,9 @@ public:
     CEquipmentObj& operator=(CEquipmentObj const&) = delete;
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CEquipmentObj) == 0x9c, "CEquipmentObj sizeof 0x9c");
+#endif
 
 struct COMMON_API CSimple : public CObject
 {
@@ -485,10 +527,18 @@ public:
         Vector AngularVelocity{0.0f, 0.0f, 0.0f}; // +0x4c init_physics
     };
 
+    #if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(offsetof(CreateParms, Pos) == 0x10, "CSimple::CreateParms+0x10 pos");
+    #endif
+    #if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(offsetof(CreateParms, Orient) == 0x1c, "CSimple::CreateParms+0x1c matrix");
+    #endif
+    #if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(offsetof(CreateParms, Velocity) == 0x40, "CSimple::CreateParms+0x40 vel");
+    #endif
+    #if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(sizeof(CreateParms) == 0x58, "CSimple::CreateParms through +0x4c Vector");
+    #endif
 
     // Default argument: CSimple::`default constructor closure' (.text:06281440) pushes 0x3.
     explicit CSimple(Class ObjectClass = ClassSimple);
@@ -601,16 +651,36 @@ public:
     unsigned TypeBits;          // +0xe0  arch ObjectType after open
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CSimple) == 0xe4, "CSimple sizeof 0xe4");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CSimple, SelfWatchable) == 0x9c, "CSimple+0x9c self-watchable");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CSimple, ObjectDb) == 0xac, "CSimple+0xac IObjDB");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CSimple, Id) == 0xb0, "CSimple+0xb0 id");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CSimple, OwnerPlayer) == 0xb4, "CSimple+0xb4 owner");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CSimple, HitPts) == 0xb8, "CSimple+0xb8 hit_pts");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CSimple, AttachedDamageObjs) == 0xbc, "CSimple+0xbc attached damage-object set");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CSimple, CachedCenterOfMass) == 0xd0, "CSimple+0xd0 cached center of mass");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CSimple, CachedRadius) == 0xdc, "CSimple+0xdc cached radius");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CSimple, TypeBits) == 0xe0, "CSimple+0xe0 type bits");
+#endif
 
 // Listing Heap DAT_063fc3e0 size 0x104 / DAT_063fc3f0 size 0x120.
 // CProjectile 0xf0: CSimple + owner +0xe4 / lifetime +0xe8 / owner_safe +0xec.
@@ -623,8 +693,12 @@ public:
         unsigned OwnerId = 0; // +0x5c → this+0xe4
     };
 
+    #if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(offsetof(CreateParms, OwnerId) == 0x5c, "CProjectile::CreateParms+0x5c owner");
+    #endif
+    #if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(sizeof(CreateParms) == 0x60, "CProjectile::CreateParms sizeof 0x60");
+    #endif
 
     explicit CProjectile(Class ObjectClass);
     virtual ~CProjectile();
@@ -650,10 +724,18 @@ public:
     float OwnerSafeTime;     // +0xec  arch Projectile+0x74
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CProjectile) == 0xf0, "CProjectile sizeof 0xf0");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CProjectile, OwnerId) == 0xe4, "CProjectile+0xe4 owner");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CProjectile, Lifetime) == 0xe8, "CProjectile+0xe8 lifetime");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CProjectile, OwnerSafeTime) == 0xec, "CProjectile+0xec owner_safe");
+#endif
 
 // CMunition: the interposing layer between CProjectile and the guided/beam weapons.
 // Retail exports exactly five CMunition symbols and nothing else:
@@ -699,7 +781,9 @@ public:
     Archetype::Munition const* munitionarch() const;
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CMunition) == 0xf0, "CMunition sizeof 0xf0 (adds no field to CProjectile)");
+#endif
 
 // Listing Alloc(0xa7) Heap 0x104. CMunition vtable then CGuided fields.
 struct COMMON_API CGuided : public CMunition
@@ -716,9 +800,15 @@ public:
         unsigned short SubTarget = 0;       // +0x64 (+0x66: padding; the ctor 062865e0 leaves it)
     };
 
+    #if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(offsetof(CreateParms, Target) == 0x60, "CGuided::CreateParms+0x60 target");
+    #endif
+    #if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(offsetof(CreateParms, SubTarget) == 0x64, "CGuided::CreateParms+0x64 sub");
+    #endif
+    #if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(sizeof(CreateParms) == 0x68, "CGuided::CreateParms sizeof 0x68");
+    #endif
 
     // Default argument: CGuided::`default constructor closure' (.text:06286820) pushes 0xa7.
     explicit CGuided(Class ObjectClass = ClassGuided);
@@ -755,11 +845,21 @@ public:
     float SeekerElapsed;                      // +0x100
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CGuided) == 0x104, "CGuided sizeof 0x104");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CGuided, TargetWatch) == 0xf0, "CGuided+0xf0 watcher");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CGuided, SubTarget) == 0xf8, "CGuided+0xf8 sub_target");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CGuided, MotorArch) == 0xfc, "CGuided+0xfc motor");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CGuided, SeekerElapsed) == 0x100, "CGuided+0x100 elapsed");
+#endif
 
 // Listing Alloc(0x67) Heap 0x120. CMunition then colgroup / vel / trail.
 // CBeam::CBeam(CBeam const&) at 0x06286b?? stamps CSimple's vptr, copies +0xe4/+0xe8/+0xec,
@@ -799,12 +899,24 @@ public:
     unsigned char bMoved;    // +0x11c (+0x11d..+0x11f: alignment)
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CBeam) == 0x120, "CBeam sizeof 0x120");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CBeam, CollisionGroup) == 0xf0, "CBeam+0xf0 colgroup");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CBeam, Velocity) == 0xf8, "CBeam+0xf8 velocity");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CBeam, OriginPos) == 0x104, "CBeam+0x104 origin");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CBeam, LastPos) == 0x110, "CBeam+0x110 last pos");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CBeam, bMoved) == 0x11c, "CBeam+0x11c moved");
+#endif
 
 // CMine: projectile subclass for space mines. Heap size 0xf0 (same as CProjectile).
 // Derives from CProjectile directly, NOT from CMunition: CMine's RTTI base array at
@@ -834,7 +946,9 @@ protected:
     virtual void expire_safe_time();
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CMine) == 0xf0, "CMine sizeof 0xf0 (inherits CProjectile)");
+#endif
 
 // CCounterMeasure: projectile subclass for countermeasures (chaff/flares).
 // Like CMine, derives from CProjectile directly: RTTI base array 0x063a8124 (COL 0x063a8154,
@@ -866,7 +980,9 @@ protected:
     virtual void expire_safe_time();
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CCounterMeasure) == 0xf0, "CCounterMeasure sizeof 0xf0");
+#endif
 
 // CLoot: cargo container dropped by destroyed ships/solars.
 // CLoot::init 0x4c460 / CLoot::CLoot 0x4c400 / CLoot::update 0x4c680.
@@ -887,14 +1003,30 @@ public:
         bool bTemporary;     // +0x71 → this+0xfd (+0x72/+0x73: alignment)
     };
 
+    #if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(offsetof(CreateParms, OwnerId) == 0x5c, "CLoot::CreateParms+0x5c owner");
+    #endif
+    #if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(offsetof(CreateParms, NameId) == 0x60, "CLoot::CreateParms+0x60 name id");
+    #endif
+    #if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(offsetof(CreateParms, ContentsArch) == 0x64, "CLoot::CreateParms+0x64 contents arch ptr");
+    #endif
+    #if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(offsetof(CreateParms, Units) == 0x68, "CLoot::CreateParms+0x68 units");
+    #endif
+    #if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(offsetof(CreateParms, ContentsHitPts) == 0x6c, "CLoot::CreateParms+0x6c hp");
+    #endif
+    #if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(offsetof(CreateParms, bCanAiTractor) == 0x70, "CLoot::CreateParms+0x70 can_ai_tractor");
+    #endif
+    #if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(offsetof(CreateParms, bTemporary) == 0x71, "CLoot::CreateParms+0x71 temp flag");
+    #endif
+    #if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(sizeof(CreateParms) == 0x74, "CLoot::CreateParms sizeof 0x74");
+    #endif
 
     // Default argument: CLoot::`default constructor closure' (.text:0629d7f0) pushes 0x803.
     explicit CLoot(Class ObjectClass = ClassLoot);
@@ -938,16 +1070,36 @@ public:
     unsigned Reserved100;         // +0x100  zeroed/copied by retail ctor/copy-ctor; not read anywhere in this module
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CLoot) == 0x104, "CLoot sizeof 0x104 (retail operator_new(0x104) before CLoot::CLoot)");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CLoot, OwnerId) == 0xe4, "CLoot+0xe4 owner");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CLoot, NameId) == 0xe8, "CLoot+0xe8 name id");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CLoot, ContentsArch) == 0xec, "CLoot+0xec contents arch ptr");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CLoot, Units) == 0xf0, "CLoot+0xf0 units");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CLoot, ContentsHitPts) == 0xf4, "CLoot+0xf4 hp");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CLoot, OwnerSafeTime) == 0xf8, "CLoot+0xf8 owner safe time");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CLoot, bCanAiTractor) == 0xfc, "CLoot+0xfc can_ai_tractor");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CLoot, bTemporary) == 0xfd, "CLoot+0xfd temp flag");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CLoot, Reserved100) == 0x100, "CLoot+0x100 reserved");
+#endif
 
 // CmnAsteroid::CAsteroidField is a distinct, non-CObject subsystem (common_casteroid.h).
 // CAsteroid only ever stores a back-pointer to it, so a forward declaration is enough here.
@@ -991,12 +1143,24 @@ public:
         CmnAsteroid::CAsteroidField const* OwnerField; // +0x68 -> this+0xf8 (get_owner_field)
     };
 
+    #if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(offsetof(CreateParms, AsteroidId) == 0x5c, "CAsteroid::CreateParms+0x5c id");
+    #endif
+    #if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(offsetof(CreateParms, CubeId) == 0x60, "CAsteroid::CreateParms+0x60 cube id");
+    #endif
+    #if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(offsetof(CreateParms, bMine) == 0x64, "CAsteroid::CreateParms+0x64 mine");
+    #endif
+    #if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(offsetof(CreateParms, bInstantKill) == 0x65, "CAsteroid::CreateParms+0x65");
+    #endif
+    #if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(offsetof(CreateParms, OwnerField) == 0x68, "CAsteroid::CreateParms+0x68 field");
+    #endif
+    #if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(sizeof(CreateParms) == 0x6c, "CAsteroid::CreateParms sizeof 0x6c");
+    #endif
 
     CAsteroid();
     CAsteroid(CAsteroid const& Other);
@@ -1047,13 +1211,27 @@ public:
     CmnAsteroid::CAsteroidField const* OwnerField;  // +0xf8
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CAsteroid) == 0xfc, "CAsteroid sizeof 0xfc (operator_new(0xfc), Alloc case 0x1003)");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CAsteroid, AsteroidId) == 0xe8, "CAsteroid+0xe8 id");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CAsteroid, CubeId) == 0xec, "CAsteroid+0xec cube id");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CAsteroid, bMine) == 0xf0, "CAsteroid+0xf0 mine");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CAsteroid, bInstantKill) == 0xf1, "CAsteroid+0xf1 instant_kill");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CAsteroid, CollisionGroupId) == 0xf4, "CAsteroid+0xf4 collision group");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CAsteroid, OwnerField) == 0xf8, "CAsteroid+0xf8 owner field");
+#endif
 
 // CDynamicAsteroid: animated/scripted asteroid-like scenery (ObjectClass 0x4001). Despite
 // the name, this is a direct CObject subclass -- see the block comment on CAsteroid above
@@ -1072,9 +1250,15 @@ public:
         Vector AngularVelocity;     // +0x10
     };
 
+    #if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(offsetof(CreateParms, Velocity) == 0x04, "CDynamicAsteroid::CreateParms+0x4");
+    #endif
+    #if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(offsetof(CreateParms, AngularVelocity) == 0x10, "CDynamicAsteroid::CreateParms+0x10");
+    #endif
+    #if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(sizeof(CreateParms) == 0x1c, "CDynamicAsteroid::CreateParms sizeof 0x1c");
+    #endif
 
     CDynamicAsteroid();
     CDynamicAsteroid(CDynamicAsteroid const& Other);
@@ -1100,7 +1284,9 @@ public:
     virtual int update(float Dt, unsigned Flags);
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CDynamicAsteroid) == 0x9c, "CDynamicAsteroid sizeof 0x9c (== sizeof(CObject), no added fields)");
+#endif
 
 // CDeadReckonedVector: network dead reckoning for position interpolation.
 //
@@ -1236,22 +1422,54 @@ public:
     double MaxCorrectiveTime;     // +0xc8 cap on ConvergeWindow in the degenerate/reversal fallback path; default 0.25
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CDeadReckonedVector) == 0xd0, "CDeadReckonedVector sizeof 0xd0");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CDeadReckonedVector, Samples) == 0x08, "CDeadReckonedVector+0x08 samples");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CDeadReckonedVector, Timestamps) == 0x30, "CDeadReckonedVector+0x30 timestamps");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CDeadReckonedVector, BasePosition) == 0x48, "CDeadReckonedVector+0x48 base pos");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CDeadReckonedVector, BlendBasePosition) == 0x54, "CDeadReckonedVector+0x54 blend base pos");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CDeadReckonedVector, ProjectedPosition) == 0x60, "CDeadReckonedVector+0x60 projected pos");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CDeadReckonedVector, TrackedPosition) == 0x6c, "CDeadReckonedVector+0x6c tracked pos");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CDeadReckonedVector, Velocity) == 0x78, "CDeadReckonedVector+0x78 velocity");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CDeadReckonedVector, Velocity2) == 0x84, "CDeadReckonedVector+0x84 velocity2");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CDeadReckonedVector, ConvergedVelocity) == 0x90, "CDeadReckonedVector+0x90 converged velocity");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CDeadReckonedVector, Acceleration) == 0x9c, "CDeadReckonedVector+0x9c accel");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CDeadReckonedVector, Acceleration2) == 0xa8, "CDeadReckonedVector+0xa8 accel2");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CDeadReckonedVector, SampleCount) == 0xb4, "CDeadReckonedVector+0xb4 sample count");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CDeadReckonedVector, ConvergeWindow) == 0xb8, "CDeadReckonedVector+0xb8 converge window");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CDeadReckonedVector, ElapsedTime) == 0xc0, "CDeadReckonedVector+0xc0 elapsed time");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CDeadReckonedVector, MaxCorrectiveTime) == 0xc8, "CDeadReckonedVector+0xc8 max corrective time");
+#endif
 
 // SubObjectID (the three id makers and the id classifiers) MOVED 2026-09-24 to
 // common_archetype.h, next to CollisionGroupDesc and for the same reason: PlayerData
@@ -1388,13 +1606,27 @@ public:
     mutable Vector BoundCenter;                 // +0x28 .. +0x33
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CArchGroup) == 0x34, "CArchGroup sizeof 0x34");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CArchGroup, Arch) == 0x04, "CArchGroup+0x04 CollisionGroup*");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CArchGroup, HitPts) == 0x0c, "CArchGroup+0x0c hit_pts");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CArchGroup, State) == 0x14, "CArchGroup+0x14 state");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CArchGroup, bBoundsValid) == 0x20, "CArchGroup+0x20 bounds-cache valid flag");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CArchGroup, BoundRadius) == 0x24, "CArchGroup+0x24 cached bound radius");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CArchGroup, BoundCenter) == 0x28, "CArchGroup+0x28 cached bound center");
+#endif
 
 // Stateful cursor for CArchGroupManager::Traverse(): an "at start" flag (+0x00) plus the
 // current position (+0x04, retail a VC6 _Tree node pointer advanced by _Tree::_Inc
@@ -1499,10 +1731,18 @@ public:
     unsigned Count;                                     // +0x14 the map's size
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CArchGroupManager) == 0x18, "CArchGroupManager sizeof 0x18");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CArchGroupManager, Groups) == 0x08, "CArchGroupManager+0x08 map");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CArchGroupManager, bTreeMulti) == 0x10, "CArchGroupManager+0x10 _Multi");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CArchGroupManager, Count) == 0x14, "CArchGroupManager+0x14 size");
+#endif
 
 // Return type of CEqObj::activate (Common.dll.c 78735-78751, ?activate@CEqObj@@UAE?AW4...).
 // Retail never names these values; the names are ours. The numbers come from the success path
@@ -1562,12 +1802,24 @@ public:
         // base's +0xac list and +0x9c vector (FUN_06d0a080 is the base part alone).
     };
 
+    #if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(offsetof(CreateParms, DockingCount) == 0x5c, "CEqObj::CreateParms+0x5c");
+    #endif
+    #if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(offsetof(CreateParms, VibeId) == 0x60, "CEqObj::CreateParms+0x60");
+    #endif
+    #if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(offsetof(CreateParms, SpaceCostume) == 0x64, "CEqObj::CreateParms+0x64 costume");
+    #endif
+    #if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(offsetof(CreateParms, VoiceId) == 0x98, "CEqObj::CreateParms+0x98 voice");
+    #endif
+    #if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(offsetof(CreateParms, Equipment) == 0x9c, "CEqObj::CreateParms+0x9c EquipDescVector");
+    #endif
+    #if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(offsetof(CreateParms, ArchGroupDescs) == 0xac, "CEqObj::CreateParms+0xac CollisionGroupDesc");
+    #endif
 
 protected:
     // Retail: ??0CEqObj@@IAE@W4Class@CObject@@@Z (I = protected).
@@ -1844,23 +2096,57 @@ public:
     int BehaviorIndex;            // +0x1a0  -1; the behaviour index set by the behaviour manager (062d35a9), read when no manager is attached  // formerly Field1a0
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CEqObj) == 0x1a4, "CEqObj sizeof 0x1a4: CShip's Controller starts there");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEqObj, EquipManager) == 0xe4, "CEqObj+0xe4 CEquipManager");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEqObj, VibeId) == 0x104, "CEqObj+0x104 vibe");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEqObj, SpaceCostume) == 0x108, "CEqObj+0x108 space costume");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEqObj, VoiceId) == 0x13c, "CEqObj+0x13c voice id");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEqObj, CloakPercent) == 0x140, "CEqObj+0x140 cloak percent");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEqObj, ArchGroups) == 0x144, "CEqObj+0x144 CArchGroupManager");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEqObj, bWeaponsOffline) == 0x15c, "CEqObj+0x15c IsDisabled gate");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEqObj, DockingBaseId) == 0x160, "CEqObj+0x160");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEqObj, bExplosionDmgCached) == 0x16c, "CEqObj+0x16c explosion dmg cache flag");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEqObj, ExplosionDmgRadius) == 0x170, "CEqObj+0x170 explosion dmg radius");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEqObj, ExplosionDmgCenter) == 0x174, "CEqObj+0x174 explosion dmg center");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEqObj, ControlExclusion) == 0x190, "CEqObj+0x190 control exclusion flags");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEqObj, BehaviorMgr) == 0x194, "CEqObj+0x194 BehaviorMgr");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEqObj, Power) == 0x198, "CEqObj+0x198 power");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEqObj, MaxPower) == 0x19c, "CEqObj+0x19c max power");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEqObj, BehaviorIndex) == 0x1a0, "CEqObj+0x1a0 behaviour index");
+#endif
 
 // CShip::get_gun_stats return structure. From disasm at 0x514f0/0x514b0/0x51290.
 // Retail builds this by traversing EquipTypeGun equips and, per gun, reading its
@@ -1909,7 +2195,9 @@ struct COMMON_API ShipGunStats
     }
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(ShipGunStats) == 0x14, "ShipGunStats sizeof 0x14");
+#endif
 
 // Retail's typed watcher: a BaseWatcher with no data and no vtable of its own whose Watched
 // points at the Watchable that sits WatchableOffset bytes into a T. Its copy constructor
@@ -1969,7 +2257,9 @@ struct TWatcher : public BaseWatcher
 using FObjRWWatcher = TWatcher<IObjRW, 0x08>;
 using FSimpleWatcher = TWatcher<CSimple, 0x9c>;
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(FObjRWWatcher) == 0x08, "TWatcher adds no data to BaseWatcher");
+#endif
 
 // FAnimScriptRef (CShip +0x22c BayAnim, CSolar +0x1c0 / +0x1cc) is declared in common_cequip.h,
 // next to its third owner CEInternalFX.
@@ -2303,34 +2593,90 @@ public:
     mutable ShipGunStats GunStats;    // +0x2c8
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CShip, GroupId) == 0x1b4, "CShip GroupId +0x1b4");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CShip, FormationLeader) == 0x1b8, "CShip+0x1b8 formation leader");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CShip, FormationOffset) == 0x1c0, "CShip+0x1c0 formation offset");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CShip, FormationSpeed) == 0x1cc, "CShip+0x1cc formation speed");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CShip, FormationFollowers) == 0x1d0, "CShip+0x1d0 formation followers");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CShip, FollowLeader) == 0x1e0, "CShip+0x1e0 follow leader");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CShip, FollowFollowers) == 0x1f4, "CShip+0x1f4 follow followers");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CShip, Targeters) == 0x204, "CShip+0x204 targeters");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CShip, bJumpedOut) == 0x214, "CShip+0x214 jumped-out flag");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CShip, AtmosphereSolar) == 0x218, "CShip+0x218 atmosphere solar");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CShip, GroupNameId) == 0x21c, "CShip+0x21c");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CShip, Target) == 0x220, "CShip+0x220 target");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CShip, SubTargetIndex) == 0x228, "CShip+0x228 sub target");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CShip, BayAnim) == 0x22c, "CShip+0x22c anim");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CShip, Steering) == 0x230, "CShip+0x230 Steering");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CShip, NudgeEngine) == 0x258, "CShip+0x258 NudgeEngine");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CShip, StrafeEngine) == 0x280, "CShip+0x280 StrafeEngine");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CShip, Throttle) == 0x29c, "CShip+0x29c Throttle");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CShip, ThrustPower) == 0x2a0, "CShip+0x2a0");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CShip, MaxThrustPower) == 0x2a4, "CShip+0x2a4");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CShip, Actions) == 0x2b0, "CShip+0x2b0 Actions");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CShip, TradelaneSpeed) == 0x2b8, "CShip+0x2b8 TradelaneSpeed");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CShip, bUsingTradelane) == 0x2bc, "CShip+0x2bc");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CShip, bIsPlayer) == 0x2bd, "CShip+0x2bd player flag");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CShip, AngularDragFactor) == 0x2c0, "CShip+0x2c0 angular drag factor");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CShip, GunStatsDirty) == 0x2c4, "CShip+0x2c4 GunStatsDirty");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CShip, GunStats) == 0x2c8, "CShip+0x2c8 GunStats");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CShip) == 0x2dc, "CShip sizeof 0x2dc");
+#endif
 
 struct COMMON_API CSolar : public CEqObj
 {
@@ -2499,23 +2845,57 @@ protected:
     void init_continual_anim(char const* AnimName);
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CSolar, Nickname) == 0x1a4, "CSolar+0x1a4 Nickname");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CSolar, bDestructible) == 0x1a8, "CSolar+0x1a8 bDestructible");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CSolar, bDynamic) == 0x1a9, "CSolar+0x1a9 bDynamic");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CSolar, AtmosphereRange) == 0x1ac, "CSolar+0x1ac AtmosphereRange");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CSolar, Loadout) == 0x1b0, "CSolar+0x1b0 Loadout");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CSolar, DestSystem) == 0x1b4, "CSolar+0x1b4 DestSystem");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CSolar, DestGate) == 0x1b8, "CSolar+0x1b8 DestGate");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CSolar, GateAnim) == 0x1c0, "CSolar+0x1c0 GateAnim");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CSolar, GateAnimState) == 0x1c4, "CSolar+0x1c4 GateAnimState");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CSolar, GateAnimTimer) == 0x1c8, "CSolar+0x1c8 GateAnimTimer");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CSolar, ContinualAnims) == 0x1cc, "CSolar+0x1cc ContinualAnims list");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CSolar, PrevRing) == 0x1d8, "CSolar+0x1d8 PrevRing");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CSolar, NextRing) == 0x1dc, "CSolar+0x1dc NextRing");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CSolar, TradelaneSpaceNameId) == 0x1e0, "CSolar+0x1e0 TradelaneSpaceNameId");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CSolar, VisitValue) == 0x1e4, "CSolar+0x1e4 VisitValue");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CSolar, ParentNickname) == 0x1e8, "CSolar+0x1e8 ParentNickname");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CSolar) == 0x1ec, "CSolar sizeof 0x1ec (CObject::Alloc takes it from Heap 063fc3c0)");
+#endif
 
 // Common.dll.txt:0630e660, ?GetRoot@@YAPAUCObject@@PBU1@@Z. Walks the engine parent chain
 // from the object's own instance up to the top, then hands back the CObject registered

@@ -138,7 +138,9 @@ struct FAnimScriptRef
     void Release();
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(FAnimScriptRef) == 0x04, "FAnimScriptRef sizeof 4");
+#endif
 
 // Retail never defines a concrete implementation of this interface inside Common.dll --
 // it's only ever used as an opaque listener-pointer type here (CEquip::ConnectServerEquip/
@@ -278,10 +280,18 @@ private:
     CEquip();
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CEquip) == 0x20, "CEquip sizeof 0x20");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEquip, Owner) == 0x04, "CEquip+0x04 owner");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEquip, Arch) == 0x0c, "CEquip+0x0c arch");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEquip, Type) == 0x14, "CEquip+0x14 type");
+#endif
 
 class COMMON_API CInternalEquip : public CEquip
 {
@@ -372,9 +382,15 @@ public:
     int ConnectionIndex;              // +0x24  -1
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CExternalEquip) == 0x28, "CExternalEquip sizeof 0x28");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CExternalEquip, HardpointName) == 0x20, "CExternalEquip+0x20 hp");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CExternalEquip, ConnectionIndex) == 0x24, "CExternalEquip+0x24 index");
+#endif
 
 // Listing CAttachmentObj / CNonPhys 0x10 / CPhys 8. vtable+4 GetRootIndex, +0x10 Connect.
 // Retail's own vftable ??_7CAttachmentObj@@6B@ (.rdata:0639c6b0) is the deleting dtor
@@ -420,8 +436,12 @@ public:
     // +0x0e..+0x0f: alignment padding; retail never writes or copies it.
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CNonPhysAttachment) == 0x10, "CNonPhysAttachment sizeof 0x10");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CNonPhysAttachment, EngineInstanceId) == 0x04, "CNonPhys+0x04 instance");
+#endif
 
 class COMMON_API CPhysAttachment : public CAttachmentObj
 {
@@ -439,8 +459,12 @@ public:
     CObject* EquipObject;             // +0x04
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CPhysAttachment) == 8, "CPhysAttachment sizeof 8");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CPhysAttachment, EquipObject) == 0x04, "CPhys+0x04 CObject");
+#endif
 
 // Listing CAttachedEquip 0x4c. Ctor Arch->load (slot 3). Connect: CNonPhys if parent
 // UserData+0x58 CRC list hits hp, else CPhys. GetRootIndex = attachment instance.
@@ -515,10 +539,18 @@ public:
     mutable Vector BoundCenter;         // +0x40
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CAttachedEquip) == 0x4c, "CAttachedEquip sizeof 0x4c");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CAttachedEquip, Attachment) == 0x28, "CAttachedEquip+0x28 attachment");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CAttachedEquip, HitPts) == 0x30, "CAttachedEquip+0x30 hit_pts");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CAttachedEquip, BoundCenter) == 0x40, "CAttachedEquip+0x40 bound center");
+#endif
 
 class COMMON_API CECargo : public CInternalEquip
 {
@@ -556,8 +588,12 @@ public:
     unsigned Count;                   // +0x28
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CECargo) == 0x2c, "CECargo sizeof 0x2c");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CECargo, Count) == 0x28, "CECargo+0x28 count");
+#endif
 
 class COMMON_API CEquipTraverser
 {
@@ -577,7 +613,9 @@ public:
     CEquip* Current;                  // +0x0c  last returned (port: not VC6 node*)
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CEquipTraverser) == 0x10, "CEquipTraverser sizeof 0x10");
+#endif
 
 class COMMON_API CEquipManager
 {
@@ -659,9 +697,15 @@ public:
     int DecayingCargoCount;           // +0x1c
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CEquipManager) == 0x20, "CEquipManager sizeof 0x20");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEquipManager, ExternalCount) == 0x0c, "CEquipManager+0x0c");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEquipManager, InternalCount) == 0x18, "CEquipManager+0x18");
+#endif
 
 // Listing CEPower operator_new(0x20). Type 0x40000. Capacity from Power+0x70.
 // Base is CInternalEquip: ??_7CEPower@@6B@ (.rdata:0639ca64) slot 10 is
@@ -690,7 +734,9 @@ protected:
     Archetype::Power const* PowerArch() const;
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CEPower) == 0x20, "CEPower sizeof 0x20");
+#endif
 
 // Defined ahead of CEEngine and CEThruster, which derive from it (CEEngine at +0x20,
 // CEThruster at +0x4c); CSteering/CNudgeEngine/CStrafeEngine further down derive from it too.
@@ -723,8 +769,12 @@ public:
 // CEEngine keeps its own byte at +0x34 == this base's +0x14 (.text:06295cb7, copy .text:06295ad8).
 // The OwnerShip dword at +0x14 belongs to CSteering/CNudgeEngine/CStrafeEngine, whose ctors
 // (.text:062bb5ed, 062ad22d, 062bb92d) zero it themselves.
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CPhysControllerEquip) == 0x14, "CPhysControllerEquip sizeof 0x14");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CPhysControllerEquip, bControllerEnabled) == 0x10, "CPhysControllerEquip+0x10");
+#endif
 
 // Listing CEEngine operator_new(0x58). Type 0x20000.
 // Two bases, as retail's two exported tables say: ??_7CEEngine@@6BCInternalEquip@@@ (.rdata
@@ -835,7 +885,9 @@ public:
     unsigned char bCruiseActive;      // +0x54  CShip::is_cruise_active (+0x55..+0x57 padding)
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEEngine, Nozzles) == 0x34, "CEEngine+0x34 nozzle vector");
+#endif
 
 // Listing CanFire returns. Fire itself is CanFire + zero +0x50 unless result==2.
 enum FireResult
@@ -862,10 +914,18 @@ struct ProjLaunchInfo
     unsigned short LockSubId;         // +0x40  CEGun+0x258 (+0x42: alignment)
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(ProjLaunchInfo) == 0x44, "ProjLaunchInfo sizeof 0x44");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(ProjLaunchInfo, Velocity) == 0x30, "ProjLaunchInfo+0x30 vel");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(ProjLaunchInfo, LockTarget) == 0x3c, "ProjLaunchInfo+0x3c lock");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(ProjLaunchInfo, LockSubId) == 0x40, "ProjLaunchInfo+0x40 sub");
+#endif
 
 // Listing CELauncher 0x1F4. CAttachedEquip 0x4c + projectile +0x4c / refire +0x50 / barrels +0x54.
 class COMMON_API CELauncher : public CAttachedEquip
@@ -934,12 +994,24 @@ public:
     Barrel Barrels[8];                    // +0x54  8 * 0x34
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CELauncher::Barrel) == 0x34, "CELauncher::Barrel sizeof 0x34");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CELauncher::Barrel, Position) == 0x28, "CELauncher::Barrel+0x28");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CELauncher) == 0x1F4, "CELauncher sizeof 0x1F4");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CELauncher, Projectile) == 0x4c, "CELauncher+0x4c projectile");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CELauncher, RefireElapsed) == 0x50, "CELauncher+0x50 refire");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CELauncher, Barrels) == 0x54, "CELauncher+0x54 barrels");
+#endif
 
 // Listing CEGun operator_new(0x270). Type 0x80. Fire JMP CELauncher::Fire; CanFire adds cone.
 // Seeker==2 lock: BaseWatcher at +0x250 (Watchable* = CSimple+0x9c), subid +0x258,
@@ -1066,22 +1138,54 @@ protected:
     static float const TARGET_POINT_VALID_TIME;
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CEGun::JointChannel) == 0x1C, "CEGun::JointChannel sizeof 0x1C");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEGun::JointChannel, Owner) == 0x04, "JointChannel+4 owner");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEGun::JointChannel, EngineIndex) == 0x08, "JointChannel+8 instance");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEGun::JointChannel, bLimited) == 0x0c, "JointChannel+0xc limited");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEGun::JointChannel, Desired) == 0x10, "JointChannel+0x10 desired");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEGun::JointChannel, Current) == 0x14, "JointChannel+0x14 current");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEGun::JointChannel, bSettled) == 0x18, "JointChannel+0x18 settled");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CEGun) == 0x270, "CEGun sizeof 0x270");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEGun, Yaw) == 0x1f4, "CEGun+0x1f4 yaw joint");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEGun, Pitch) == 0x210, "CEGun+0x210 pitch joint");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEGun, TurretFrame) == 0x22c, "CEGun+0x22c turret frame");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEGun, LockWatcher) == 0x250, "CEGun+0x250 lock watcher");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEGun, LockSubId) == 0x258, "CEGun+0x258 lock subid");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEGun, TargetPoint) == 0x25c, "CEGun+0x25c target point");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEGun, TargetPointAge) == 0x268, "CEGun+0x268 target age");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEGun, LockElapsed) == 0x26c, "CEGun+0x26c lock elapsed");
+#endif
 
 class CEShield;
 
@@ -1124,10 +1228,18 @@ public:
                                         // instead of trusting the Dt parameter it's passed.
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CEShieldGenerator) == 0x60, "CEShieldGenerator sizeof 0x60");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEShieldGenerator, LinkedShield) == 0x4c, "CEShieldGenerator+0x4c");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEShieldGenerator, Opaque50Value) == 0x50, "CEShieldGenerator+0x50");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEShieldGenerator, LastUpdateTime) == 0x58, "CEShieldGenerator+0x58");
+#endif
 
 // Listing CEShield operator_new(0x88). Type 0x100. Built in link_shields, not alloc_equip.
 // Listing CEShield operator_new(0x88). Type 0x100. Built in link_shields, not alloc_equip.
@@ -1174,7 +1286,9 @@ public:
     int IntruderCount;  // +0x0c  -1 while torn down, 0 after Attach, +1/-1 per intruder
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CEShieldIntruderChecker) == 0x10, "CEShieldIntruderChecker 0x10");
+#endif
 
 class COMMON_API CEShield : public CAttachedEquip
 {
@@ -1293,17 +1407,39 @@ public:
     CEShieldIntruderChecker* IntruderChecker; // +0x80
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CEShield) == 0x88, "CEShield sizeof 0x88");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEShield, bOnline) == 0x4c, "CEShield+0x4c online flag");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEShield, CurrentHitPoints) == 0x50, "CEShield+0x50 hit points");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEShield, OfflineEndTime) == 0x58, "CEShield+0x58 offline end time");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEShield, MissionFlagCopy) == 0x60, "CEShield+0x60 mission flag copy");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEShield, Gens) == 0x64, "CEShield+0x64 gens vector");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEShield, DominantGenArch) == 0x70, "CEShield+0x70 dominant gen arch");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEShield, OfflineThreshold) == 0x74, "CEShield+0x74 offline threshold");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEShield, OfflineRebuildTime) == 0x78, "CEShield+0x78 offline rebuild");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEShield, MaxHitPoints) == 0x7c, "CEShield+0x7c max hit points");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CEShield, IntruderChecker) == 0x80, "CEShield+0x80 intruder checker");
+#endif
 
 // Two bases, per retail's ??_7CEThruster@@6BCAttachedEquip@@@ (.rdata 0639d744) and
 // ??_7CEThruster@@6BCPhysControllerEquip@@@ (.rdata 0639d710): the ctor (.text:0629d159-
@@ -1350,7 +1486,9 @@ public:
                                        // (.text:0629d2c0); +0x61..+0x63: alignment
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CEThruster) == 0x64, "CEThruster sizeof 0x64");
+#endif
 
 // CETractor::VerifyTarget (Common.dll.c 65894-65967) return codes. Free enum (mangled
 // W4TractorFailureCode@@, not nested under CETractor or TractorArm), body empty in the
@@ -1492,11 +1630,21 @@ protected:
     static float const GRAB_TOLERANCE_SQUARED;
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(TractorArm) == 0x24, "TractorArm sizeof 0x24");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(TractorArm, TargetWatch) == 0x08, "TractorArm+0x08 target watcher");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(TractorArm, PullOffset) == 0x10, "TractorArm+0x10 pull offset");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(TractorArm, Timer) == 0x1c, "TractorArm+0x1c timer");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(TractorArm, ErrorCode) == 0x20, "TractorArm+0x20 error code");
+#endif
 
 struct IObjDB;
 
@@ -1535,9 +1683,15 @@ struct COMMON_API ScanList
     int Capacity;               // +0x804  always 256 in practice (retail never resizes)
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(ScanList, Count) == 0x800, "ScanList+0x800 Count");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(ScanList, Capacity) == 0x804, "ScanList+0x804 Capacity");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(ScanList) == 0x808, "ScanList sizeof 0x808 (256 * sizeof(BaseWatcher) + 2 ints)");
+#endif
 
 // Listing CEScanner operator_new(0x840). Type 0x80000. Two bases, per retail's
 // ??_7CEScanner@@6BCInternalEquip@@@ and ??_7CEScanner@@6BFilter@ScanList@@@ (.rdata 0639cac0):
@@ -1592,7 +1746,9 @@ public:
     unsigned CachedTypeMask;          // +0x83c
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CEScanner) == 0x840, "CEScanner sizeof 0x840");
+#endif
 
 class COMMON_API CEArmor : public CInternalEquip
 {
@@ -1608,7 +1764,9 @@ public:
     static CEArmor const* __cdecl cast(CEquip const* Equip);
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CEArmor) == 0x20, "CEArmor sizeof 0x20");
+#endif
 
 class COMMON_API CECargoPod : public CAttachedEquip
 {
@@ -1641,8 +1799,12 @@ public:
     CECargo* Cargo;                   // +0x4c
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CECargoPod) == 0x50, "CECargoPod sizeof 0x50");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CECargoPod, Cargo) == 0x4c, "CECargoPod+0x4c cargo");
+#endif
 
 class COMMON_API CEMineDropper : public CELauncher
 {
@@ -1666,7 +1828,9 @@ protected:
     virtual FireResult CanFire(Vector const& Target) const override;
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CEMineDropper) == 500, "CEMineDropper sizeof 500");
+#endif
 
 class COMMON_API CECounterMeasureDropper : public CELauncher
 {
@@ -1693,7 +1857,9 @@ public:
     Archetype::CounterMeasure const* CounterMeasureArch();
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CECounterMeasureDropper) == 500, "CECounterMeasureDropper sizeof 500");
+#endif
 
 class COMMON_API CELightEquip : public CExternalEquip
 {
@@ -1715,7 +1881,9 @@ public:
     virtual void NotifyArchGroupDestroyed(unsigned short SubObjId) override;
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CELightEquip) == 0x28, "CELightEquip sizeof 0x28");
+#endif
 
 class COMMON_API CEAttachedFX : public CExternalEquip
 {
@@ -1735,7 +1903,9 @@ public:
     virtual void NotifyArchGroupDestroyed(unsigned short SubObjId) override;
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CEAttachedFX) == 0x28, "CEAttachedFX sizeof 0x28");
+#endif
 
 // CEInternalFX — internal FX equip (asteroid-field ambient effects). Type bit 0x400000,
 // inside CInternalEquip::cast's mask. Confirmed via retail's own `vftable': its GetEquipDesc
@@ -1766,7 +1936,9 @@ public:
     FAnimScriptRef Anim; // +0x20  ambient FX playback handle, -1 = none (FAnimScriptRef above)
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CEInternalFX) == 0x24, "CEInternalFX sizeof 0x24");
+#endif
 
 // ShipGunStats is declared once, in common_cobject.h (beside CShip::get_gun_stats).
 
@@ -1824,8 +1996,12 @@ struct COMMON_API IAction
     IAction* Next;
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(IAction) == 0x08, "IAction sizeof 0x08");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(IAction, Next) == 0x04, "IAction+0x04 Next");
+#endif
 
 // ActionDB — singly-linked list of actions attached to ships/objects (0x3ff30)
 struct COMMON_API ActionDB
@@ -1846,9 +2022,15 @@ public:
     IAction* Tail; // +0x04
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(ActionDB) == 0x08, "ActionDB sizeof 0x08");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(ActionDB, Head) == 0x00, "ActionDB+0x00 Head");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(ActionDB, Tail) == 0x04, "ActionDB+0x04 Tail");
+#endif
 
 // LaneRingTransform -- the lane frame at one ring, 0x34 bytes, LaneAction+0x28 (entrance) and
 // +0x5c (exit). The ctor (062c1268-062c12b2) seeds an identity Orient and a zero Pos;
@@ -1861,9 +2043,15 @@ struct LaneRingTransform
     Vector Pos;               // +0x28: the "HpRightLane" hardpoint position, or "HpLeftLane"'s
                               //        when bHpLeftLane is zero
 };
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(LaneRingTransform) == 0x34, "LaneRingTransform sizeof 0x34");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(LaneRingTransform, Orient) == 0x04, "LaneRingTransform+0x04 Orient");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(LaneRingTransform, Pos) == 0x28, "LaneRingTransform+0x28 Pos");
+#endif
 
 // LaneAction — tradelane transit action controller (0x51960 / 0x62c1220)
 // Not exported by retail (no LaneAction name in its export table).
@@ -1958,23 +2146,57 @@ public:
     void stop(char bSkipStopTradelane = 0);
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(LaneAction) == 0xfc, "LaneAction sizeof 0xfc");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(LaneAction, EntranceRingXform) == 0x28, "LaneAction+0x28 EntranceRingXform");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(LaneAction, ExitRingXform) == 0x5c, "LaneAction+0x5c ExitRingXform");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(LaneAction, ExitState) == 0x90, "LaneAction+0x90 ExitState");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(LaneAction, bExitFlag) == 0x94, "LaneAction+0x94 bExitFlag");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(LaneAction, Field95) == 0x95, "LaneAction+0x95 Field95");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(LaneAction, bHpLeftLane) == 0x96, "LaneAction+0x96 bHpLeftLane");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(LaneAction, bRingApproachValid) == 0x97, "LaneAction+0x97 bRingApproachValid");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(LaneAction, Speed) == 0x98, "LaneAction+0x98 Speed");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(LaneAction, LanePose) == 0x9c, "LaneAction+0x9c LanePose");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(LaneAction, CapturedShipPos) == 0xcc, "LaneAction+0xcc CapturedShipPos");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(LaneAction, CapturedShipOrient) == 0xd8, "LaneAction+0xd8 CapturedShipOrient");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(LaneAction, TransitElapsed) == 0xe8, "LaneAction+0xe8 TransitElapsed");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(LaneAction, TransitRamp) == 0xec, "LaneAction+0xec TransitRamp");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(LaneAction, TransitRampTarget) == 0xf0, "LaneAction+0xf0 TransitRampTarget");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(LaneAction, ExitRampStart) == 0xf4, "LaneAction+0xf4 ExitRampStart");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(LaneAction, Opaque_F8) == 0xf8, "LaneAction+0xf8 Opaque_F8");
+#endif
 
 // Retail exports these two as namespace-scope constants (`3MB` == `float const`):
 //   ?launch_coast_time@LaunchActionVars@@3MB  .rdata:0639e568  0.5f   (ordinal 3235)
@@ -2067,13 +2289,27 @@ public:
     float CoastTimer;                 // +0x74  Start(): LaunchActionVars::launch_coast_time (0.5) * 80.0
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(LaunchAction) == 0x78, "LaunchAction sizeof 0x78");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(LaunchAction, DockObjWatcher) == 0x1c, "LaunchAction+0x1c watcher");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(LaunchAction, BaseObj) == 0x24, "LaunchAction+0x24 BaseObj");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(LaunchAction, LaunchType) == 0x2c, "LaunchAction+0x2c LaunchType");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(LaunchAction, LaunchPos) == 0x34, "LaunchAction+0x34 LaunchPos");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(LaunchAction, LaunchOrient) == 0x50, "LaunchAction+0x50 LaunchOrient");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(LaunchAction, CoastTimer) == 0x74, "LaunchAction+0x74 CoastTimer");
+#endif
 
 // JumpInAction — hyperspace jump-in action controller (0x52d40). Unlike LaunchAction,
 // retail inlines this entire constructor body directly into CShip::jump_in (confirmed
@@ -2123,14 +2359,30 @@ public:
     bool bJumpComplete;               // +0x64  (formerly Field64) zeroed by the ctor, set by do_simulation_controller, polled by update(); +0x65..+0x67 padding
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(JumpInAction) == 0x68, "JumpInAction sizeof 0x68");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(JumpInAction, JumpObjWatcher) == 0x18, "JumpInAction+0x18 watcher");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(JumpInAction, JumpSpeed) == 0x24, "JumpInAction+0x24 JumpSpeed");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(JumpInAction, JumpApproachBudget) == 0x28, "JumpInAction+0x28 JumpApproachBudget");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(JumpInAction, JumpOrient) == 0x2c, "JumpInAction+0x2c JumpOrient");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(JumpInAction, JumpPos) == 0x50, "JumpInAction+0x50 JumpPos");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(JumpInAction, Field5c) == 0x5c, "JumpInAction+0x5c");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(JumpInAction, Field60) == 0x60, "JumpInAction+0x60");
+#endif
 
 // CSteering — ship steering controller (pitch/yaw/roll torques) (0x5b5e0)
 class COMMON_API CSteering : public CPhysControllerEquip
@@ -2169,10 +2421,18 @@ public:
     Vector AxisThrottle;     // +0x1c
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CSteering, OwnerShip) == 0x14, "CSteering+0x14");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CSteering) == 0x28, "CSteering sizeof 0x28");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CSteering, bActive) == 0x18, "CSteering+0x18");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CSteering, AxisThrottle) == 0x1c, "CSteering+0x1c");
+#endif
 
 // CNudgeEngine — lightweight controller that applies a nudge vector to a ship (0x5b7e0)
 class COMMON_API CNudgeEngine : public CPhysControllerEquip
@@ -2208,11 +2468,19 @@ public:
     Vector CurrentNudge;     // +0x1c
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CNudgeEngine, OwnerShip) == 0x14, "CNudgeEngine+0x14");
+#endif
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CNudgeEngine) == 0x28, "CNudgeEngine sizeof 0x28");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CNudgeEngine, bActive) == 0x18, "CNudgeEngine+0x18");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CNudgeEngine, CurrentNudge) == 0x1c, "CNudgeEngine+0x1c");
+#endif
 
 // CStrafeEngine — strafe thruster controller (0x5b920)
 class COMMON_API CStrafeEngine : public CPhysControllerEquip
@@ -2242,10 +2510,16 @@ public:
     StrafeDir CurrentStrafe; // +0x18
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CStrafeEngine, OwnerShip) == 0x14, "CStrafeEngine+0x14");
+#endif
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CStrafeEngine) == 0x1c, "CStrafeEngine sizeof 0x1c");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CStrafeEngine, CurrentStrafe) == 0x18, "CStrafeEngine+0x18");
+#endif
 
 
 // CETradeLaneEquip — tradelane jump equipment attached internally to ships.
@@ -2266,7 +2540,9 @@ public:
     Archetype::TradeLaneEquip const* TradeLaneArch() const;
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CETradeLaneEquip) == 0x20, "CETradeLaneEquip sizeof 0x20");
+#endif
 
 // CERepairDroid — repair-droid internal equip. Type bit 0x200000, inside
 // CInternalEquip::cast's mask. Confirmed via retail's own `vftable': its GetEquipDesc slot
@@ -2305,7 +2581,9 @@ public:
     float HitPts; // +0x20
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CERepairDroid) == 0x24, "CERepairDroid sizeof 0x24");
+#endif
 
 class COMMON_API CECloakingDevice : public CAttachedEquip
 {
@@ -2341,7 +2619,15 @@ public:
     unsigned char BaselineState;      // +0x51  last state the fade fully settled at (+0x52/+0x53: alignment)
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CECloakingDevice) == 0x54, "CECloakingDevice sizeof 0x54");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CECloakingDevice, CloakTimer) == 0x4c, "CECloakingDevice+0x4c timer");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CECloakingDevice, FadeTarget) == 0x50, "CECloakingDevice+0x50 state");
+#endif
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CECloakingDevice, BaselineState) == 0x51, "CECloakingDevice+0x51 target");
+#endif

@@ -13,7 +13,7 @@
 #include <string>
 
 namespace {
-inline FILE* fl_port_fopen_resolved(const char* path, const char* mode) {
+[[maybe_unused]] inline FILE* fl_port_fopen_resolved(const char* path, const char* mode) {
   if (!path || !mode) return nullptr;
   const std::string normalized = fl_port::normalize_path_separators(path);
   const std::filesystem::path base = std::filesystem::current_path();
