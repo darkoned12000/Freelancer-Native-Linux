@@ -302,67 +302,98 @@ Treat it as a multi-stage siege. Sub-phases M8.0–M8.6 are tracked below.
 
 **Artifacts to produce:** `linux/docs/m8-client-integration.md` (living doc), `freelancer_linux_client` CMake target as single source of truth, smoke-test script, known-stubs/deviations list.
 
+ 
+## M8.8 — Win32/COM/Resource shim expansion (prerequisite for M8.7/M11)
+
+**Acceptance target:** Upstream `src/freelancer/Client/main.cpp` and `engine_init.cpp` compile and link on Linux 32-bit, replacing bring-up simulation with real upstream init calls.
+
+**Status:** Not started. This is the critical path blocker for M8.7 completion and M11 game flow. The engine's client TUs require Win32/COM/resource/DirectX shims that are not yet implemented.
+
+- [ ] **Win32 window/message pump shims**
+  - [ ] `RegisterClassEx`/`CreateWindowEx`/`DefWindowProc`/`GetMessage`/`DispatchMessage` — map to SDL3 event loop (or bypass for headless bring-up)
+  - [ ] `HWND`/`HINSTANCE`/`HMENU`/`HACCEL`/`HICON`/`HBITMAP` — opaque handle layer (currently `fl_port::Window` uses adapter handle)
+  - [ ] `LoadLibrary`/`GetProcAddress`/`FreeLibrary` — map to dlopen/dlsym/dlclose with `.dll`→`.so` candidate resolution
+- [ ] **Resource string table / dialog shims**
+  - [ ] Extract string tables from `.rc` files into a Linux-readable format (or generate C arrays at build time)
+  - [ ] `LoadString`/`LoadIcon`/`LoadCursor`/`LoadBitmap` — return shimmed handles
+  - [ ] Dialog template loading (`DialogBoxParam`, `CreateDialogParam`) — stub or map to SDL3 UI
+- [ ] **COM interface shims for IRenderPipeline**
+  - [ ] `CoCreateInstance`/`QueryInterface` for `IRenderPipeline` — wire to `fl_port::RenderPipeline` adapter
+  - [ ] `IRenderPipeline` vtable adapter satisfying all 80+ methods (currently standalone class with matching names)
+  - [ ] D3D8 types: `D3DLIGHT8`, `D3DMATERIAL8`, `D3DRENDERSTATETYPE` — already in `d3d8.h` shim; behavior stubbed
+- [ ] **DirectShow / media shims**
+  - [ ] `IGraphBuilder`/`IMediaControl`/`IMediaEvent` — stub as no-op (movies already bypassed)
+  - [ ] WMV/ASF/Bink playback — stub or FFmpeg integration
+- [ ] **IME shims**
+  - [ ] `ImmGetContext`/`ImmSetCompositionString`/`WM_IME_*` — stub as no-op (basic stubs exist)
+- [ ] **DirectPlay shims (multiplayer only)**
+  - [ ] `IDirectPlay8Peer`/`IDirectPlay8Server`/`IDirectPlay8Client` — stub for single-player bring-up
+  - [ ] `CDPClient`/`CDPServer`/`CDPNetCodec` — blocked on DirectPlay COM interfaces
+- [ ] **CRT/MSVC specifics**
+  - [ ] Struct packing/alignment audit (`#pragma pack`, `__declspec(align)`) under `FL_LINUX_PORT_LAYOUT_RELAXED`
+  - [ ] x87 FPU precision (already addressed in `x86math`)
+- [ ] **Acceptance:** `src/freelancer/Client/main.cpp` and `engine_init.cpp` compile and link in `freelancer_linux_client` (32-bit)
+
+---
 
 ## M9 — Full render pipeline (D3D8 compat or native)
 
 **Acceptance target:** A real Freelancer scene (ship in space, station, menu UI) renders and presents natively.
 
-- [x] Implement full vertex/index buffer management (create/lock/unlock/select/copy, `IVertexBufferManager`, `IRPVertexBuffer`, `IRPIndexBuffer`)
-  - [x] `fl_port::VertexBufferManager` (Vulkan host-visible buffers) in `linux/src/vertex_buffer.cpp`; FVF stride parsing; `VbAdapter` upstream interface; wired into `RenderPipeline`.
-- [x] Implement texture loading/binding (DDS/PNG/JPG via D3DX-equivalent or stb, `IRPTexture`, mipmaps, cube maps)
-  - [x] `fl_port::TextureManager` (create/destroy/load from file+memory, level data) + `TextureAdapter`; stb vendored in `linux/third_party/stb/`; wired into `RenderPipeline`.
-- [x] Implement graphics pipeline / state (render states, texture stage states, samplers, FVF, fixed-function or shader translation)
-  - [x] Render-state cache + `create_default_pipeline()` from build-time SPIR-V (`linux/shaders/triangle.*`); skybox + text pipelines.
-- [x] Implement font rendering (DirectX 8 `ID3DXFont` equivalent or FreeType)
-  - [x] `fl_port::FontManager` (FreeType atlas, glyph metrics, sampler) wired into `RenderPipeline`.
-- [x] Implement scene draw submission (`DrawPrimitive*`, `DrawIndexedPrimitive*` routing to Vulkan)
-  - [x] `render_frame` now binds the default pipeline + triangle VB and issues `vkCmdDraw`; demo vertex buffer created lazily.
-- [~] Skybox/nebula/asteroid rendering
-  - [x] Skybox (fullscreen gradient pipeline) drawn in `render_frame`.
-  - [x] Nebula (FBM fullscreen pipeline) drawn in `render_frame`.
-  - [ ] Asteroid rendering (deferred: requires mesh generation + instancing; M17 assets).
-- [x] HUD/UI rendering (menus, dialogs, HUD elements)
-  - [x] Text pipeline + `draw_text()` using the FreeType atlas; sample "Freelancer" HUD text drawn per frame.
-- [~] Acceptance: render a recognizable Freelancer scene and present at interactive framerate
-  - [~] Demo renders skybox + triangle + HUD text at 60 fps (smoke passes); full Freelancer scene (ship/station) pending M9.6 mesh work and M17 assets.
+**Status:** Substantial progress. Native Vulkan backend (fl_port::RenderPipeline) implements lifecycle, device/surface/swapchain, clear+present, viewport/transforms, render states, draw submission, skybox, nebula, and demo triangle. FreeType font manager and text pipeline wired. Vertex/index buffer and texture managers implemented. HUD text pipeline + draw_text() implemented (descriptor sets for font atlas). Asteroids and full scene rendering deferred (M17 assets / upstream engine wiring).
+
+- [x] Implement full vertex/index buffer management (create/lock/unlock/select/copy, `IVertexBufferManager`, `IRPVertexBuffer`, `IRPIndexBuffer`) — VertexBufferManager + VbAdapter implemented
+- [x] Implement texture loading/binding (DDS/PNG/JPG via D3DX-equivalent or stb, `IRPTexture`, mipmaps, cube maps) — stb-based TextureManager + TextureAdapter implemented
+- [x] Implement graphics pipeline / state (render states, texture stage states, samplers, FVF, fixed-function or shader translation) — scoped pipelines (default, skybox, nebula, text) implemented
+- [x] Implement font rendering (DirectX 8 `ID3DXFont` equivalent or FreeType) — FreeType font manager with atlas
+- [~] Implement scene draw submission (`DrawPrimitive*`, `DrawIndexedPrimitive*` routing to Vulkan) — demo triangle + skybox + nebula drawn per frame; full routing pending upstream engine
+- [~] Skybox/nebula/asteroid rendering — skybox + nebula implemented; asteroids deferred (M17 assets)
+- [~] HUD/UI rendering (menus, dialogs, HUD elements) — text pipeline + draw_text() implemented; full UI pending upstream engine
+- [ ] Acceptance: render a recognizable Freelancer scene and present at interactive framerate (pending upstream engine wiring M11)
 
 ## M10 — Real audio backend
 
 **Acceptance target:** In-game audio (music, SFX, voice, ambient) plays correctly on Linux.
 
-- [ ] Implement real audio backend (PulseAudio/PipeWire/ALSA) behind `AudioBackend` interface
-- [ ] Wire into `SoundManager`/`ISoundManager` and `ISoundSource` (3D positional audio, gain, loop ranges)
-- [ ] Music streaming (`SoundStreamer`) and track transitions
-- [ ] Voice/dialogue playback and synchronization with mission scripts
-- [ ] Audio latency/mixing verification against Windows reference
-- [ ] Acceptance: music and SFX play during gameplay with correct spatialization
+**Status:** PulseAudio backend (pa_simple) scaffolded for 64-bit builds. 32-bit build lacks libpulse; null backend remains active for 32-bit bring-up. Full integration with SoundManager pending upstream engine wiring.
+
+- [~] Implement real audio backend (PulseAudio/PipeWire/ALSA) behind `AudioBackend` interface — PulseAudio backend (pa_simple) implemented for 64-bit; 32-bit blocked on missing libpulse32
+- [ ] Wire into `SoundManager`/`ISoundManager` and `ISoundSource` (3D positional audio, gain, loop ranges) — pending upstream engine wiring
+- [ ] Music streaming (`SoundStreamer`) and track transitions — pending
+- [ ] Voice/dialogue playback and synchronization with mission scripts — pending
+- [ ] Audio latency/mixing verification against Windows reference — pending
+- [ ] Acceptance: music and SFX play during gameplay with correct spatialization — pending
 
 ## M11 — Game flow (main menu + gameplay)
 
 **Acceptance target:** Reach the real main menu and enter the game world in the actual game client.
 
-- [ ] Wire UI/input/render into engine client (RendComp, Shading, flmaterials, menu system)
-- [ ] Main menu navigation (new game, load game, options, multiplayer)
-- [ ] Single-player flow via `rpclocal` (local server integration)
-- [ ] Mission initialization and game world entry
-- [ ] Save/load persistence via XDG state dir
-- [ ] Registry/config full coverage (all keys used by client: login, settings, crash reporting)
-- [ ] Acceptance: launch game, reach main menu, start new game, enter space
+**Status:** Bring-up client reaches controlled main-menu state (M8.5). Full upstream engine wiring (M8.7) blocked on unported TUs (DirectPlay networking, Common/EngBase/system coverage, src/freelancer init). M11 acceptance requires M8.7 completion.
+
+- [ ] Wire UI/input/render into engine client (RendComp, Shading, flmaterials, menu system) — blocked on M8.7
+- [ ] Main menu navigation (new game, load game, options, multiplayer) — blocked on M8.7
+- [ ] Single-player flow via `rpclocal` (local server integration) — blocked on M8.7
+- [ ] Mission initialization and game world entry — blocked on M8.7
+- [ ] Save/load persistence via XDG state dir — XDG shim exists; full integration pending
+- [ ] Registry/config full coverage (all keys used by client: login, settings, crash reporting) — partial (XDG registry shim)
+- [ ] Acceptance: launch game, reach main menu, start new game, enter space — pending M8.7
 
 ## M12 — Polish & release
 
 **Acceptance target:** Playable native Linux experience on a clean system with provided game data, without Wine/Proton.
 
-- [ ] Movie playback (WMV/ASF → FFmpeg or stub)
-- [ ] IME/text input (chat, naming)
-- [ ] Multiplayer (if in scope) via Linux sockets
-- [ ] Performance optimization (CPU/GPU profiling, frame pacing, LOD)
-- [ ] Crash/hang fixes across representative gameplay scenarios
-- [ ] Fullscreen/windowed/display mode polish
-- [ ] Controller support (rumble, full mapping)
-- [ ] Packaging (AppImage/flatpak/tarball) and install/run documentation
-- [ ] Final compatibility and regression verification
-- [ ] Acceptance: playable native Linux experience, no Wine/Proton
+**Status:** Subsystem-level polish exists (M7 harness). Full polish pending M11 (game flow). Movie playback, IME, multiplayer stubs exist. Packaging docs exist.
+
+- [~] Movie playback (WMV/ASF → FFmpeg or stub) — stubs exist (no-op bypass)
+- [~] IME/text input (chat, naming) — stubs exist (no-op)
+- [ ] Multiplayer (if in scope) via Linux sockets — blocked on DirectPlay porting (M8.7)
+- [~] Performance optimization (CPU/GPU profiling, frame pacing, LOD) — frame pacing metrics exist
+- [~] Crash/hang fixes across representative gameplay scenarios — harness-level stability
+- [x] Fullscreen/windowed/display mode polish — implemented in window backend
+- [~] Controller support (rumble, full mapping) — basic SDL gamepad mapping exists
+- [x] Packaging (AppImage/flatpak/tarball) and install/run documentation — packaging-install-run.md exists
+- [ ] Final compatibility and regression verification — pending M11
+- [ ] Acceptance: playable native Linux experience, no Wine/Proton — pending M11
 
 ---
 

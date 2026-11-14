@@ -60,7 +60,7 @@ public:
     char const* GetName() override;
     float GetFixedHeight() override;
     HFONT__* Slot03() override;
-    LOGFONTA const* GetLogFont() override;
+    tagLOGFONTA const* GetLogFont() override;
     float GetGlyphAdvance(wchar_t Ch) override;
     int GetLineHeight() override;
     int Slot07() override;

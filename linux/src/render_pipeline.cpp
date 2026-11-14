@@ -16,11 +16,57 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
 
 namespace fl_port {
+
+namespace {
+
+std::vector<char> read_file_bytes(const std::string& path) {
+  std::ifstream f(path, std::ios::binary | std::ios::ate);
+  if (!f) return {};
+  size_t sz = static_cast<size_t>(f.tellg());
+  f.seekg(0);
+  std::vector<char> buf(sz);
+  f.read(buf.data(), sz);
+  return buf;
+}
+
+VkShaderModule create_shader_module(VkDevice dev, const std::vector<char>& code) {
+  if (code.empty()) return VK_NULL_HANDLE;
+  VkShaderModuleCreateInfo ci{};
+  ci.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+  ci.codeSize = code.size();
+  ci.pCode = reinterpret_cast<const uint32_t*>(code.data());
+  VkShaderModule m = VK_NULL_HANDLE;
+  vkCreateShaderModule(dev, &ci, nullptr, &m);
+  return m;
+}
+
+std::vector<char> load_spirv(const std::string& name) {
+  std::vector<std::string> cands = {
+      "shaders/" + name,
+  };
+  char buf[4096]; size_t len = readlink("/proc/self/exe", buf, sizeof(buf)-1);
+  if (len != (size_t)-1) {
+    buf[len] = 0;
+    std::string dir(buf);
+    size_t slash = dir.find_last_of('/');
+    if (slash != std::string::npos) dir = dir.substr(0, slash);
+    cands.push_back(dir + "/shaders/" + name);
+  }
+  for (auto& c : cands) {
+    auto b = read_file_bytes(c);
+    if (!b.empty()) return b;
+  }
+  return {};
+}
+
+} // namespace
+
 
 namespace {
 
@@ -449,6 +495,18 @@ GENRESULT RenderPipeline::CreateBuffers(HWND Hwnd, int* /*Mode*/, int* /*OutMode
     vkCreateSemaphore(vk_->device, &sci_sem, nullptr, &vk_->render_finished[i]);
   }
   vkCreateFence(vk_->device, &fci_fence, nullptr, &vk_->in_flight);
+
+  // M9: init managers.
+  vb_manager_.init(vk_->device, vk_->gpu);
+  tex_manager_.init(vk_->device, vk_->gpu, vk_->command_pool, vk_->graphics_queue);
+  font_manager_.init(vk_->device, vk_->gpu, vk_->command_pool, vk_->graphics_queue);
+
+  // M9: create pipelines.
+  create_default_pipeline();
+  create_skybox_pipeline();
+  create_nebula_pipeline();
+  create_text_pipeline();
+  (void)0; // font loading disabled for harness debug
 
   initialized_ = true;
   return GR_OK;
@@ -904,6 +962,26 @@ bool RenderPipeline::render_frame(float /*t_seconds*/) {
   VkRect2D scissor{{0, 0}, vk_->swapchain_extent};
   vkCmdSetScissor(cmd, 0, 1, &scissor);
 
+  // Skybox
+  if (skybox_pipeline_ != VK_NULL_HANDLE && skybox_pipeline_layout_ != VK_NULL_HANDLE) {
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, skybox_pipeline_);
+    vkCmdDraw(cmd, 3, 1, 0, 0);
+  }
+  // Nebula
+  if (nebula_pipeline_ != VK_NULL_HANDLE && nebula_pipeline_layout_ != VK_NULL_HANDLE) {
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, nebula_pipeline_);
+    vkCmdDraw(cmd, 3, 1, 0, 0);
+  }
+
+  // Triangle (demo) using default pipeline (gl_VertexIndex, no VB)
+  if (graphics_pipeline_ != VK_NULL_HANDLE && graphics_pipeline_layout_ != VK_NULL_HANDLE) {
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_);
+    vkCmdDraw(cmd, 3, 1, 0, 0);
+  }
+
+  // HUD text
+  draw_text(cmd, "Freelancer", -0.95f, 0.9f, 1.0f);
+
   vkCmdEndRenderPass(cmd);
   vkEndCommandBuffer(cmd);
 
@@ -978,14 +1056,207 @@ int RenderPipeline::swapchain_image_count() const {
 }
 
 
-bool RenderPipeline::create_default_pipeline() { return true; }
+bool RenderPipeline::create_default_pipeline() {
+  if (!vk_ || !vk_->device) return false;
+  auto vcode = load_spirv("triangle.vert.spv");
+  auto fcode = load_spirv("triangle.frag.spv");
+  if (vcode.empty() || fcode.empty()) return false;
+  VkShaderModule vmod = create_shader_module(vk_->device, vcode);
+  VkShaderModule fmod = create_shader_module(vk_->device, fcode);
+  if (!vmod || !fmod) { if (vmod) vkDestroyShaderModule(vk_->device, vmod, nullptr); if (fmod) vkDestroyShaderModule(vk_->device, fmod, nullptr); return false; }
+
+  VkPipelineLayoutCreateInfo plci{}; plci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+  plci.pushConstantRangeCount = 0; plci.pPushConstantRanges = nullptr;
+  if (vkCreatePipelineLayout(vk_->device, &plci, nullptr, &graphics_pipeline_layout_) != VK_SUCCESS) {
+    vkDestroyShaderModule(vk_->device, vmod, nullptr); vkDestroyShaderModule(vk_->device, fmod, nullptr); return false;
+  }
+
+  VkPipelineVertexInputStateCreateInfo vis{}; vis.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+
+  VkPipelineShaderStageCreateInfo stages[2]{};
+  stages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO; stages[0].stage = VK_SHADER_STAGE_VERTEX_BIT; stages[0].module = vmod; stages[0].pName = "main";
+  stages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO; stages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT; stages[1].module = fmod; stages[1].pName = "main";
+
+  VkPipelineInputAssemblyStateCreateInfo ias{}; ias.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO; ias.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+  VkViewport vp{}; vp.x = 0; vp.y = 0; vp.width = (float)vk_->swapchain_extent.width; vp.height = (float)vk_->swapchain_extent.height; vp.minDepth = 0; vp.maxDepth = 1;
+  VkRect2D scissor{{0,0}, vk_->swapchain_extent};
+  VkPipelineViewportStateCreateInfo vps{}; vps.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO; vps.viewportCount = 1; vps.pViewports = &vp; vps.scissorCount = 1; vps.pScissors = &scissor;
+  VkPipelineRasterizationStateCreateInfo rs{}; rs.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO; rs.polygonMode = VK_POLYGON_MODE_FILL; rs.cullMode = VK_CULL_MODE_NONE; rs.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE; rs.lineWidth = 1.0f;
+  VkPipelineMultisampleStateCreateInfo ms{}; ms.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO; ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+  VkPipelineColorBlendAttachmentState cba{}; cba.colorWriteMask = VK_COLOR_COMPONENT_R_BIT|VK_COLOR_COMPONENT_G_BIT|VK_COLOR_COMPONENT_B_BIT|VK_COLOR_COMPONENT_A_BIT;
+  VkPipelineColorBlendStateCreateInfo cbs{}; cbs.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO; cbs.attachmentCount = 1; cbs.pAttachments = &cba;
+
+  VkGraphicsPipelineCreateInfo gpci{}; gpci.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+  gpci.stageCount = 2; gpci.pStages = stages;
+  gpci.pVertexInputState = &vis; gpci.pInputAssemblyState = &ias; gpci.pViewportState = &vps;
+  gpci.pRasterizationState = &rs; gpci.pMultisampleState = &ms; gpci.pColorBlendState = &cbs;
+  gpci.layout = graphics_pipeline_layout_; gpci.renderPass = vk_->render_pass; gpci.subpass = 0;
+
+  if (vkCreateGraphicsPipelines(vk_->device, VK_NULL_HANDLE, 1, &gpci, nullptr, &graphics_pipeline_) != VK_SUCCESS) {
+    vkDestroyShaderModule(vk_->device, vmod, nullptr); vkDestroyShaderModule(vk_->device, fmod, nullptr);
+    return false;
+  }
+  vkDestroyShaderModule(vk_->device, vmod, nullptr); vkDestroyShaderModule(vk_->device, fmod, nullptr);
+  return true;
+}
 void RenderPipeline::destroy_default_pipeline() {}
-bool RenderPipeline::create_skybox_pipeline() { return true; }
+bool RenderPipeline::create_skybox_pipeline() {
+  if (!vk_ || !vk_->device) return false;
+  auto vcode = load_spirv("skybox.vert.spv");
+  auto fcode = load_spirv("skybox.frag.spv");
+  if (vcode.empty() || fcode.empty()) return false;
+  VkShaderModule vmod = create_shader_module(vk_->device, vcode);
+  VkShaderModule fmod = create_shader_module(vk_->device, fcode);
+  if (!vmod || !fmod) { if (vmod) vkDestroyShaderModule(vk_->device, vmod, nullptr); if (fmod) vkDestroyShaderModule(vk_->device, fmod, nullptr); return false; }
+
+  VkPushConstantRange pcr{}; // none
+  VkPipelineLayoutCreateInfo plci{}; plci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+  plci.pushConstantRangeCount = 0;
+  if (vkCreatePipelineLayout(vk_->device, &plci, nullptr, &skybox_pipeline_layout_) != VK_SUCCESS) {
+    vkDestroyShaderModule(vk_->device, vmod, nullptr); vkDestroyShaderModule(vk_->device, fmod, nullptr); return false;
+  }
+
+  VkPipelineShaderStageCreateInfo stages[2]{};
+  stages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO; stages[0].stage = VK_SHADER_STAGE_VERTEX_BIT; stages[0].module = vmod; stages[0].pName = "main";
+  stages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO; stages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT; stages[1].module = fmod; stages[1].pName = "main";
+
+  VkPipelineVertexInputStateCreateInfo vis{}; vis.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+  VkPipelineInputAssemblyStateCreateInfo ias{}; ias.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO; ias.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+  VkViewport vp{}; vp.x = 0; vp.y = 0; vp.width = (float)vk_->swapchain_extent.width; vp.height = (float)vk_->swapchain_extent.height; vp.minDepth = 0; vp.maxDepth = 1;
+  VkRect2D scissor{{0,0}, vk_->swapchain_extent};
+  VkPipelineViewportStateCreateInfo vps{}; vps.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO; vps.viewportCount = 1; vps.pViewports = &vp; vps.scissorCount = 1; vps.pScissors = &scissor;
+  VkPipelineRasterizationStateCreateInfo rs{}; rs.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO; rs.polygonMode = VK_POLYGON_MODE_FILL; rs.cullMode = VK_CULL_MODE_NONE; rs.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE; rs.lineWidth = 1.0f;
+  VkPipelineMultisampleStateCreateInfo ms{}; ms.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO; ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+  VkPipelineColorBlendAttachmentState cba{}; cba.colorWriteMask = VK_COLOR_COMPONENT_R_BIT|VK_COLOR_COMPONENT_G_BIT|VK_COLOR_COMPONENT_B_BIT|VK_COLOR_COMPONENT_A_BIT;
+  VkPipelineColorBlendStateCreateInfo cbs{}; cbs.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO; cbs.attachmentCount = 1; cbs.pAttachments = &cba;
+
+  VkGraphicsPipelineCreateInfo gpci{}; gpci.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+  gpci.stageCount = 2; gpci.pStages = stages;
+  gpci.pVertexInputState = &vis; gpci.pInputAssemblyState = &ias; gpci.pViewportState = &vps;
+  gpci.pRasterizationState = &rs; gpci.pMultisampleState = &ms; gpci.pColorBlendState = &cbs;
+  gpci.layout = skybox_pipeline_layout_; gpci.renderPass = vk_->render_pass; gpci.subpass = 0;
+
+  if (vkCreateGraphicsPipelines(vk_->device, VK_NULL_HANDLE, 1, &gpci, nullptr, &skybox_pipeline_) != VK_SUCCESS) {
+    vkDestroyShaderModule(vk_->device, vmod, nullptr); vkDestroyShaderModule(vk_->device, fmod, nullptr);
+    return false;
+  }
+  vkDestroyShaderModule(vk_->device, vmod, nullptr); vkDestroyShaderModule(vk_->device, fmod, nullptr);
+  return true;
+}
 void RenderPipeline::destroy_skybox_pipeline() {}
-bool RenderPipeline::create_nebula_pipeline() { return true; }
+bool RenderPipeline::create_nebula_pipeline() {
+  if (!vk_ || !vk_->device) return false;
+  auto vcode = load_spirv("nebula.vert.spv");
+  auto fcode = load_spirv("nebula.frag.spv");
+  if (vcode.empty() || fcode.empty()) return false;
+  VkShaderModule vmod = create_shader_module(vk_->device, vcode);
+  VkShaderModule fmod = create_shader_module(vk_->device, fcode);
+  if (!vmod || !fmod) { if (vmod) vkDestroyShaderModule(vk_->device, vmod, nullptr); if (fmod) vkDestroyShaderModule(vk_->device, fmod, nullptr); return false; }
+
+  VkPipelineLayoutCreateInfo plci{}; plci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+  plci.pushConstantRangeCount = 0;
+  if (vkCreatePipelineLayout(vk_->device, &plci, nullptr, &nebula_pipeline_layout_) != VK_SUCCESS) {
+    vkDestroyShaderModule(vk_->device, vmod, nullptr); vkDestroyShaderModule(vk_->device, fmod, nullptr); return false;
+  }
+
+  VkPipelineShaderStageCreateInfo stages[2]{};
+  stages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO; stages[0].stage = VK_SHADER_STAGE_VERTEX_BIT; stages[0].module = vmod; stages[0].pName = "main";
+  stages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO; stages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT; stages[1].module = fmod; stages[1].pName = "main";
+
+  VkPipelineVertexInputStateCreateInfo vis{}; vis.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+  VkPipelineInputAssemblyStateCreateInfo ias{}; ias.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO; ias.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+  VkViewport vp{}; vp.x = 0; vp.y = 0; vp.width = (float)vk_->swapchain_extent.width; vp.height = (float)vk_->swapchain_extent.height; vp.minDepth = 0; vp.maxDepth = 1;
+  VkRect2D scissor{{0,0}, vk_->swapchain_extent};
+  VkPipelineViewportStateCreateInfo vps{}; vps.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO; vps.viewportCount = 1; vps.pViewports = &vp; vps.scissorCount = 1; vps.pScissors = &scissor;
+  VkPipelineRasterizationStateCreateInfo rs{}; rs.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO; rs.polygonMode = VK_POLYGON_MODE_FILL; rs.cullMode = VK_CULL_MODE_NONE; rs.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE; rs.lineWidth = 1.0f;
+  VkPipelineMultisampleStateCreateInfo ms{}; ms.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO; ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+  // Blend: alpha blend
+  VkPipelineColorBlendAttachmentState cba{}; cba.blendEnable = VK_TRUE; cba.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA; cba.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA; cba.colorBlendOp = VK_BLEND_OP_ADD; cba.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE; cba.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO; cba.alphaBlendOp = VK_BLEND_OP_ADD; cba.colorWriteMask = VK_COLOR_COMPONENT_R_BIT|VK_COLOR_COMPONENT_G_BIT|VK_COLOR_COMPONENT_B_BIT|VK_COLOR_COMPONENT_A_BIT;
+  VkPipelineColorBlendStateCreateInfo cbs{}; cbs.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO; cbs.attachmentCount = 1; cbs.pAttachments = &cba;
+
+  VkGraphicsPipelineCreateInfo gpci{}; gpci.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+  gpci.stageCount = 2; gpci.pStages = stages;
+  gpci.pVertexInputState = &vis; gpci.pInputAssemblyState = &ias; gpci.pViewportState = &vps;
+  gpci.pRasterizationState = &rs; gpci.pMultisampleState = &ms; gpci.pColorBlendState = &cbs;
+  gpci.layout = nebula_pipeline_layout_; gpci.renderPass = vk_->render_pass; gpci.subpass = 0;
+
+  if (vkCreateGraphicsPipelines(vk_->device, VK_NULL_HANDLE, 1, &gpci, nullptr, &nebula_pipeline_) != VK_SUCCESS) {
+    vkDestroyShaderModule(vk_->device, vmod, nullptr); vkDestroyShaderModule(vk_->device, fmod, nullptr);
+    return false;
+  }
+  vkDestroyShaderModule(vk_->device, vmod, nullptr); vkDestroyShaderModule(vk_->device, fmod, nullptr);
+  return true;
+}
 void RenderPipeline::destroy_nebula_pipeline() {}
-bool RenderPipeline::create_text_pipeline() { return true; }
+bool RenderPipeline::create_text_pipeline() {
+  if (!vk_ || !vk_->device) return false;
+  auto vcode = load_spirv("text.vert.spv");
+  auto fcode = load_spirv("text.frag.spv");
+  if (vcode.empty() || fcode.empty()) return false;
+
+  // Descriptor set layout: binding 0 = combined image sampler (font atlas).
+  VkDescriptorSetLayoutBinding b{}; b.binding = 0; b.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; b.descriptorCount = 1; b.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+  VkDescriptorSetLayoutCreateInfo dlci{}; dlci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO; dlci.bindingCount = 1; dlci.pBindings = &b;
+  if (vkCreateDescriptorSetLayout(vk_->device, &dlci, nullptr, &text_dsl_) != VK_SUCCESS) return false;
+
+  VkPipelineLayoutCreateInfo plci{}; plci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO; plci.setLayoutCount = 1; plci.pSetLayouts = &text_dsl_;
+  if (vkCreatePipelineLayout(vk_->device, &plci, nullptr, &text_pipeline_layout_) != VK_SUCCESS) return false;
+
+  VkShaderModule vmod = create_shader_module(vk_->device, vcode);
+  VkShaderModule fmod = create_shader_module(vk_->device, fcode);
+  if (!vmod || !fmod) { if (vmod) vkDestroyShaderModule(vk_->device, vmod, nullptr); if (fmod) vkDestroyShaderModule(vk_->device, fmod, nullptr); return false; }
+
+  VkPipelineShaderStageCreateInfo stages[2]{};
+  stages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO; stages[0].stage = VK_SHADER_STAGE_VERTEX_BIT; stages[0].module = vmod; stages[0].pName = "main";
+  stages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO; stages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT; stages[1].module = fmod; stages[1].pName = "main";
+
+  VkPipelineVertexInputStateCreateInfo vis{}; vis.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+  VkPipelineInputAssemblyStateCreateInfo ias{}; ias.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO; ias.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+  VkViewport vp{}; vp.x = 0; vp.y = 0; vp.width = (float)vk_->swapchain_extent.width; vp.height = (float)vk_->swapchain_extent.height; vp.minDepth = 0; vp.maxDepth = 1;
+  VkRect2D scissor{{0,0}, vk_->swapchain_extent};
+  VkPipelineViewportStateCreateInfo vps{}; vps.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO; vps.viewportCount = 1; vps.pViewports = &vp; vps.scissorCount = 1; vps.pScissors = &scissor;
+  VkPipelineRasterizationStateCreateInfo rs{}; rs.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO; rs.polygonMode = VK_POLYGON_MODE_FILL; rs.cullMode = VK_CULL_MODE_NONE; rs.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE; rs.lineWidth = 1.0f;
+  VkPipelineMultisampleStateCreateInfo ms{}; ms.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO; ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+  VkPipelineColorBlendAttachmentState cba{}; cba.blendEnable = VK_TRUE; cba.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA; cba.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA; cba.colorBlendOp = VK_BLEND_OP_ADD; cba.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE; cba.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO; cba.alphaBlendOp = VK_BLEND_OP_ADD; cba.colorWriteMask = VK_COLOR_COMPONENT_R_BIT|VK_COLOR_COMPONENT_G_BIT|VK_COLOR_COMPONENT_B_BIT|VK_COLOR_COMPONENT_A_BIT;
+  VkPipelineColorBlendStateCreateInfo cbs{}; cbs.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO; cbs.attachmentCount = 1; cbs.pAttachments = &cba;
+
+  VkGraphicsPipelineCreateInfo gpci{}; gpci.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+  gpci.stageCount = 2; gpci.pStages = stages;
+  gpci.pVertexInputState = &vis; gpci.pInputAssemblyState = &ias; gpci.pViewportState = &vps;
+  gpci.pRasterizationState = &rs; gpci.pMultisampleState = &ms; gpci.pColorBlendState = &cbs;
+  gpci.layout = text_pipeline_layout_; gpci.renderPass = vk_->render_pass; gpci.subpass = 0;
+
+  if (vkCreateGraphicsPipelines(vk_->device, VK_NULL_HANDLE, 1, &gpci, nullptr, &text_pipeline_) != VK_SUCCESS) {
+    vkDestroyShaderModule(vk_->device, vmod, nullptr); vkDestroyShaderModule(vk_->device, fmod, nullptr);
+    return false;
+  }
+  vkDestroyShaderModule(vk_->device, vmod, nullptr); vkDestroyShaderModule(vk_->device, fmod, nullptr);
+
+  // Create descriptor pool + set for font atlas.
+  VkDescriptorPoolSize ps{}; ps.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; ps.descriptorCount = 1;
+  VkDescriptorPoolCreateInfo dpci{}; dpci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO; dpci.maxSets = 1; dpci.poolSizeCount = 1; dpci.pPoolSizes = &ps;
+  if (vkCreateDescriptorPool(vk_->device, &dpci, nullptr, &text_desc_pool_) != VK_SUCCESS) return false;
+
+  VkDescriptorSetAllocateInfo dsai{}; dsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO; dsai.descriptorPool = text_desc_pool_; dsai.descriptorSetCount = 1; dsai.pSetLayouts = &text_dsl_;
+  if (vkAllocateDescriptorSets(vk_->device, &dsai, &text_desc_set_) != VK_SUCCESS) return false;
+
+  // Write descriptor (font atlas) if available.
+  VkImageView view = font_manager_.atlas_view();
+  if (view != VK_NULL_HANDLE) {
+    VkDescriptorImageInfo dii{}; dii.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; dii.imageView = view; dii.sampler = font_manager_.atlas_sampler();
+    VkWriteDescriptorSet wds{}; wds.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET; wds.dstSet = text_desc_set_; wds.dstBinding = 0; wds.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; wds.descriptorCount = 1; wds.pImageInfo = &dii;
+    vkUpdateDescriptorSets(vk_->device, 1, &wds, 0, nullptr);
+  }
+  return true;
+}
 void RenderPipeline::destroy_text_pipeline() {}
-void RenderPipeline::draw_text(VkCommandBuffer, const char*, float, float, float) {}
+void RenderPipeline::draw_text(VkCommandBuffer cmd, const char* text, float x, float y, float scale) {
+  if (!text || !text_pipeline_ || !text_pipeline_layout_ || !text_desc_set_) return;
+  if (!font_manager_.atlas_view()) return;
+  vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, text_pipeline_);
+  vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, text_pipeline_layout_, 0, 1, &text_desc_set_, 0, nullptr);
+  // Draw a fullscreen quad (text rendering simplified to atlas display).
+  vkCmdDraw(cmd, 6, 1, 0, 0);
+}
 
 }  // namespace fl_port

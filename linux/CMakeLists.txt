@@ -49,6 +49,7 @@ add_library(fl_linux_port_platform STATIC
   src/platform.cpp
   src/module_loader.cpp
   src/win32_file_shim.cpp
+  src/win32_user.cpp
 )
 target_include_directories(fl_linux_port_platform PUBLIC
   ${CMAKE_CURRENT_LIST_DIR}/include
@@ -129,7 +130,7 @@ if(FL_LINUX_BUILD_TOOLS)
   endif()
 
   # M6 gameplay bring-up (null audio + XDG config/registry + boot harness).
-  add_library(fl_linux_port_gameplay STATIC src/audio_backend.cpp src/xdg_config.cpp)
+  add_library(fl_linux_port_gameplay STATIC src/audio_backend.cpp src/pulse_audio_backend.cpp src/xdg_config.cpp)
   target_link_libraries(fl_linux_port_gameplay PUBLIC fl_linux_port_platform fl_linux_port_path)
   target_include_directories(fl_linux_port_gameplay PUBLIC ${FL_LINUX_INCLUDE_DIR})
 

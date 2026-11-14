@@ -1,9 +1,8 @@
 #version 450
-layout(location = 0) in vec3 inPos;
-layout(location = 1) in vec3 inColor;
-layout(push_constant) uniform PC { mat4 mvp; } pc;
 layout(location = 0) out vec3 color;
 void main() {
-    gl_Position = pc.mvp * vec4(inPos, 1.0);
-    color = inColor;
+    vec2 pos[3] = vec2[](vec2(0.0, 0.9), vec2(-0.9, -0.9), vec2(0.9, -0.9));
+    vec3 col[3] = vec3[](vec3(1,0,0), vec3(0,1,0), vec3(0,0,1));
+    gl_Position = vec4(pos[gl_VertexIndex], 0.0, 1.0);
+    color = col[gl_VertexIndex];
 }

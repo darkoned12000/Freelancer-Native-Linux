@@ -88,9 +88,10 @@ See [`assessment.md`](assessment.md) for the detailed technical assessment, subs
 | **M6** | Gameplay bring-up | Null-audio backend, XDG config/registry shim, boot sequence reaching main menu + game world loop; **reach main menu and enter game world** | Completed (pending review) |
 | **M7** | Native Linux release candidate (bring-up) | Fullscreen/windowed, controller detection, frame pacing, packaging/install docs; **release candidate harness validates all subsystems** | Completed (pending review) |
 | **M8** | Game client compilation | Compile/link freelancer client as native ELF against Linux shims; **runnable native client binary** | Planned |
-| **M9** | Full render pipeline | Textures, meshes, fonts, draw submission, UI/HUD; **real Freelancer scene renders** | Planned |
-| **M10** | Real audio backend | PulseAudio/PipeWire/ALSA backend, SoundManager wiring; **in-game audio** | Planned |
-| **M11** | Game flow | Main menu, single-player, mission init, save/load; **reach main menu and enter game world** | Planned |
+| **M8.8** | Win32/COM/Resource shim expansion | Win32 window/message pump, resource string tables, COM IRenderPipeline adapter; **upstream client TUs compile/link** | Planned |
+| **M9** | Full render pipeline | Textures, meshes, fonts, draw submission, skybox/nebula/HUD text; **demo scene renders** | In progress |
+| **M10** | Real audio backend | PulseAudio backend (64-bit), null backend (32-bit); SoundManager wiring pending | In progress |
+| **M11** | Game flow | Controlled main-menu state (bring-up); full upstream wiring blocked on M8.7 | In progress |
 | **M12** | Polish & release | Movies, IME, multiplayer, performance, packaging; **playable native Linux experience** | Planned |
 
 ## Linux bring-up tools (current)

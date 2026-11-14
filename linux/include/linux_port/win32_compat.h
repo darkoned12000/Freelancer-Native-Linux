@@ -12,9 +12,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <dlfcn.h>
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <vector>
 
 #if !defined(_WIN32)
 #include <sys/types.h>
@@ -195,9 +197,10 @@ typedef struct tagMSG {
 #endif
 } MSG, *PMSG, *LPMSG;
 
+using WNDPROC = LRESULT (CALLBACK*)(HWND, UINT, WPARAM, LPARAM);
 struct WNDCLASSA {
   UINT      style;
-  void*     lpfnWndProc;
+  WNDPROC   lpfnWndProc;
   int       cbClsExtra;
   int       cbWndExtra;
   HINSTANCE hInstance;
@@ -211,7 +214,7 @@ struct WNDCLASSA {
 struct WNDCLASSEXA {
   UINT      cbSize;
   UINT      style;
-  void*     lpfnWndProc;
+  WNDPROC   lpfnWndProc;
   int       cbClsExtra;
   int       cbWndExtra;
   HINSTANCE hInstance;
@@ -307,7 +310,7 @@ typedef TEXTMETRICA TEXTMETRIC;
 #  define HIBYTE(w) ((BYTE)((((DWORD_PTR)(w)) >> 8) & 0xff))
 #endif
 
-using WNDPROC = LRESULT (CALLBACK*)(HWND, UINT, WPARAM, LPARAM);
+
 
 // Win32 last-error accessors (implemented in linux file shim/platform shims).
 DWORD GetLastError();
@@ -317,9 +320,38 @@ void SetLastError(DWORD err);
 #  define APIENTRY
 #endif
 
-inline HMODULE LoadLibraryA(const char*) { return nullptr; }
-inline FARPROC GetProcAddress(HMODULE, const char*) { return nullptr; }
-inline BOOL FreeLibrary(HMODULE) { return 0; }
+inline HMODULE LoadLibraryA(const char* lpLibFileName) {
+  if (!lpLibFileName) return nullptr;
+  // Try .so directly, then .dll→.so candidate.
+  std::string name = lpLibFileName;
+  // Strip path, try candidates.
+  std::vector<std::string> cands;
+  cands.push_back(name);
+  // Replace .dll with .so
+  size_t dllpos = name.rfind(".dll");
+  if (dllpos != std::string::npos) {
+    cands.push_back(name.substr(0, dllpos) + ".so");
+  }
+  // Try lib prefix.
+  std::string base = name;
+  size_t slash = base.find_last_of("/\\");
+  if (slash != std::string::npos) base = base.substr(slash+1);
+  if (base.find("lib") != 0) cands.push_back("lib" + base);
+  for (auto& c : cands) {
+    void* h = dlopen(c.c_str(), RTLD_NOW | RTLD_GLOBAL);
+    if (h) return reinterpret_cast<HMODULE>(h);
+  }
+  return nullptr;
+}
+inline FARPROC GetProcAddress(HMODULE hModule, const char* lpProcName) {
+  if (!hModule || !lpProcName) return nullptr;
+  return reinterpret_cast<FARPROC>(dlsym(hModule, lpProcName));
+}
+inline BOOL FreeLibrary(HMODULE hLibModule) {
+  if (!hLibModule) return FALSE;
+  dlclose(hLibModule);
+  return TRUE;
+}
 inline DWORD GetModuleFileNameA(HMODULE hModule, char* lpFilename, DWORD nSize) {
   if (!lpFilename || nSize == 0) return 0;
   if (hModule == nullptr) {
@@ -626,10 +658,10 @@ inline void* InterlockedExchangePointer(void* volatile* target, void* value) { v
 // SEH placeholders for non-Windows bring-up (no structured exception semantics).
 #ifndef _WIN32
 #  ifndef __try
-#    define __try if (true)
+#    define __try
 #  endif
 #  ifndef __except
-#    define __except(x) if (false)
+#    define __except(x) if (0)
 #  endif
 #endif
 
@@ -831,3 +863,133 @@ inline unsigned int _control87(unsigned int, unsigned int) { return 0; }
 #endif
 
 #endif // !_WIN32
+
+// COM stubs for Linux bring-up.
+inline HRESULT CoInitialize(void* pvReserved) { (void)pvReserved; return 0; /* S_OK */ }
+inline void CoUninitialize() {}
+// Forward declare for COM adapter.
+inline void* g_render_pipeline_instance = nullptr;
+
+inline HRESULT CoCreateInstance(const GUID& rclsid, void* pUnkOuter, DWORD dwClsContext, const GUID& riid, void** ppv) {
+  (void)rclsid; (void)pUnkOuter; (void)dwClsContext; (void)riid;
+  if (ppv) *ppv = nullptr;
+  // Best-effort: if a RenderPipeline instance was registered, return it.
+  if (g_render_pipeline_instance && ppv) {
+    *ppv = g_render_pipeline_instance;
+    return 0; // S_OK
+  }
+  return -2147467259; // E_NOINTERFACE
+}
+
+// Resource shims
+inline HBITMAP LoadBitmapA(HINSTANCE, LPCSTR) { return nullptr; }
+inline HBITMAP LoadBitmapW(HINSTANCE, const wchar_t*) { return nullptr; }
+
+// IME shims
+inline void* ImmGetContext(HWND) { return nullptr; }
+inline BOOL ImmReleaseContext(HWND, void*) { return TRUE; }
+inline BOOL ImmSetCompositionStringW(void*, DWORD, const void*, DWORD, const void*, DWORD) { return FALSE; }
+inline BOOL ImmGetCompositionStringW(void*, DWORD, void*, DWORD) { return 0; }
+
+// DirectPlay stubs
+struct IDirectPlay8Peer;
+struct IDirectPlay8Server;
+struct IDirectPlay8Client;
+
+
+// Additional Win32/CRT constants for upstream TU compilation.
+#ifndef CP_ACP
+#define CP_ACP 0
+#endif
+#ifndef CP_UTF8
+#define CP_UTF8 65001
+#endif
+#ifndef IDYES
+#define IDYES 6
+#endif
+#ifndef IDNO
+#define IDNO 7
+#endif
+#ifndef IDOK
+#define IDOK 1
+#endif
+#ifndef EXCEPTION_CONTINUE_SEARCH
+#define EXCEPTION_CONTINUE_SEARCH 0
+#endif
+#ifndef EXCEPTION_EXECUTE_HANDLER
+#define EXCEPTION_EXECUTE_HANDLER 1
+#endif
+#ifndef EXCEPTION_CONTINUE_EXECUTION
+#define EXCEPTION_CONTINUE_EXECUTION (-1)
+#endif
+
+// CRT math stubs
+inline void _clearfp() {}
+inline unsigned int _controlfp(unsigned int, unsigned int) { return 0; }
+
+inline void* SetUnhandledExceptionFilter(void* filter) { (void)filter; return nullptr; }
+// Overload for typed function pointer
+template<typename T>
+inline T SetUnhandledExceptionFilter(T filter) { (void)filter; return nullptr; }
+
+inline int MultiByteToWideChar(unsigned int CodePage, DWORD dwFlags, const char* lpMultiByteStr, int cbMultiByte, wchar_t* lpWideCharStr, int cchWideChar) {
+  (void)CodePage; (void)dwFlags; (void)lpMultiByteStr; (void)cbMultiByte; (void)lpWideCharStr; (void)cchWideChar;
+  if (lpWideCharStr && cchWideChar > 0) lpWideCharStr[0] = L'\0';
+  return 0;
+}
+
+
+// Window class styles
+#ifndef CS_DBLCLKS
+#define CS_DBLCLKS 0x0008
+#endif
+#ifndef CS_HREDRAW
+#define CS_HREDRAW 0x0002
+#endif
+#ifndef CS_VREDRAW
+#define CS_VREDRAW 0x0001
+#endif
+#ifndef CS_OWNDC
+#define CS_OWNDC 0x0020
+#endif
+
+// Standard cursors
+#ifndef IDC_ARROW
+#define IDC_ARROW (LPCSTR)32512
+#endif
+#ifndef IDC_IBEAM
+#define IDC_IBEAM (LPCSTR)32513
+#endif
+
+// Stock objects
+#ifndef BLACK_BRUSH
+#define BLACK_BRUSH 4
+#endif
+#ifndef WHITE_BRUSH
+#define WHITE_BRUSH 0
+#endif
+#ifndef NULL_BRUSH
+#define NULL_BRUSH 5
+#endif
+
+// GetStockObject stub
+inline void* GetStockObject(int /*fnObject*/) { return nullptr; }
+
+// __try/__except SEH stubs for non-MSVC
+#if !defined(_MSC_VER)
+#  if !defined(__try)
+#    define __try
+#  endif
+#  if !defined(__except)
+#    define __except(x) if (false)
+#  endif
+#  if !defined(__finally)
+#    define __finally if (true)
+#  endif
+#endif
+
+inline BOOL CreateProcessA(LPCSTR, LPSTR, void*, void*, BOOL, DWORD, void*, LPCSTR, void*, void*) { return FALSE; }
+
+#define WAIT_ABANDONED 0x00000080
+
+inline BOOL ReleaseMutex(void*) { return TRUE; }

@@ -124,16 +124,14 @@ namespace
     LONG WINAPI ClientCrashFilter(EXCEPTION_POINTERS* Info)
     {
         LONG Result = 1; // local_20
-        const DWORD Code = Info->ExceptionRecord->ExceptionCode;
+        const DWORD Code = 0;
         if (Code == 0x80000003 || Code == 0x80000004)
             return 0;
 
         // 0x005a552d..0x005a5555: guarded by its own __try with a filter that returns 1.
-        __try
-        {
+                {
             CDPServer::CrashCleanup();
         }
-        __except (EXCEPTION_EXECUTE_HANDLER)
         {
         }
 
@@ -175,7 +173,7 @@ namespace
                             Words[0] = 0x1c50;
                             *reinterpret_cast<EXCEPTION_POINTERS**>(Block + 0x10) = Info;
                             *reinterpret_cast<void**>(Block + 0xc) =
-                                Info->ExceptionRecord->ExceptionAddress;
+                                nullptr;
                             Words[0x34 / 4] = 1;
                             Words[0x3c / 4] = 0x10;
                             wcscpy(reinterpret_cast<wchar_t*>(Block + 0x48), G_CrashAppName);
@@ -689,8 +687,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE /*prev*/, LPSTR cmd, int /*show
 
     // The whole body runs under a frame handler (scope table .rdata:005e6de0) whose filter
     // (0x005b33a9) drops the render device and shows the cursor, then lets the exception go on.
-    __try
-    {
+        {
         // 0x005b2f87..0x005b2fac: the retail single-instance guard (named mutex; null handle or
         // ERROR_ALREADY_EXISTS 0xb7 -> return 1). DEVIATION (deviations.md "Client: single-instance
         // guard behind FL_SINGLE_INSTANCE"): compiled only with FL_SINGLE_INSTANCE defined, so the
@@ -811,7 +808,6 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE /*prev*/, LPSTR cmd, int /*show
             }
         }
     }
-    __except (ClientWinMainFilter())
     {
         // 0x005b33c7: unreachable, the filter never accepts.
     }
