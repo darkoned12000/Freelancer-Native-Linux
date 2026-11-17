@@ -105,8 +105,17 @@ inline BOOL fl_port_is_event_handle(HANDLE hObject) {
 #ifndef WAIT_FAILED
 #  define WAIT_FAILED 0xFFFFFFFFu
 #endif
+#ifndef MAXIMUM_WAIT_OBJECTS
+#  define MAXIMUM_WAIT_OBJECTS 64
+#endif
 
 inline DWORD WaitForSingleObject(HANDLE hHandle, DWORD dwMilliseconds) {
+  if (auto thread = fl_port_detail::find_thread(hHandle)) {
+    std::unique_lock<std::mutex> lock(thread->mutex);
+    if (dwMilliseconds == INFINITE) thread->cv.wait(lock, [&]() { return thread->done; });
+    else if (!thread->cv.wait_for(lock, std::chrono::milliseconds(dwMilliseconds), [&]() { return thread->done; })) return WAIT_TIMEOUT;
+    return WAIT_OBJECT_0;
+  }
   if (!fl_port_detail::is_event(hHandle)) return WAIT_FAILED;
   auto* e = static_cast<FL_PORT_EVENT*>(hHandle);
 
@@ -126,6 +135,50 @@ inline DWORD WaitForSingleObject(HANDLE hHandle, DWORD dwMilliseconds) {
   return WAIT_OBJECT_0;
 }
 
-// TODO: WaitForMultipleObjects, mutex/waitable handle dispatch, and alertable waits.
+inline DWORD WaitForMultipleObjects(DWORD count, const HANDLE* handles, BOOL waitAll, DWORD timeout) {
+  if (count == 0 || !handles || count > MAXIMUM_WAIT_OBJECTS) return WAIT_FAILED;
+  const auto start = std::chrono::steady_clock::now();
+  for (;;) {
+    if (waitAll) {
+      bool all_ready = true;
+      for (DWORD i = 0; i < count; ++i) {
+        if (auto thread = fl_port_detail::find_thread(handles[i])) {
+          std::lock_guard<std::mutex> lock(thread->mutex);
+          if (!thread->done) all_ready = false;
+        } else if (fl_port_detail::is_event(handles[i])) {
+          auto* event = static_cast<FL_PORT_EVENT*>(handles[i]);
+          std::lock_guard<std::mutex> lock(event->m);
+          if (!event->signaled) all_ready = false;
+        } else return WAIT_FAILED;
+      }
+      if (all_ready) {
+        for (DWORD i = 0; i < count; ++i) {
+          if (fl_port_detail::is_event(handles[i])) {
+            auto* event = static_cast<FL_PORT_EVENT*>(handles[i]);
+            std::lock_guard<std::mutex> lock(event->m);
+            if (!event->manual_reset) event->signaled = false;
+          }
+        }
+        return WAIT_OBJECT_0;
+      }
+    } else {
+      for (DWORD i = 0; i < count; ++i) {
+        if (auto thread = fl_port_detail::find_thread(handles[i])) {
+          std::lock_guard<std::mutex> lock(thread->mutex);
+          if (thread->done) return WAIT_OBJECT_0 + i;
+        } else if (fl_port_detail::is_event(handles[i])) {
+          auto* event = static_cast<FL_PORT_EVENT*>(handles[i]);
+          std::lock_guard<std::mutex> lock(event->m);
+          if (event->signaled) {
+            if (!event->manual_reset) event->signaled = false;
+            return WAIT_OBJECT_0 + i;
+          }
+        } else return WAIT_FAILED;
+      }
+    }
+    if (timeout != INFINITE && std::chrono::steady_clock::now() - start >= std::chrono::milliseconds(timeout)) return WAIT_TIMEOUT;
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+}
 
 #endif // !_WIN32

@@ -1,7 +1,6 @@
 #ifndef _SHLOBJ_H
 #define _SHLOBJ_H
 #include "linux_port/win32_compat.h"
-struct _GUID : GUID {};
 #define CSIDL_FLAG_CREATE 0x8000
 #define CSIDL_LOCAL_APPDATA 0x001c
 #define CSIDL_PERSONAL 0x0005

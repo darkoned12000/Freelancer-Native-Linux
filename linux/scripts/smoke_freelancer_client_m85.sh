@@ -22,7 +22,7 @@ trap cleanup EXIT
 
 echo "[smoke] running: $BIN --smoke-xdg-temp"
 set +e
-(cd "$BUILD_DIR" && timeout 90 ./freelancer_linux_client --smoke-xdg-temp >"$LOG" 2>&1)
+(cd "$BUILD_DIR" && FL_PORT_SOUND_MANAGER_PROBE=1 timeout 90 ./freelancer_linux_client --smoke-xdg-temp >"$LOG" 2>&1)
 RC=$?
 set -e
 
@@ -48,6 +48,8 @@ require() {
 
 require "BOOT\[Startup\]"
 require "BOOT\[DacomInit\]"
+require "M10: upstream SoundManager factory registered"
+require "M10: upstream SoundManager \+ software DirectSound device probe passed"
 require "BOOT\[CoreRegistrations\]"
 require "BOOT\[ConfigAndData\].*core init/config/DATA checks passed"
 require "BOOT\[IFileSystemProbe\]"

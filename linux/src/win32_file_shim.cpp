@@ -461,6 +461,10 @@ BOOL CloseHandle(HANDLE hObject) {
     SetLastError(0);
     return TRUE;
   }
+  if (fl_port_close_handle_if_thread(hObject)) {
+    SetLastError(0);
+    return TRUE;
+  }
   SetLastError(6);
   return FALSE;
 }

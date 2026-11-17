@@ -270,7 +270,7 @@ Treat it as a multi-stage siege. Sub-phases M8.0–M8.6 are tracked below.
     - [x] Link DALib target into `freelancer_linux_client` and validate DALib API/data-path behavior (`DALib::Startup`/`OpenData`/`CloseData`/`Shutdown` invoked via upstream code paths, config/DATA/IFileSystem bring-up checks pass in `linux/scripts/smoke_freelancer_client_m85.sh`)
     - [x] Implement upstream-structured portable `DALib::Startup`/`Shutdown` in `src/DALib/DALib.cpp` (`FL_LINUX_PORT_DALIB_PORTABLE`): DACOM acquisition, best-effort `SystemContainer` creation and subsystem/interface discovery via DACOM/IIDs, tolerant handling of missing/unported components, and upstream-structured safe release/teardown of acquired DALib globals
     - [ ] **Blocked (external/unported dependencies):** enable full retail subsystem device/init/load/runtime paths in `DALib::Startup`/`Shutdown` (SystemContainer component loading, engine/render/audio/streamer/alchemy/fx runtime initialization) as dependent components/platform backends are ported/registered
-    - [ ] **Blocked (DirectPlay/Win32 networking):** port/link DirectPlay/CDP networking TUs `CDPClient.cpp`, `CDPClientProxy.cpp`, `CDPServer.cpp`, `CGunWrapper.cpp` (and DirectPlay-dependent startup/shutdown/network behavior) — require `dplay8`/DirectPlay/COM/GUN runtime portability beyond current DALib scope; `dalib_net.h` now provides minimal Linux-port parseability stubs for core message types but DirectPlay client/server/proxy APIs remain unported
+    - [~] **DirectPlay/CDP integration:** `login_mgr.cpp`, `CDPClient.cpp`, `CDPServer.cpp`, `CDPClientProxy.cpp`, and `CGunWrapper.cpp` compile via Linux probes. Native DirectPlay client/address/server objects, GUIDs, callback/message types, and URL component handling are implemented as **fail-closed stubs** (`Connect`/`EnumHosts`/`Host`/send paths return failure; no transport). This unblocks compile/link experiments and single-player-oriented bring-up work but does **not** provide DirectPlay 8 wire-protocol compatibility, stock FLServer interoperability, or multiplayer runtime behavior.
     - [ ] **Deferred/blocked (ABI sensitivity):** 64-bit migration and full upstream Windows ABI parity validation for DALib networking/client classes (32-bit-first bring-up; layout/ABI audit required before 64-bit enablement)
   - [~] **Common / EngBase / system prerequisites (minimal early-init subset built/ported and linked; incremental expansion in progress)**
     - [x] `system` (`src/system/system.cpp`): compiled/linked into `freelancer_linux_client` (32-bit `linux-x86`) with Linux-port registration hook (`fl_upstream_system_register_component`); DllMain guarded for upstream TU builds (Windows behavior preserved)
@@ -296,14 +296,14 @@ Treat it as a multi-stage siege. Sub-phases M8.0–M8.6 are tracked below.
     - [ ] DACOM and required core components initialize through upstream code paths; `DACOM.INI`/`freelancer.ini`/`DATA/` load and key checks succeed through upstream DALib/Common/client paths
     - [ ] `roadmap.md` M8.2 promoted from `[~]` to `[x]` with evidence/log references; M9 can begin on real client-linked foundations
 
-**Current blockers (M8.7):** full retail DALib subsystem/runtime init and DirectPlay/CDP networking remain blocked by unported components/backends and `dplay8`/COM/GUN dependencies. Minimal `system`/`EngBase`/`Common` early-init TU subset is now linked, but broader `Common`/`EngBase`/`system` coverage and `src/freelancer` init/bootstrap TUs still require extensive Win32/MSVC/COM/resource/ABI/packing/layout/shim work (resources, WndProc/message pump, DirectShow/media, CRT/toolchain differences, struct/layout parity) before upstream init paths can replace bring-up flow and close M8.2. Integration scaffolding/probes remain in place for incremental bring-up. Progress: `fl_upstream_client_init_tu` now compiles; `shlobj.h`/`direct.h` shims expanded; `fl_m87_common_misc_probe` compiles; `InitializeEngine` wired into `freelancer_linux_client` via a weak stub (overridden once `fl_upstream_client_init_tu` link closure lands) and validated by smoke; M8.8 shim expansion substantially complete (~240/246 client TUs compile via probes); remaining blocker is DirectPlay/CDP link closure.**Risk hotspots:** hidden global constructors/static init order; remaining COM/QueryInterface usage assuming Windows apartment or vtable layouts; resource loading (.rc/string tables/cursors); code assuming HWND is a real window handle or classic Win32 message pump; float/math edge cases only under full client; 32-bit library availability.
+**Current blockers (M8.7):** all 246 `src/freelancer/Client/*.cpp` translation units compile in Linux probe targets, including `login_mgr.cpp`; `CDPClient.cpp` and `CGunWrapper.cpp` compile. The real client init TUs remain compile-only and are not linked/invoked. Link closure now reaches a broad gameplay dependency set (mission, ship/equipment, chat, object DB, and UI symbols). The DirectPlay adapter is intentionally fail-closed: DirectPlay wire compatibility and server/proxy transport are not implemented, so stock multiplayer remains unavailable. M8.8 compile-side shim work is complete at TU coverage, but this does not imply runtime ABI/layout parity. **Risk hotspots:** DirectPlay 8 protocol/transport interoperability, M11 gameplay dependency closure, global constructor/static-init order, COM vtable/ABI assumptions, and remaining runtime layout parity.
 
 **Artifacts to produce:** `linux/docs/m8-client-integration.md` (living doc), `freelancer_linux_client` CMake target as single source of truth, smoke-test script, known-stubs/deviations list.
 
  
 ## M8.8 — Win32/COM/Resource shim expansion (prerequisite for M8.7/M11)
 
-**Status:** In progress. Win32 user/message pump, LoadLibrary/GetProcAddress/FreeLibrary, CoCreateInstance/CoInitialize, resource, IME, DirectShow, DirectPlay shims implemented (stubs). CRT/MSVC specifics substantially addressed (GDI/DirectX/CRT helpers). COM adapter wiring improved (CLSID matching, QueryInterface). Struct packing audit largely guarded via FL_LINUX_PORT_LAYOUT_RELAXED. ~240/246 client TUs compile via probes.
+**Status:** Compile-side shim expansion complete for all 246 client TUs via probes. Runtime acceptance remains partial: main/engine_init link closure and actual upstream boot invocation are pending. DirectPlay API declarations and fail-closed client/address adapter are present, but no DirectPlay wire protocol or stock FLServer interoperability is implemented. CRT/MSVC/GDI/DirectX shims are broad; selected ABI assertions are guarded by `FL_LINUX_PORT_LAYOUT_RELAXED`, so layout audit is not complete.
 
 **Acceptance target:** Upstream `src/freelancer/Client/main.cpp` and `engine_init.cpp` compile and link on Linux 32-bit, replacing bring-up simulation with real upstream init calls.
 
@@ -330,14 +330,15 @@ Treat it as a multi-stage siege. Sub-phases M8.0–M8.6 are tracked below.
 - [x] **IME shims**
   - [x] `ImmGetContext`/`ImmReleaseContext`/`ImmSetCompositionStringW`/`ImmGetCompositionStringW` — stubs in win32_compat.h
   - [x] IME enable/focus/context hooks — no-op stubs in linux_client_stubs.cpp
-- [x] **DirectPlay shims (multiplayer only)**
-  - [x] `IDirectPlay8Peer`/`IDirectPlay8Server`/`IDirectPlay8Client` — typedef stubs in win32_compat.h
-  - [~] `CDPClient`/`CDPServer`/`CDPNetCodec` — static methods stubbed (linux/src/cdp_stubs.cpp) for single-player. Full DirectPlay COM interface porting deferred (multiplayer only).
+- [~] **DirectPlay shims (multiplayer only)**
+  - [x] `IDirectPlay8Client`/`IDirectPlay8Address`/`IDirectPlay8Server` Linux API declarations, GUIDs, callback/message types, and URL/component handling added; `directplay_compat_tests` verifies URL parsing and fail-closed connect/host behavior.
+  - [x] `login_mgr.cpp`, `CDPClient.cpp`, `CDPServer.cpp`, `CDPClientProxy.cpp`, and `CGunWrapper.cpp` compile via probes against the Linux DirectPlay compatibility headers.
+  - [ ] DirectPlay 8 wire protocol, service-provider transport, reliable/session semantics, and stock FLServer interoperability (required for multiplayer) — not implemented.
 - [~] **CRT/MSVC specifics**
   - [~] Struct packing/alignment audit — `FL_LINUX_PORT_LAYOUT_RELAXED` guards in selected headers. Probe builds exercise additional headers. Full audit ongoing.
   - [x] x87 FPU precision (already addressed in `x86math`)
   - [x] `_control87`/`_clearfp`/`SetUnhandledExceptionFilter`/`CreateProcessA`/`ReleaseMutex`/`GetStockObject`/`MultiByteToWideChar` — stubs in win32_compat.h
-- [~] **Acceptance:** `src/freelancer/Client/main.cpp` and `engine_init.cpp` compile (EXCLUDE_FROM_ALL probe) on Linux 32-bit — link (DirectPlay/CDP) and runtime integration pending. All client TUs except `login_mgr.cpp` (DirectPlay/CDP-dependent, deferred to multiplayer milestone) now compile.
+- [~] **Acceptance:** all 246 client translation units (including `login_mgr.cpp`) compile via probes, but `main.cpp`/`engine_init.cpp` remain compile-only and link/runtime integration is pending.
 
 ---
 
@@ -360,19 +361,16 @@ Treat it as a multi-stage siege. Sub-phases M8.0–M8.6 are tracked below.
 
 **Acceptance target:** In-game audio (music, SFX, voice, ambient) plays correctly on Linux.
 
-**Status:** PulseAudio backend (pa_simple) scaffolded for 64-bit builds. 32-bit build lacks libpulse; null backend remains active for 32-bit bring-up. Full integration with SoundManager pending upstream engine wiring.
+**Status:** Native software PCM path is implemented: PulseAudio sink for 64-bit, ALSA sink for 32-bit, WAV PCM/float decoder, software mixer (gain/pan/loop/rate conversion), and a DirectSound 8 software buffer/listener adapter. Upstream `SoundManager.cpp` is compiled/linked into the client and its DACOM factory explicitly registered; opt-in smoke probe creates the manager, starts/shuts down the software DirectSound device, and creates/destroys a PCM archetype. DirectSound buffers feed PCM into the native mixer; gameplay-driven source playback remains pending real upstream engine/game-flow execution. Compressed ACM formats, streaming/voice integration, and Windows-reference latency verification remain open.
 
 - [x] Implement real audio backend (PulseAudio/PipeWire/ALSA) behind `AudioBackend` interface — PulseAudio backend (pa_simple) for 64-bit; ALSA backend for 32-bit (libasound); both wired into bring-up client
-- [~] Wire into `SoundManager`/`ISoundManager` and `ISoundSource` (3D positional audio, gain, loop ranges) — pending DirectSound 8 port + upstream engine wiring (M11)
+- [x] Add PCM mixer and WAV PCM/float decoder with regression tests (`audio_mixer_tests`, `audio_wav_tests`): sample-rate conversion, gain, pan, loop, clamping, and malformed/truncated input handling.
+- [x] Add software DirectSound buffer/listener adapter routed into the native mixer; `directsound_compat_tests` covers PCM lock/unlock/play, start offset, volume, 3D position/pan, and stop. M10 smoke probe verifies upstream SoundManager factory registration, device startup, PCM archetype create/destroy, and clean shutdown (Linux notify-thread wake/join fix in ported TU).
+- [~] Wire into `SoundManager`/`ISoundManager` and `ISoundSource` (3D positional audio, gain, loop ranges) — upstream SoundManager linked/registered, DirectSound PCM buffers feed native mixer, software 3D position maps to attenuation/pan; engine-driven source/listener calls await M8.7/M11
 - [ ] Music streaming (`SoundStreamer`) and track transitions — pending
 - [ ] Voice/dialogue playback and synchronization with mission scripts — pending
 - [ ] Audio latency/mixing verification against Windows reference — pending
-- [ ] Acceptance: music and SFX play during gameplay with correct spatialization — pending M11/DirectSound port
-- [ ] Wire into `SoundManager`/`ISoundManager` and `ISoundSource` (3D positional audio, gain, loop ranges) — pending upstream engine wiring
-- [ ] Music streaming (`SoundStreamer`) and track transitions — pending
-- [ ] Voice/dialogue playback and synchronization with mission scripts — pending
-- [ ] Audio latency/mixing verification against Windows reference — pending
-- [ ] Acceptance: music and SFX play during gameplay with correct spatialization — pending
+- [ ] Acceptance: music and SFX play during gameplay with correct spatialization — pending upstream game-flow/client init plus compressed ACM decoding and streaming/voice support
 
 ## M11 — Game flow (main menu + gameplay)
 

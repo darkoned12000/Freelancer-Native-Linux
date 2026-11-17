@@ -43,6 +43,8 @@ extern "C" int  fl_upstream_readfile_integration_register();
 extern "C" int  fl_upstream_x86math_integration_register();
 extern "C" void fl_upstream_system_register_component(ICOManager* dacom);
 extern "C" void fl_upstream_engbase_register_components();
+extern "C" int fl_upstream_soundmanager_register();
+extern "C" int fl_upstream_soundmanager_device_probe();
 #endif
 
 // M8.7 guarded upstream bootstrap integration hook (implemented in linux/src/m87_upstream_bootstrap.cpp).
@@ -433,6 +435,16 @@ int main(int argc, char** argv) {
 
   fl_upstream_dacom_register_builtin_components();
   fl_port::log_message(fl_port::LogLevel::Info, "DACOM built-in components registered");
+  const int soundmanager_ok = fl_upstream_soundmanager_register();
+  fl_port::log_message(soundmanager_ok ? fl_port::LogLevel::Info : fl_port::LogLevel::Warning,
+                       soundmanager_ok ? "M10: upstream SoundManager factory registered"
+                                       : "M10: upstream SoundManager factory registration unavailable");
+  if (std::getenv("FL_PORT_SOUND_MANAGER_PROBE") != nullptr) {
+    const int probe_ok = fl_upstream_soundmanager_device_probe();
+    fl_port::log_message(probe_ok ? fl_port::LogLevel::Info : fl_port::LogLevel::Error,
+                         probe_ok ? "M10: upstream SoundManager + software DirectSound device probe passed"
+                                  : "M10: upstream SoundManager + software DirectSound device probe failed");
+  }
 
   const auto dacom_ini_resolved = fl_port::resolve_path_case_insensitive(bin_dir.empty() ? std::filesystem::current_path() : bin_dir, "DACOM.INI");
   const auto freelancer_ini_resolved = fl_port::resolve_path_case_insensitive(bin_dir.empty() ? std::filesystem::current_path() : bin_dir, "freelancer.ini");
@@ -827,6 +839,7 @@ int main(int argc, char** argv) {
       std::cerr << "[FAIL][AudioUnblock] null audio backend init failed\n";
       return 30;
     }
+    fl_port::set_default_audio_backend(&audio);
     audio.set_master_volume(0.75f);
     const int h_menu = audio.play_sound("ui/menu_open", 1.0f, false);
     const int h_music = audio.play_sound("music/menu_theme", 0.6f, true);
@@ -924,6 +937,7 @@ int main(int argc, char** argv) {
       fl_port::log_message(fl_port::LogLevel::Error,
                            "M8.5 early-out [PersistenceUnblock]: XDG config/registry/save shim validation failed");
       std::cerr << "[FAIL][PersistenceUnblock] config/registry/save unblock checks failed\n";
+      fl_port::set_default_audio_backend(nullptr);
       audio.shutdown();
       return 31;
     }
@@ -984,6 +998,7 @@ int main(int argc, char** argv) {
     if (!window.create(wcfg)) {
       fl_port::log_message(fl_port::LogLevel::Error, "M8.5 early-out: native window creation failed");
       std::cerr << "[FAIL][WindowCreate] native window creation failed\n";
+      fl_port::set_default_audio_backend(nullptr);
       audio.shutdown();
       return 20;
     }
@@ -1006,6 +1021,7 @@ int main(int argc, char** argv) {
                            std::string("M8.5 early-out: render pipeline init failed: ") + rp.last_error());
       std::cerr << "[FAIL][RenderInit] render pipeline init failed: " << rp.last_error() << "\n";
       window.destroy();
+      fl_port::set_default_audio_backend(nullptr);
       audio.shutdown();
       return 21;
     }
@@ -1028,6 +1044,7 @@ int main(int argc, char** argv) {
       rp.shutdown();
       g_render_pipeline_instance = nullptr;
       window.destroy();
+      fl_port::set_default_audio_backend(nullptr);
       audio.shutdown();
       return code;
     };

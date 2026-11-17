@@ -3510,6 +3510,7 @@ unsigned char FSoundManager::SetupInstanceNotify(FSoundInstanceNode* Node)
     // FUN_06ee1a40 stdcall RET 4. Arg = payload (node+8).
     if (G_NotifyThread == nullptr)
     {
+        G_MixerStopFlag = 0;
         unsigned long Tid = 0;
         G_NotifyThread = CreateThread(nullptr, 0, NotifyThreadProc, nullptr, 0, &Tid);
         if (G_NotifyThread == nullptr)
@@ -3552,6 +3553,11 @@ GENRESULT DACOM_API FSoundManager::ShutdownDevice()
     if (G_NotifyThread != nullptr)
     {
         G_MixerStopFlag = 1;
+#if defined(FL_LINUX_PORT_UPSTREAM_TU)
+        if (G_MixerEvent != nullptr)
+            SetEvent(G_MixerEvent);
+        WaitForSingleObject(G_NotifyThread, INFINITE);
+#endif
         CloseHandle(G_NotifyThread);
         G_NotifyThread = nullptr;
     }
@@ -3977,6 +3983,7 @@ GENRESULT DACOM_API FSoundManager::GetInstanceStatus(int Index, void* Out)
     return GR_OK;
 }
 
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
 BOOL WINAPI DllMain(HINSTANCE Instance, DWORD Reason, LPVOID /*Reserved*/)
 {
     if (Reason == DLL_PROCESS_ATTACH)
@@ -4004,3 +4011,44 @@ BOOL WINAPI DllMain(HINSTANCE Instance, DWORD Reason, LPVOID /*Reserved*/)
     }
     return TRUE;
 }
+#else
+#define FL_UPSTREAM_EXPORT __attribute__((visibility("default")))
+extern "C" FL_UPSTREAM_EXPORT int fl_upstream_soundmanager_register()
+{
+    ICOManager* Manager = DACOM_Acquire();
+    if (Manager == nullptr)
+        return 0;
+    FSoundManagerFactory* Factory = new (std::nothrow) FSoundManagerFactory();
+    if (Factory == nullptr)
+        return 0;
+    const GENRESULT Result = Manager->RegisterComponent(
+        Factory, kComponentName, reinterpret_cast<void*>(kRegisterPriority));
+    Factory->Release();
+    return Result == GR_OK ? 1 : 0;
+}
+
+extern "C" FL_UPSTREAM_EXPORT int fl_upstream_soundmanager_device_probe()
+{
+    FSoundManagerFactory Factory;
+    FSoundAggDesc Desc{};
+    Desc.Size = kAggDescSize;
+    Desc.Name = kComponentName;
+    void* Instance = nullptr;
+    if (Factory.CreateInstance(reinterpret_cast<AGGDESC*>(&Desc), &Instance) != GR_OK || Instance == nullptr)
+        return 0;
+    auto* Manager = static_cast<ISoundManager*>(Instance);
+    const GENRESULT Started = Manager->StartupDevice(nullptr, 1);
+    int Archetype = -1;
+    if (Started == GR_OK)
+    {
+        unsigned short Format[4] = {1, 0, 44100, 2};
+        short Samples[4] = {16384, -16384, 8192, -8192};
+        Archetype = Manager->CreateArchetypePcm(Format, sizeof(Samples), 0, 4, Samples, 0);
+        if (Archetype >= 0)
+            Manager->DestroyArchetype(Archetype);
+        Manager->ShutdownDevice();
+    }
+    Manager->Release();
+    return Started == GR_OK && Archetype >= 0 ? 1 : 0;
+}
+#endif

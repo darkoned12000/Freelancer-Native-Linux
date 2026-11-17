@@ -310,7 +310,11 @@ void __cdecl WideToHex(wchar_t const* Src, char* Dst)
     *Out = '\0';
 }
 
+#if defined(_WIN32)
 _GUID* __cdecl ParseGUID(char const* Text, _GUID* Out)
+#else
+GUID* __cdecl ParseGUID(char const* Text, GUID* Out)
+#endif
 {
     // Common.dll.txt:0631b980.
     // Note the asymmetry retail actually has: the brace search below runs over Text, but the
@@ -369,8 +373,13 @@ _GUID* __cdecl ParseGUID(char const* Text, _GUID* Out)
 
     // 0631bb4d: retail compares the 16 bytes against a zero-filled static in the BSS tail of
     // .data that nothing ever writes -- i.e. GUID_NULL -- and returns NULL on a match.
-    static _GUID const kNullGuid = {0, 0, 0, {0, 0, 0, 0, 0, 0, 0, 0}};
-    if (memcmp(Out, &kNullGuid, sizeof(_GUID)) == 0)
+#if defined(_WIN32)
+    using FGuidType = _GUID;
+#else
+    using FGuidType = GUID;
+#endif
+    static FGuidType const kNullGuid = {0, 0, 0, {0, 0, 0, 0, 0, 0, 0, 0}};
+    if (memcmp(Out, &kNullGuid, sizeof(FGuidType)) == 0)
         return nullptr;
     return Out;
 }

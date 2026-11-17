@@ -119,8 +119,12 @@ COMMON_API wchar_t const* __cdecl filetime_to_wstring(_FILETIME const& Time);
 
 // ?ParseGUID@@YAPAU_GUID@@PBDPAU1@@Z  RVA 0xbb980. Parses "{xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}"
 // into Out. Returns Out, or NULL when the text is the null GUID (Out is still filled with zeros).
+#if !defined(_WIN32)
+COMMON_API GUID* __cdecl ParseGUID(char const* Text, GUID* Out);
+#else
 struct _GUID;
 COMMON_API _GUID* __cdecl ParseGUID(char const* Text, _GUID* Out);
+#endif
 
 // ============================================================================
 // Math utilities
@@ -555,4 +559,3 @@ COMMON_API long __cdecl get_projected_bounding_sphere(ICamera* Camera, Vector co
 struct ViewRect;
 COMMON_API long __cdecl get_projected_bounding_box(ICamera* Camera, Vector const& Center, float Radius, ViewRect* Rect, float& OutZ);
 COMMON_API void __cdecl ComputeExplosiveImpulses(long EngineHandle, Vector& OutLinear, Vector& OutAngular1, Vector& OutAngular2);
-

@@ -30,6 +30,18 @@ class AudioBackend {
 
   // Playback control (no-op in null backend).
   virtual int play_sound(const std::string& name, float volume = 1.0f, bool loop = false) = 0;
+  // Submit decoded interleaved float PCM to the software mixer. Samples are copied before
+  // returning, so callers may release their decode buffer immediately.
+  virtual int play_pcm(const float* samples, std::size_t frames, unsigned channels,
+                       float volume = 1.0f, float pan = 0.0f, bool loop = false,
+                       std::uint32_t sample_rate = 0) {
+    (void)samples; (void)frames; (void)channels; (void)volume; (void)pan; (void)loop; (void)sample_rate;
+    return -1;
+  }
+  virtual bool update_pcm(int handle, float volume, float pan, std::uint32_t sample_rate = 0) {
+    (void)handle; (void)volume; (void)pan; (void)sample_rate;
+    return false;
+  }
   virtual void stop_sound(int handle) = 0;
   virtual void stop_all() = 0;
   virtual bool is_playing(int handle) const = 0;
@@ -39,6 +51,10 @@ class AudioBackend {
   // Per-frame update (mixing, streaming) - no-op in null backend.
   virtual void update() = 0;
 };
+
+// Current engine-facing sink, installed by the Linux client during startup.
+void set_default_audio_backend(AudioBackend* backend);
+AudioBackend* default_audio_backend();
 
 // Null (silent) audio backend.
 class NullAudioBackend : public AudioBackend {

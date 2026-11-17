@@ -21,21 +21,11 @@
 // M8.7 Linux portable/probe: DirectPlay8 SDK unavailable on Linux. Provide minimal type stubs so
 // DALib message-queue and non-DirectPlay networking primitives/probe TUs can compile.
 // Full CDPClient/CDPServer/CDPClientProxy DirectPlay functionality remains unported.
-struct IDirectPlay8Client;
-struct IDirectPlay8Server;
-struct IDirectPlay8Address;
-struct _DPNMSG_ENUM_HOSTS_RESPONSE;
-struct _DPN_CONNECTION_INFO { char _opaque[0x80]; };
-struct _DPN_APPLICATION_DESC { char _opaque[0x50]; };
-typedef struct _DPN_APPLICATION_DESC DPN_APPLICATION_DESC;
-#ifndef DPNHANDLE_DEFINED
-typedef DWORD DPNHANDLE;
-#define DPNHANDLE_DEFINED
-#endif
+#include "linux_port/directplay8_stubs.h"
 #ifndef __IUnknown_INTERFACE_DEFINED__
 #define __IUnknown_INTERFACE_DEFINED__
 struct IUnknown {
-    virtual long __stdcall QueryInterface(const void* riid, void** ppvObject) = 0;
+    virtual long __stdcall QueryInterface(const GUID& riid, void** ppvObject) = 0;
     virtual unsigned long __stdcall AddRef() = 0;
     virtual unsigned long __stdcall Release() = 0;
 };

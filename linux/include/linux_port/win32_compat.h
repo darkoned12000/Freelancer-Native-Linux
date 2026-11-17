@@ -622,6 +622,9 @@ inline BOOL VirtualFree(LPVOID, SIZE_T, DWORD) { return 0; }
 #ifndef FAILED
 #  define FAILED(hr) (((HRESULT)(hr)) < 0)
 #endif
+#ifndef CLSCTX_INPROC_SERVER
+#define CLSCTX_INPROC_SERVER 1
+#endif
 
 struct GUID {
   std::uint32_t Data1;
@@ -649,6 +652,16 @@ inline bool operator<(const GUID& a, const GUID& b) {
 using REFGUID = const GUID&;
 using REFIID = const GUID&;
 using REFCLSID = const GUID&;
+
+#ifndef _LINUX_PORT_ICLASSFACTORY_DEFINED
+#define _LINUX_PORT_ICLASSFACTORY_DEFINED
+struct IClassFactory {
+  virtual HRESULT CreateInstance(void* outer, REFIID iid, void** object) = 0;
+  virtual HRESULT LockServer(BOOL lock) = 0;
+  virtual ULONG AddRef() = 0;
+  virtual ULONG Release() = 0;
+};
+#endif
 using IID = GUID;
 using CLSID = GUID;
 
@@ -1062,6 +1075,8 @@ inline HRESULT CoInitialize(void* pvReserved) { (void)pvReserved; return 0; /* S
 inline void CoUninitialize() {}
 // Forward declare for COM adapter.
 inline void* g_render_pipeline_instance = nullptr;
+HRESULT fl_port_create_directsound(const GUID& iid, void** out);
+HRESULT fl_port_create_directplay(const GUID& clsid, const GUID& iid, void** out);
 
 // CLSID for the native RenderPipeline COM adapter.
 // Matches the IRenderPipeline interface used by the engine.
@@ -1073,8 +1088,13 @@ inline bool IsRenderPipelineCLSID(const GUID& rclsid) {
 }
 
 inline HRESULT CoCreateInstance(const GUID& rclsid, void* pUnkOuter, DWORD dwClsContext, const GUID& riid, void** ppv) {
-  (void)pUnkOuter; (void)dwClsContext; (void)riid;
+  (void)pUnkOuter; (void)dwClsContext;
   if (ppv) *ppv = nullptr;
+  if (ppv && rclsid.Data1 == 0x47D4D946 && rclsid.Data2 == 0x62E8 && rclsid.Data3 == 0x11CF)
+    return fl_port_create_directsound(riid, ppv);
+  // DirectPlay 8 client/address/server: return implementation when available, else fail closed.
+  if (ppv && (rclsid.Data1 == 0x743B5D60 || rclsid.Data1 == 0x934A9523 || rclsid.Data1 == 0xDA825E1B))
+    return fl_port_create_directplay(rclsid, riid, ppv);
   // Only return the registered RenderPipeline for matching CLSIDs.
   if (g_render_pipeline_instance && ppv && IsRenderPipelineCLSID(rclsid)) {
     *ppv = g_render_pipeline_instance;

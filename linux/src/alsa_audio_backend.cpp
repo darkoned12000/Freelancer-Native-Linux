@@ -1,10 +1,13 @@
 #if defined(FL_LINUX_32BIT)
 
 #include "linux_port/alsa_audio_backend.h"
+#include "linux_port/audio_wav.h"
 
 #include <alsa/asoundlib.h>
 #include <cstring>
 #include <iostream>
+#include <fstream>
+#include <iterator>
 #include <vector>
 
 namespace fl_port {
@@ -38,6 +41,7 @@ bool AlsaAudioBackend::init(const AudioConfig& config) {
   pcm_ = pcm;
   initialized_ = true;
   master_volume_ = config.master_volume;
+  mixer_.set_master_gain(master_volume_);
   return true;
 }
 
@@ -50,24 +54,35 @@ void AlsaAudioBackend::shutdown() {
 }
 
 int AlsaAudioBackend::play_sound(const std::string& name, float volume, bool loop) {
-  (void)name; (void)volume; (void)loop;
-  if (!initialized_) return -1;
-  int h = next_handle_++;
-  return h;
+  std::ifstream file(name, std::ios::binary);
+  if (!file) return -1;
+  const std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(file)), {});
+  AudioPcmData pcm;
+  if (!decode_wav(bytes.data(), bytes.size(), pcm)) return -1;
+  return play_pcm(pcm.samples.data(), pcm.samples.size() / pcm.channels, pcm.channels,
+                  volume, 0.0f, loop, pcm.sample_rate);
 }
 
-void AlsaAudioBackend::stop_sound(int handle) { (void)handle; }
-void AlsaAudioBackend::stop_all() {}
+int AlsaAudioBackend::play_pcm(const float* samples, std::size_t frames, unsigned channels,
+                               float volume, float pan, bool loop, std::uint32_t sample_rate) {
+  if (!initialized_ || (channels != 1 && channels != 2)) return -1;
+  return mixer_.play(samples, frames, channels, loop, volume, pan, sample_rate);
+}
+
+void AlsaAudioBackend::stop_sound(int handle) { mixer_.stop(handle); }
+void AlsaAudioBackend::stop_all() { mixer_.stop_all(); }
 void AlsaAudioBackend::set_master_volume(float v) {
   master_volume_ = v;
   if (v < 0.0f) master_volume_ = 0.0f;
   if (v > 1.0f) master_volume_ = 1.0f;
+  mixer_.set_master_gain(master_volume_);
 }
 
 void AlsaAudioBackend::update() {
   if (!pcm_ || !initialized_) return;
   size_t n = (size_t)config_.buffer_frames * (size_t)config_.channels;
-  std::vector<float> buf(n, 0.0f);
+  std::vector<float> buf(n);
+  mixer_.mix(buf.data(), (size_t)config_.buffer_frames);
   snd_pcm_sframes_t rc = snd_pcm_writei((snd_pcm_t*)pcm_, buf.data(), (snd_pcm_uframes_t)config_.buffer_frames);
   if (rc < 0) snd_pcm_recover((snd_pcm_t*)pcm_, (int)rc, 0);
 }

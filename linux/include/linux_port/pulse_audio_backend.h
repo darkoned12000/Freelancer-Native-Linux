@@ -6,6 +6,7 @@
 // Uses the simple PulseAudio API (pa_simple) for playback.
 
 #include "linux_port/audio_backend.h"
+#include "linux_port/audio_mixer.h"
 
 #include <pulse/simple.h>
 #include <pulse/error.h>
@@ -25,6 +26,10 @@ class PulseAudioBackend : public AudioBackend {
   bool is_initialized() const override { return initialized_; }
 
   int play_sound(const std::string& name, float volume = 1.0f, bool loop = false) override;
+  int play_pcm(const float* samples, std::size_t frames, unsigned channels,
+               float volume = 1.0f, float pan = 0.0f, bool loop = false,
+               std::uint32_t sample_rate = 0) override;
+  bool update_pcm(int handle, float volume, float pan, std::uint32_t rate = 0) override { return mixer_.set_voice(handle, volume, pan, rate); }
   void stop_sound(int handle) override;
   void stop_all() override;
   bool is_playing(int handle) const override;
@@ -38,9 +43,7 @@ class PulseAudioBackend : public AudioBackend {
   bool initialized_{false};
   float master_volume_{1.0f};
   pa_simple* pa_{nullptr};
-  int next_handle_{1};
-  struct Sound { int handle; bool playing; bool loop; float volume; };
-  std::vector<Sound> sounds_;
+  AudioMixer mixer_{2};
 };
 
 }  // namespace fl_port

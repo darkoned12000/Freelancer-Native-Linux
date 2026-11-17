@@ -130,11 +130,28 @@ if(FL_LINUX_BUILD_TOOLS)
   endif()
 
   # M6 gameplay bring-up (null audio + XDG config/registry + boot harness).
-  add_library(fl_linux_port_gameplay STATIC src/audio_backend.cpp src/pulse_audio_backend.cpp src/alsa_audio_backend.cpp src/xdg_config.cpp)
+  add_library(fl_linux_port_gameplay STATIC src/audio_backend.cpp src/audio_mixer.cpp src/audio_wav.cpp src/dsound_compat.cpp src/directplay8_compat.cpp src/pulse_audio_backend.cpp src/alsa_audio_backend.cpp src/xdg_config.cpp)
   target_link_libraries(fl_linux_port_gameplay PUBLIC fl_linux_port_platform fl_linux_port_path)
   target_include_directories(fl_linux_port_gameplay PUBLIC ${FL_LINUX_INCLUDE_DIR})
   if(FL_LINUX_32BIT)
     target_compile_definitions(fl_linux_port_gameplay PRIVATE FL_LINUX_32BIT=1)
+  endif()
+
+  add_executable(audio_mixer_tests tests/audio_mixer_tests.cpp)
+  target_link_libraries(audio_mixer_tests PRIVATE fl_linux_port_gameplay)
+  add_executable(audio_wav_tests tests/audio_wav_tests.cpp)
+  target_link_libraries(audio_wav_tests PRIVATE fl_linux_port_gameplay)
+  add_executable(directsound_compat_tests tests/directsound_compat_tests.cpp)
+  target_link_libraries(directsound_compat_tests PRIVATE fl_linux_port_gameplay)
+  target_include_directories(directsound_compat_tests PRIVATE ${FL_LINUX_INCLUDE_DIR})
+  add_executable(directplay_compat_tests tests/directplay_compat_tests.cpp)
+  target_link_libraries(directplay_compat_tests PRIVATE fl_linux_port_gameplay)
+  target_include_directories(directplay_compat_tests PRIVATE ${FL_LINUX_INCLUDE_DIR})
+  if(BUILD_TESTING)
+    add_test(NAME audio_mixer_tests COMMAND audio_mixer_tests)
+    add_test(NAME audio_wav_tests COMMAND audio_wav_tests)
+    add_test(NAME directsound_compat_tests COMMAND directsound_compat_tests)
+    add_test(NAME directplay_compat_tests COMMAND directplay_compat_tests)
   endif()
 
   # M5 graphics bring-up (scoped Vulkan backend behind IRenderPipeline).
@@ -450,6 +467,7 @@ if(FL_LINUX_BUILD_TOOLS)
         $<TARGET_OBJECTS:fl_upstream_engbase_tu>
         $<TARGET_OBJECTS:fl_upstream_common_ini_tu>
         $<TARGET_OBJECTS:fl_upstream_common_timing_tu>
+        $<TARGET_OBJECTS:fl_m87_soundmanager_probe>
       )
       target_link_libraries(freelancer_linux_client PRIVATE fl_linux_port_platform fl_linux_port_path fl_linux_port_gameplay fl_upstream_tu_iface fl_upstream_zlib)
       if(FL_LINUX_32BIT)
@@ -3207,6 +3225,85 @@ if(FL_LINUX_BUILD_TOOLS)
       target_compile_options(fl_m87_soundmanager_probe PRIVATE -fms-extensions -w)
       if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         target_compile_options(fl_m87_soundmanager_probe PRIVATE -fdeclspec)
+      endif()
+
+      # Probe: login manager and its DirectPlay dependencies (M8.7/M11).
+      add_library(fl_m87_login_mgr_probe OBJECT EXCLUDE_FROM_ALL
+        "${FL_SRC_ROOT}/freelancer/Client/login_mgr.cpp"
+      )
+      target_link_libraries(fl_m87_login_mgr_probe PRIVATE fl_linux_port_platform fl_upstream_tu_iface)
+      target_compile_definitions(fl_m87_login_mgr_probe PRIVATE
+        FL_LINUX_PORT_UPSTREAM_TU=1 FL_LINUX_PORT_LAYOUT_RELAXED=1 FREELANCER_EXPORTS COMMON_EXPORTS DALIB_EXPORTS WIN32 _WINDOWS
+      )
+      target_include_directories(fl_m87_login_mgr_probe PRIVATE
+        "${FL_SRC_ROOT}/freelancer/Client"
+        "${FL_SRC_ROOT}/Content"
+        "${FL_SRC_ROOT}/imeui"
+        "${FL_SRC_ROOT}/DALib"
+      )
+      target_compile_options(fl_m87_login_mgr_probe PRIVATE -fms-extensions -w)
+      if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        target_compile_options(fl_m87_login_mgr_probe PRIVATE -fdeclspec)
+      endif()
+
+      add_library(fl_m87_cdp_client_probe OBJECT EXCLUDE_FROM_ALL
+        "${FL_SRC_ROOT}/DALib/CDPClient.cpp"
+      )
+      target_link_libraries(fl_m87_cdp_client_probe PRIVATE fl_linux_port_platform fl_upstream_tu_iface)
+      target_compile_definitions(fl_m87_cdp_client_probe PRIVATE
+        FL_LINUX_PORT_UPSTREAM_TU=1 FL_LINUX_PORT_LAYOUT_RELAXED=1 FREELANCER_EXPORTS COMMON_EXPORTS DALIB_EXPORTS WIN32 _WINDOWS
+      )
+      target_include_directories(fl_m87_cdp_client_probe PRIVATE
+        "${FL_SRC_ROOT}/freelancer/Client"
+        "${FL_SRC_ROOT}/Content"
+        "${FL_SRC_ROOT}/imeui"
+        "${FL_SRC_ROOT}/DALib"
+      )
+      target_compile_options(fl_m87_cdp_client_probe PRIVATE -fms-extensions -w)
+      if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        target_compile_options(fl_m87_cdp_client_probe PRIVATE -fdeclspec)
+      endif()
+
+      add_library(fl_m87_cdp_server_proxy_probe OBJECT EXCLUDE_FROM_ALL
+        "${FL_SRC_ROOT}/DALib/CDPServer.cpp"
+        "${FL_SRC_ROOT}/DALib/CDPClientProxy.cpp"
+      )
+      target_link_libraries(fl_m87_cdp_server_proxy_probe PRIVATE fl_linux_port_platform fl_upstream_tu_iface)
+      target_compile_definitions(fl_m87_cdp_server_proxy_probe PRIVATE
+        FL_LINUX_PORT_UPSTREAM_TU=1 FL_LINUX_PORT_LAYOUT_RELAXED=1 FREELANCER_EXPORTS COMMON_EXPORTS DALIB_EXPORTS WIN32 _WINDOWS
+      )
+      target_include_directories(fl_m87_cdp_server_proxy_probe PRIVATE
+        "${FL_SRC_ROOT}/freelancer/Client"
+        "${FL_SRC_ROOT}/Content"
+        "${FL_SRC_ROOT}/imeui"
+        "${FL_SRC_ROOT}/DALib"
+      )
+      target_compile_options(fl_m87_cdp_server_proxy_probe PRIVATE -fms-extensions -w)
+      if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        target_compile_options(fl_m87_cdp_server_proxy_probe PRIVATE -fdeclspec)
+      endif()
+
+      add_library(fl_m87_login_support_probe OBJECT EXCLUDE_FROM_ALL
+        "${FL_SRC_ROOT}/freelancer/Client/character_select_equip.cpp"
+        "${FL_SRC_ROOT}/freelancer/Client/server_connect.cpp"
+        "${FL_SRC_ROOT}/freelancer/Client/reg_key_stack.cpp"
+        "${FL_SRC_ROOT}/freelancer/Client/client_iclient.cpp"
+        "${FL_SRC_ROOT}/DALib/CGunWrapper.cpp"
+        "${FL_SRC_ROOT}/Common/common_misc.cpp"
+      )
+      target_link_libraries(fl_m87_login_support_probe PRIVATE fl_linux_port_platform fl_upstream_tu_iface)
+      target_compile_definitions(fl_m87_login_support_probe PRIVATE
+        FL_LINUX_PORT_UPSTREAM_TU=1 FL_LINUX_PORT_LAYOUT_RELAXED=1 FREELANCER_EXPORTS COMMON_EXPORTS DALIB_EXPORTS WIN32 _WINDOWS
+      )
+      target_include_directories(fl_m87_login_support_probe PRIVATE
+        "${FL_SRC_ROOT}/freelancer/Client"
+        "${FL_SRC_ROOT}/Content"
+        "${FL_SRC_ROOT}/imeui"
+        "${FL_SRC_ROOT}/DALib"
+      )
+      target_compile_options(fl_m87_login_support_probe PRIVATE -fms-extensions -w)
+      if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        target_compile_options(fl_m87_login_support_probe PRIVATE -fdeclspec)
       endif()
 
       # M8.7 path A/B probes: incremental upstream Common init/data TU triage (below client UI layer)

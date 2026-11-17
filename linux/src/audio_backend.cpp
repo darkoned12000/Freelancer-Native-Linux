@@ -4,8 +4,13 @@
 #include "linux_port/platform.h"
 
 #include <iostream>
+#include <atomic>
 
 namespace fl_port {
+namespace { std::atomic<AudioBackend*> G_DefaultAudioBackend{nullptr}; }
+
+void set_default_audio_backend(AudioBackend* backend) { G_DefaultAudioBackend.store(backend); }
+AudioBackend* default_audio_backend() { return G_DefaultAudioBackend.load(); }
 
 NullAudioBackend::NullAudioBackend() = default;
 NullAudioBackend::~NullAudioBackend() { shutdown(); }
