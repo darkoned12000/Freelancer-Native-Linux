@@ -23,6 +23,8 @@
 #include "linux_port/audio_backend.h"
 #if !defined(FL_LINUX_32BIT)
 #include "linux_port/pulse_audio_backend.h"
+#else
+#include "linux_port/alsa_audio_backend.h"
 #endif
 #include "linux_port/xdg_config.h"
 
@@ -811,7 +813,7 @@ int main(int argc, char** argv) {
 #if !defined(FL_LINUX_32BIT)
   fl_port::PulseAudioBackend audio;
 #else
-  fl_port::NullAudioBackend audio;
+  fl_port::AlsaAudioBackend audio;
 #endif
   {
     fl_port::AudioConfig acfg;

@@ -130,9 +130,12 @@ if(FL_LINUX_BUILD_TOOLS)
   endif()
 
   # M6 gameplay bring-up (null audio + XDG config/registry + boot harness).
-  add_library(fl_linux_port_gameplay STATIC src/audio_backend.cpp src/pulse_audio_backend.cpp src/xdg_config.cpp)
+  add_library(fl_linux_port_gameplay STATIC src/audio_backend.cpp src/pulse_audio_backend.cpp src/alsa_audio_backend.cpp src/xdg_config.cpp)
   target_link_libraries(fl_linux_port_gameplay PUBLIC fl_linux_port_platform fl_linux_port_path)
   target_include_directories(fl_linux_port_gameplay PUBLIC ${FL_LINUX_INCLUDE_DIR})
+  if(FL_LINUX_32BIT)
+    target_compile_definitions(fl_linux_port_gameplay PRIVATE FL_LINUX_32BIT=1)
+  endif()
 
   # M5 graphics bring-up (scoped Vulkan backend behind IRenderPipeline).
   # M9.3: compile minimal GLSL shaders to SPIR-V at build time.
@@ -449,7 +452,9 @@ if(FL_LINUX_BUILD_TOOLS)
         $<TARGET_OBJECTS:fl_upstream_common_timing_tu>
       )
       target_link_libraries(freelancer_linux_client PRIVATE fl_linux_port_platform fl_linux_port_path fl_linux_port_gameplay fl_upstream_tu_iface fl_upstream_zlib)
-      # M8.3 window/input/render hookups (optional when 32-bit SDL3/Vulkan libs unavailable)
+      if(FL_LINUX_32BIT)
+        target_link_libraries(freelancer_linux_client PRIVATE asound)
+      endif()      # M8.3 window/input/render hookups (optional when 32-bit SDL3/Vulkan libs unavailable)
       if(FL_SDL3_USABLE AND TARGET fl_linux_port_window)
         target_link_libraries(freelancer_linux_client PRIVATE fl_linux_port_window ${FL_SDL3_PC_LIBRARIES})
         target_include_directories(freelancer_linux_client PRIVATE ${FL_SDL3_PC_INCLUDE_DIRS})
