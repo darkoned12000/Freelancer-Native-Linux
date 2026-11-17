@@ -991,10 +991,15 @@ bool RenderPipeline::render_frame(float /*t_seconds*/) {
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_);
     vkCmdDraw(cmd, 3, 1, 0, 0);
   }
-  // Consume queued draw calls (each as a triangle draw for now).
+  // Consume queued draw calls: bind VB (if provided) and issue a draw for each.
   if (!draw_queue_.empty() && graphics_pipeline_ != VK_NULL_HANDLE) {
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_);
     for (const auto& dc : draw_queue_) {
+      if (dc.vb) {
+        VkBuffer vb = reinterpret_cast<VkBuffer>(dc.vb);
+        VkDeviceSize off = 0;
+        vkCmdBindVertexBuffers(cmd, 0, 1, &vb, &off);
+      }
       unsigned int n = dc.count > 0 ? dc.count : 3;
       vkCmdDraw(cmd, n, 1, 0, 0);
     }
@@ -1003,9 +1008,6 @@ bool RenderPipeline::render_frame(float /*t_seconds*/) {
 
   // HUD text
   draw_text(cmd, "Freelancer", -0.95f, 0.9f, 1.0f);
-  char dcbuf[64];
-  std::snprintf(dcbuf, sizeof(dcbuf), "draws=%llu", (unsigned long long)draw_calls_);
-  draw_text(cmd, dcbuf, -0.95f, 0.82f, 0.8f);
 
   vkCmdEndRenderPass(cmd);
   vkEndCommandBuffer(cmd);

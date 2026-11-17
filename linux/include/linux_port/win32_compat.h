@@ -1059,9 +1059,8 @@ inline void* g_render_pipeline_instance = nullptr;
 struct CLSID_RenderPipeline { static constexpr unsigned long Data1 = 0x52503800; static constexpr unsigned short Data2 = 0x0001; static constexpr unsigned short Data3 = 0x0001; };
 
 inline bool IsRenderPipelineCLSID(const GUID& rclsid) {
-  // Accept the well-known RenderPipeline CLSID or a zero GUID (bring-up fallback).
-  return (rclsid.Data1 == 0x52503800 && rclsid.Data2 == 0x0001 && rclsid.Data3 == 0x0001) ||
-         (rclsid.Data1 == 0 && rclsid.Data2 == 0 && rclsid.Data3 == 0);
+  // Accept only the well-known RenderPipeline CLSID.
+  return (rclsid.Data1 == 0x52503800 && rclsid.Data2 == 0x0001 && rclsid.Data3 == 0x0001);
 }
 
 inline HRESULT CoCreateInstance(const GUID& rclsid, void* pUnkOuter, DWORD dwClsContext, const GUID& riid, void** ppv) {
