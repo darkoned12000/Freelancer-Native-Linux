@@ -236,6 +236,7 @@ class RenderPipeline : public IComponentFactory {
   std::uint64_t frame_count_{0};
   std::uint64_t draw_calls_{0};
   std::vector<DrawCall> draw_queue_;
+  void* active_texture_{nullptr};
 
   // Stored transforms/state (minimal).
   float world_[12]{};

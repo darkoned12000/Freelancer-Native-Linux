@@ -693,7 +693,7 @@ GENRESULT RenderPipeline::GetTextureStageState(int /*Stage*/, int /*Type*/, int*
 }
 GENRESULT RenderPipeline::SetTextureStageTransform(int /*Stage*/, const float* /*Matrix16*/) { return GR_OK; }
 GENRESULT RenderPipeline::GetTextureStageTransform(int /*Stage*/, float* /*OutMatrix16*/) { return GR_GENERIC; }
-GENRESULT RenderPipeline::SetTextureStageTexture(int /*Stage*/, void* /*Handle*/) { return GR_OK; }
+GENRESULT RenderPipeline::SetTextureStageTexture(int /*Stage*/, void* Handle) { active_texture_ = Handle; return GR_OK; }
 GENRESULT RenderPipeline::GetTextureStageTexture(int /*Stage*/, void** OutHandle) {
   if (OutHandle) *OutHandle = nullptr; return GR_OK;
 }
