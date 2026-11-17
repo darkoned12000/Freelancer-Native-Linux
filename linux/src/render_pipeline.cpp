@@ -705,19 +705,27 @@ GENRESULT RenderPipeline::DrawPrimitive(unsigned long Prim, unsigned int /*Fvf*/
   draw_queue_.push_back({Prim, Count, nullptr});
   return GR_OK;
 }
-GENRESULT RenderPipeline::DrawIndexedPrimitiveUp(unsigned long /*Prim*/, unsigned int /*Fvf*/,
+GENRESULT RenderPipeline::DrawIndexedPrimitiveUp(unsigned long Prim, unsigned int /*Fvf*/,
                                                 const void* /*Verts*/, unsigned int /*VertCount*/,
-                                                const void* /*Indices*/, unsigned int /*IndexCount*/,
-                                                unsigned long /*Unused*/) { return GR_OK; }
+                                                const void* /*Indices*/, unsigned int IndexCount,
+                                                unsigned long /*Unused*/) {
+  ++draw_calls_;
+  draw_queue_.push_back({Prim, IndexCount, nullptr});
+  return GR_OK;
+}
 GENRESULT RenderPipeline::DrawPrimitiveVb(unsigned long Prim, void* Vb, unsigned int /*StartVertex*/,
                                           unsigned int Count, void* /*Unused*/) {
   ++draw_calls_;
   draw_queue_.push_back({Prim, Count, Vb});
   return GR_OK;
 }
-GENRESULT RenderPipeline::DrawIndexedPrimitiveVb(unsigned long /*Prim*/, void* /*Vb*/, unsigned int /*BaseVertex*/,
+GENRESULT RenderPipeline::DrawIndexedPrimitiveVb(unsigned long Prim, void* Vb, unsigned int /*BaseVertex*/,
                                                  unsigned int /*NumVerts*/, const void* /*Indices*/,
-                                                 unsigned int /*IndexCount*/, unsigned long /*Unused*/) { return GR_OK; }
+                                                 unsigned int IndexCount, unsigned long /*Unused*/) {
+  ++draw_calls_;
+  draw_queue_.push_back({Prim, IndexCount, Vb});
+  return GR_OK;
+}
 
 GENRESULT RenderPipeline::AddLight(void* /*Handle*/) { return GR_GENERIC; }
 GENRESULT RenderPipeline::RemoveLight(void* /*Handle*/) { return GR_GENERIC; }

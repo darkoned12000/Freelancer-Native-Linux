@@ -351,7 +351,7 @@ Treat it as a multi-stage siege. Sub-phases M8.0–M8.6 are tracked below.
 - [x] Implement texture loading/binding (DDS/PNG/JPG via D3DX-equivalent or stb, `IRPTexture`, mipmaps, cube maps) — stb-based TextureManager + TextureAdapter implemented
 - [x] Implement graphics pipeline / state (render states, texture stage states, samplers, FVF, fixed-function or shader translation) — scoped pipelines (default, skybox, nebula, text) implemented
 - [x] Implement font rendering (DirectX 8 `ID3DXFont` equivalent or FreeType) — FreeType font manager with atlas
-- [~] Implement scene draw submission (`DrawPrimitive*`, `DrawIndexedPrimitive*` routing to Vulkan) — demo triangle + skybox + nebula drawn per frame; full routing pending upstream engine
+- [~] Implement scene draw submission (`DrawPrimitive*`, `DrawIndexedPrimitive*` routing to Vulkan) — demo triangle + skybox + nebula drawn per frame; DrawPrimitive/DrawPrimitiveVb/DrawIndexedPrimitiveUp/DrawIndexedPrimitiveVb now record into a draw-call queue consumed by render_frame; full routing pending upstream engine
 - [~] Skybox/nebula/asteroid rendering — skybox + nebula implemented; asteroids deferred (M17 assets)
 - [~] HUD/UI rendering (menus, dialogs, HUD elements) — text pipeline + draw_text() implemented; full UI pending upstream engine
 - [ ] Acceptance: render a recognizable Freelancer scene and present at interactive framerate (pending upstream engine wiring M11)
