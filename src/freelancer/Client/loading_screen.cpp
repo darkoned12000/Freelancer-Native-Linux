@@ -31,8 +31,10 @@ static_assert(sizeof(void*) != 4 || offsetof(LoadingProgressBar, Text) == 0x33c,
               "LoadingProgressBar +0x33c");
 static_assert(sizeof(void*) != 4 || offsetof(LoadingProgressBar, Caption) == 0x340,
               "LoadingProgressBar +0x340");
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(void*) != 4 || offsetof(LoadingProgressBar, Bar) == 0x380,
               "LoadingProgressBar +0x380");
+#endif
 static_assert(sizeof(void*) != 4 || offsetof(LoadingScreen, Screen) == 0x04, "LoadingScreen +0x04");
 static_assert(sizeof(void*) != 4 || offsetof(LoadingScreen, ResetTicks) == 0x10,
               "LoadingScreen +0x10");

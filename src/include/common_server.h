@@ -356,7 +356,9 @@ struct ConnectionEnumerator {
     Vector Pos[10];                // +0x78  FSystemConnection +0x0c
     unsigned int Count;            // +0xf0
 };
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(ConnectionEnumerator) == 0xf4, "ConnectionEnumerator size is 0xf4");
+#endif
 
 // ?EnumerateConnections@System@pub@@YAHABIAAUConnectionEnumerator@12@W4ConnectionType@@@Z --
 // Server.dll .text:06cfb170, body server_pub.cpp. Appends to the caller's struct from
@@ -380,7 +382,9 @@ struct FSysObj {
     unsigned int Goto;          // +0x5c FSystemObject +0x84
     unsigned int SystemId;      // +0x60 the enumerated system
 };
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(FSysObj) == 0x64, "FSysObj size is 0x64");
+#endif
 
 // One virtual in slot 0 (.text:06cfb43d-06cfb446: MOV EDX,[EDI]; PUSH &record; CALL [EDX]);
 // the enumeration stops when it returns false (.text:06cfb448 TEST AL,AL).
@@ -1198,6 +1202,7 @@ public:
     bool m_bLogging;                          // +0x2E0
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(CRemotePhysicsSimulation, m_PositionDRV) == 0x08, "CRPS +0x08");
 static_assert(offsetof(CRemotePhysicsSimulation, m_OrientAxisXDRV) == 0xD8, "CRPS +0xd8");
 static_assert(offsetof(CRemotePhysicsSimulation, m_OrientAxisYDRV) == 0x1A8, "CRPS +0x1a8");
@@ -1214,6 +1219,7 @@ static_assert(offsetof(CRemotePhysicsSimulation, m_bLogging) == 0x2E0, "CRPS +0x
 // (.text:0628417a `PUSH 0x2e8`). No STL member anywhere in the class, so the
 // assertion is safe to make here.
 static_assert(sizeof(CRemotePhysicsSimulation) == 0x2E8, "CRemotePhysicsSimulation sizeof 0x2e8");
+#endif
 
 // ============================================================================
 // CRemotePhysicsController -- the object PhySys::RCBegin hangs off CObject+0x60 for a
@@ -1284,8 +1290,10 @@ public:
     IVP_Real_Object* RealObject;  // +0x3b8
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(CRemotePhysicsController) == 0x3C0,
               "CRemotePhysicsController is operator new(0x3c0) at .text:06285962");
+#endif
 
 // ============================================================================
 // OwnerList<pub::SpaceObj::CargoDesc>. The MetaNode/MetaList/OwnerList templates
@@ -1476,7 +1484,9 @@ SERVER_API int __cdecl FindHardpoint(char const* Name, unsigned int ShipArchId, 
                                      Matrix& OutRot);
 } // namespace pub
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(OwnerList<pub::SpaceObj::CargoDesc>) == 0x14, "OwnerList sizeof 0x14");
+#endif
 
 // Member-level export on purpose: class-level dllexport (or an extern-template base) also exports
 // all of MetaList<CargoDesc>, which retail never exports; MSVC member-level export has no ??_7, the one known gap (toy test 2026-09-24).

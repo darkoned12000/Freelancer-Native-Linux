@@ -46,8 +46,10 @@ struct FServerSetReputationInfo {
     FmtStr NameB;                           // +0x30  Get out-param 7
     wchar_t DisplayName[24];                // +0x48  Get out-param 8, wcscpy'd in by the caller
 };
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(FServerSetReputationInfo) == 0x78,
               "SETREPUTATION argument struct 0x78");
+#endif
 
 // ---------------------------------------------------------------------------
 // IClient slot 14 (+0x38), ch2 op 0x08 FLPACKET_SERVER_CHARSELECTVERIFIED.

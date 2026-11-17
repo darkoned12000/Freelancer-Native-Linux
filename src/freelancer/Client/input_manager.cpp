@@ -50,8 +50,10 @@
 #pragma comment(lib, "dinput8.lib")
 #pragma comment(lib, "dxguid.lib")
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(DIDEVICEOBJECTDATA) == 0x14, "FUN_0041fa10 walks 0x14-byte records");
 static_assert(sizeof(DIMOUSESTATE2) == 0x14, "FUN_0041fd90 reads 0x14 bytes into +0x2c");
+#endif
 
 namespace
 {

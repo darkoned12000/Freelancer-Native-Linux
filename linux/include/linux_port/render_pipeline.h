@@ -36,6 +36,12 @@ namespace fl_port {
 
 class Window;
 
+struct DrawCall {
+  unsigned long prim{0};   // primitive type (D3DPT_*)
+  unsigned int count{0};   // vertex/index count
+  void* vb{nullptr};       // vertex buffer handle (optional)
+};
+
 struct RenderPipelineConfig {
   int initial_width{960};
   int initial_height{540};
@@ -174,6 +180,7 @@ class RenderPipeline : public IComponentFactory {
   bool render_frame(float t_seconds);
   // Performance / frame pacing helpers.
   double last_frame_ms() const { return last_frame_ms_; }
+  std::uint64_t draw_calls() const { return draw_calls_; }
   double avg_frame_ms() const { return avg_frame_ms_; }
   void reset_frame_stats() { frame_count_ = 0; avg_frame_ms_ = 0.0; last_frame_ms_ = 0.0; }
   // Resize handling (recreate swapchain).
@@ -227,6 +234,8 @@ class RenderPipeline : public IComponentFactory {
   double last_frame_ms_{0.0};
   double avg_frame_ms_{0.0};
   std::uint64_t frame_count_{0};
+  std::uint64_t draw_calls_{0};
+  std::vector<DrawCall> draw_queue_;
 
   // Stored transforms/state (minimal).
   float world_[12]{};

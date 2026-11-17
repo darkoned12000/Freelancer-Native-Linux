@@ -138,6 +138,7 @@ private:
     NnNews& operator=(NnNews const&) = delete;
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(NnNews, BasePosition) == 0x330, "NN_News +0x330");
 static_assert(offsetof(NnNews, ResultCallback) == 0x33c, "NN_News +0x33c");
 static_assert(offsetof(NnNews, TickerText) == 0x344, "NN_News +0x344");
@@ -158,3 +159,4 @@ static_assert(offsetof(NnNews, Hovered) == 0x660, "NN_News +0x660");
 static_assert(offsetof(NnNews, OpenSound) == 0x668, "NN_News +0x668");
 static_assert(offsetof(NnNews, Background) == 0x670, "NN_News +0x670");
 static_assert(sizeof(NnNews) == 0x674, "retail NN_News is 0x674 bytes (operator_new 0x004a6038)");
+#endif

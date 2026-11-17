@@ -7,7 +7,7 @@
 #include <DALib.h>
 #include <common_ini.h>
 #include <common_timing.h>
-
+#include "../../src/freelancer/Client/globals.h"
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
@@ -941,6 +941,21 @@ int main(int argc, char** argv) {
   }
 
   std::cout << "freelancer_linux_client (M8.4): null audio satisfied boot/menu calls; XDG config/registry/save shim exercised; movie/IME blockers stubbed/bypassed\n";
+
+  // M8.7: wire upstream InitializeEngine (weak stub until fl_upstream_client_init_tu link closure lands).
+  {
+    // Zero-initialized command-line block (FClientCommandLine ctor lives in upstream main.cpp,
+    // which is not linked yet; avoid constructor dependency in the bring-up path).
+    alignas(8) unsigned char CommandLineBuf[sizeof(FClientCommandLine)];
+    memset(CommandLineBuf, 0, sizeof(CommandLineBuf));
+    const FClientCommandLine* CommandLine = reinterpret_cast<const FClientCommandLine*>(CommandLineBuf);
+    const bool ie_ok = InitializeEngine(CommandLine);
+    fl_port::log_message(fl_port::LogLevel::Info,
+                         std::string("M8.7: InitializeEngine returned ") + (ie_ok ? "true" : "false"));
+    if (!ie_ok) {
+      fl_port::log_message(fl_port::LogLevel::Warning, "M8.7: InitializeEngine reported failure (continuing bring-up)");
+    }
+  }
 
   // --- M8.3/M8.5: window + input + render hookup and controlled in-engine state (bring-up) ---
   boot_checkpoint(BootPhase::WindowCreate, "creating native window (fl_port::Window)");

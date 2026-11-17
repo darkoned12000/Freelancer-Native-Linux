@@ -17,6 +17,7 @@
 // DAT_006105b0 moved (the autoscale prelude, see FontImp::RefreshScale). Glyph metrics come from
 // GDI on the font's own memory DC (+0xd8).
 
+#include <windows.h>
 struct tagLOGFONTA;
 struct HFONT__;
 
@@ -36,7 +37,7 @@ public:
     // +0x10 LAB_00416820 -- the autoscale prelude, then &this+0xdc, the LOGFONTA the face was
     // built from (`LEA EAX,[EBP+0xdc]` at 0x00416abe). FLImeInputBox (FUN_00564280, 0x005642bc)
     // hands it to IMEInputBox's constructor.
-    virtual tagLOGFONTA const* GetLogFont() = 0;
+    virtual LOGFONTA const* GetLogFont() = 0;
     // +0x14 LAB_00416dc0 -- the ratio-target autoscale prelude, then GetCharWidthW of one
     // character as a float (FUN_00418180 word-wrap). Named GetGlyphAdvance: Windows.h maps
     // GetCharWidth to GetCharWidthA/W.

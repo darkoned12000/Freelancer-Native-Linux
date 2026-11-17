@@ -128,9 +128,15 @@ using HMODULE = void*;
 using HINSTANCE = void*;
 using HWND = void*; // Opaque placeholder; engine-facing adapters must provide required behavior, not just an integer handle.
 using LPVOID = void*;
+using HKEY = void*;
+using LPDWORD = DWORD*;
+using COLORREF = DWORD;
 using LPCVOID = const void*;
 using LPSTR = char*;
 using LPCSTR = const char*;
+using LPCWSTR = const wchar_t*;
+using LPWSTR = wchar_t*;
+using LPINT = int*;
 using FARPROC = void (*)();
 using SIZE_T = std::size_t;
 
@@ -151,15 +157,47 @@ using USHORT = std::uint16_t;
 using FLOAT = float;
 
 using HDC = void*;
-using HFONT = void*;
+struct HFONT__;
+using HFONT = HFONT__*;
+
+#ifndef _TEXTMETRIC_DEFINED
+#define _TEXTMETRIC_DEFINED
+typedef struct tagTEXTMETRICW {
+  LONG tmHeight;
+  LONG tmAscent;
+  LONG tmDescent;
+  LONG tmInternalLeading;
+  LONG tmExternalLeading;
+  LONG tmAveCharWidth;
+  LONG tmMaxCharWidth;
+  LONG tmWeight;
+  LONG tmOverhang;
+  LONG tmDigitizedAspectX;
+  LONG tmDigitizedAspectY;
+  WCHAR tmFirstChar;
+  WCHAR tmLastChar;
+  WCHAR tmDefaultChar;
+  WCHAR tmBreakChar;
+  BYTE  tmItalic;
+  BYTE  tmUnderlined;
+  BYTE  tmStruckOut;
+  BYTE  tmPitchAndFamily;
+  BYTE  tmCharSet;
+} TEXTMETRICW, *PTEXTMETRICW, *LPTEXTMETRICW;
+typedef TEXTMETRICW TEXTMETRIC;
+#endif
 using HBRUSH = void*;
 using HPEN = void*;
 using HICON = void*;
 using HCURSOR = void*;
 using HMENU = void*;
+using HRSRC = void*;
+using HGLOBAL = void*;
 using HRGN = void*;
 using HGDIOBJ = void*;
 using HBITMAP = void*;
+struct HFONT__;
+using HFONT = HFONT__*;
 using HPALETTE = void*;
 using ATOM = WORD;
 
@@ -271,7 +309,7 @@ typedef struct tagTEXTMETRICA {
   BYTE tmPitchAndFamily;
   BYTE tmCharSet;
 } TEXTMETRICA, *PTEXTMETRICA, *LPTEXTMETRICA;
-typedef TEXTMETRICA TEXTMETRIC;
+using LPTEXTMETRIC = TEXTMETRICA*;
 #endif
 
 #ifndef MAKELONG
@@ -503,8 +541,15 @@ inline void PostQuitMessage(int) {}
 #ifndef IDIGNORE
 #  define IDIGNORE 5
 #endif
+#ifndef SC_CLOSE
+#define SC_CLOSE 0xF060
+#define SC_SCREENSAVE 0xF140
+#endif
+
 #ifndef MB_OK
 #  define MB_OK 0x00000000L
+#  define MB_ABORTRETRYIGNORE 0x00000002L
+#  define MB_ICONHAND 0x00000010L
 #endif
 inline int MessageBoxA(void*, const char*, const char*, unsigned int) { return IDOK; }
 
@@ -743,6 +788,18 @@ inline HANDLE CreateMutexA(void*, BOOL, LPCSTR) { return nullptr; }
 
 // Keep these inside #if !defined(_WIN32) so Windows builds use the native SDK.
 
+#ifndef FORMAT_MESSAGE_ALLOCATE_BUFFER
+#define FORMAT_MESSAGE_ALLOCATE_BUFFER 0x00000100
+#define FORMAT_MESSAGE_FROM_SYSTEM 0x00001000
+#define FORMAT_MESSAGE_IGNORE_INSERTS 0x00000200
+#endif
+#ifndef LANG_NEUTRAL
+#define LANG_NEUTRAL 0x00
+#define SUBLANG_DEFAULT 0x01
+#endif
+#ifndef MAKELANGID
+#define MAKELANGID(p, s) ((((WORD)(s)) << 10) | (WORD)(p))
+#endif
 #ifndef PM_NOREMOVE
 #define PM_NOREMOVE 0x0000
 #define PM_REMOVE   0x0001
@@ -788,10 +845,53 @@ inline HANDLE CreateMutexA(void*, BOOL, LPCSTR) { return nullptr; }
 #define WM_MBUTTONDOWN 0x0207
 #define WM_MBUTTONUP 0x0208
 #define WM_MOUSEWHEEL 0x020A
+#define WM_ERASEBKGND 0x0014
+#define WM_NCHITTEST 0x0084
+#endif
+
+#ifndef GWL_WNDPROC
+#define GWL_WNDPROC (-4)
+#define GWL_HINSTANCE (-6)
+#define GWL_HWNDPARENT (-8)
+#define GWL_STYLE (-16)
+#define GWL_EXSTYLE (-20)
+#define GWL_USERDATA (-21)
+#define GWL_ID (-12)
+#endif
+
+#ifndef HTCLIENT
+#define HTCLIENT 1
+#define HTCAPTION 2
+#define HTSYSMENU 3
+#endif
+
+#ifndef SW_HIDE
+#define SW_HIDE 0
+#define SW_MINIMIZE 6
+#define SW_MAXIMIZE 3
+#define SW_SHOWNORMAL 1
+#define SW_SHOW 5
+#endif
+
+#ifndef CW_USEDEFAULT
+#define CW_USEDEFAULT ((int)0x80000000)
+#endif
+
+#ifndef HWND_TOPMOST
+#define HWND_TOPMOST ((HWND)-1)
+#define HWND_NOTOPMOST ((HWND)-2)
+#endif
+
+#ifndef SC_CLOSE
+#define SC_CLOSE 0xF060
+#define SC_SCREENSAVE 0xF140
 #endif
 
 #ifndef MB_OK
 #define MB_OK 0x00000000L
+#define VK_SHIFT 0x10
+#define VK_CONTROL 0x11
+#define VK_MENU 0x12
 #define MB_OKCANCEL 0x00000001L
 #define MB_YESNO 0x00000004L
 #define MB_ICONERROR 0x00000010L
@@ -801,6 +901,80 @@ inline HANDLE CreateMutexA(void*, BOOL, LPCSTR) { return nullptr; }
 #define IDCANCEL 2
 #define IDYES 6
 #define IDNO 7
+#endif
+
+#ifndef _BITMAPINFOHEADER_DEFINED
+#define _BITMAPINFOHEADER_DEFINED
+typedef struct tagBITMAPINFOHEADER {
+  DWORD biSize;
+  LONG  biWidth;
+  LONG  biHeight;
+  WORD  biPlanes;
+  WORD  biBitCount;
+  DWORD biCompression;
+  DWORD biSizeImage;
+  LONG  biXPelsPerMeter;
+  LONG  biYPelsPerMeter;
+  DWORD biClrUsed;
+  DWORD biClrImportant;
+} BITMAPINFOHEADER, *PBITMAPINFOHEADER, *LPBITMAPINFOHEADER;
+
+typedef struct tagRGBQUAD {
+  BYTE rgbBlue;
+  BYTE rgbGreen;
+  BYTE rgbRed;
+  BYTE rgbReserved;
+} RGBQUAD;
+
+typedef struct tagBITMAPINFO {
+  BITMAPINFOHEADER bmiHeader;
+  RGBQUAD          bmiColors[1];
+} BITMAPINFO, *PBITMAPINFO, *LPBITMAPINFO;
+
+#define BI_RGB 0
+#define MAPVK_VK_TO_VSC 0
+#ifndef KEY_READ
+#define KEY_READ 0x20019
+#endif
+#ifndef inet_addr
+#include <arpa/inet.h>
+#define inet_addr(cp) ((unsigned long) ::inet_addr(cp))
+#endif
+#define IMAGE_BITMAP 0
+#define IMAGE_CURSOR 2
+#define LR_SHARED 0x8000
+
+#ifndef _DIBSECTION_DEFINED
+#define _DIBSECTION_DEFINED
+typedef struct tagBITMAP {
+  LONG   bmType;
+  LONG   bmWidth;
+  LONG   bmHeight;
+  LONG   bmWidthBytes;
+  WORD   bmPlanes;
+  WORD   bmBitsPixel;
+  LPVOID bmBits;
+} BITMAP, *PBITMAP, *LPBITMAP;
+
+typedef struct tagDIBSECTION {
+  BITMAP           dsBm;
+  BITMAPINFOHEADER dsBmih;
+  DWORD            dsBitfields[3];
+  HANDLE           dshSection;
+  DWORD            dsOffset;
+} DIBSECTION, *PDIBSECTION, *LPDIBSECTION;
+#endif
+#ifndef VK_SHIFT
+#define VK_SHIFT 0x10
+#define VK_CONTROL 0x11
+#define VK_MENU 0x12
+#endif
+#define DIB_RGB_COLORS 0
+#define TA_LEFT 0
+#define TA_TOP 0
+#define TRANSPARENT 1
+#define ETO_OPAQUE 0x0002
+#define RGB(r,g,b) ((DWORD)(((BYTE)(r)) | ((WORD)(g) << 8) | ((DWORD)(BYTE)(b) << 16)))
 #endif
 
 #ifndef _MEMORYSTATUS_DEFINED
@@ -860,6 +1034,16 @@ LRESULT WINAPI SendMessageW(HWND, UINT, WPARAM, LPARAM);
 #endif
 #ifndef _control87
 inline unsigned int _control87(unsigned int, unsigned int) { return 0; }
+#endif
+#ifndef _CRT_INTERNAL_PRINTF_LEGACY_VSPRINTF_NULL_TERMINATION
+#define _CRT_INTERNAL_PRINTF_LEGACY_VSPRINTF_NULL_TERMINATION 0
+#define _CRT_INTERNAL_PRINTF_LEGACY_MSVCRT_COMPATIBILITY 0
+#define _CRT_INTERNAL_PRINTF_LEGACY_THREE_DIGIT_EXPONENTS 0
+#endif
+// Fallback for UCRT __stdio_common_vsprintf on Linux.
+#ifndef __stdio_common_vsprintf
+#define __stdio_common_vsprintf(options, buffer, buffer_count, format, locale, valist) \
+  vsnprintf(buffer, buffer_count, format, valist)
 #endif
 
 #endif // !_WIN32

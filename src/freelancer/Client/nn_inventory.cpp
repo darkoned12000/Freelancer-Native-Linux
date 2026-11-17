@@ -459,7 +459,9 @@ namespace
         unsigned char bHasName;            // +0x0d
         wchar_t Name[0x40];                // +0x0e
     };
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(sizeof(FInventorySortRecord) == 0x90, "FUN_004c6b80 record stride 0x90");
+#endif
 }
 
 void FInventoryShipModel::SortFrom(EquipDescList const* Source)

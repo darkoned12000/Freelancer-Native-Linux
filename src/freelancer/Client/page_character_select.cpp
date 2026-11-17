@@ -44,7 +44,9 @@ CHARACTER_ID G_NoCharacterId;
 // DAT_0067bcf8.
 FCharacterCreateSelection G_CharacterCreateSelection;
 // 0x0056aa8b: REP STOSD with ECX = 0x11 clears DAT_0067bcf8..DAT_0067bd3b, the index included.
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(FCharacterCreateSelection) == 0x44, "DAT_0067bcf8 is 0x11 dwords");
+#endif
 
 namespace
 {

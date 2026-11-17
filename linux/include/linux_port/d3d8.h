@@ -1,4 +1,66 @@
 #pragma once
+#ifndef D3DRS_ALPHABLENDENABLE
+#define D3DRS_ALPHABLENDENABLE 0
+#endif
+#ifndef D3DRS_CLIPPING
+#define D3DRS_CLIPPING 0
+#endif
+#ifndef D3DRS_COLORVERTEX
+#define D3DRS_COLORVERTEX 0
+#endif
+#ifndef D3DRS_CULLMODE
+#define D3DRS_CULLMODE 0
+#endif
+#ifndef D3DRS_DESTBLEND
+#define D3DRS_DESTBLEND 0
+#endif
+#ifndef D3DRS_DIFFUSEMATERIALSOURCE
+#define D3DRS_DIFFUSEMATERIALSOURCE 0
+#endif
+#ifndef D3DRS_FOGCOLOR
+#define D3DRS_FOGCOLOR 0
+#endif
+#ifndef D3DRS_FOGDENSITY
+#define D3DRS_FOGDENSITY 0
+#endif
+#ifndef D3DRS_FOGENABLE
+#define D3DRS_FOGENABLE 0
+#endif
+#ifndef D3DRS_FOGEND
+#define D3DRS_FOGEND 0
+#endif
+#ifndef D3DRS_FOGSTART
+#define D3DRS_FOGSTART 0
+#endif
+#ifndef D3DRS_FOGTABLEMODE
+#define D3DRS_FOGTABLEMODE 0
+#endif
+#ifndef D3DRS_FOGVERTEXMODE
+#define D3DRS_FOGVERTEXMODE 0
+#endif
+#ifndef D3DRS_LIGHTING
+#define D3DRS_LIGHTING 0
+#endif
+#ifndef D3DRS_SRCBLEND
+#define D3DRS_SRCBLEND 0
+#endif
+#ifndef D3DRS_ZENABLE
+#define D3DRS_ZENABLE 0
+#endif
+#ifndef D3DRS_ZFUNC
+#define D3DRS_ZFUNC 0
+#endif
+#ifndef D3DRS_ZWRITEENABLE
+#define D3DRS_ZWRITEENABLE 0
+#define D3DRS_SPECULARENABLE 0
+#define D3DRS_RANGEFOGENABLE 0
+#define D3DRS_ALPHAREF 0
+#define D3DRS_ALPHAFUNC 0
+#endif
+#ifndef D3DRS_AMBIENT
+#define D3DRS_AMBIENT 137
+#define D3DRS_DITHERENABLE 26
+#endif
 
 // Minimal Linux bring-up shim for DirectX 8 types needed by render/IRenderPipeline.h.
 // This is a compile-time type provider only; no DirectX runtime is used (M5 uses Vulkan).

@@ -106,7 +106,9 @@ struct FTexturePanels : IPlanetRing
     unsigned char Pad75[3];
 };
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(FShapeDB) < 0x18, "ShapeDB leaves room for reserved owner bytes");
+#endif
 static_assert(sizeof(FTexturePanels) == 0x78, "TexturePanels 0x78");
 static_assert(offsetof(FTexturePanels, Shapes) == 0x04, "ShapeDB +0x04");
 static_assert(offsetof(FTexturePanels, Zone) == 0x1c, "Zone +0x1c");

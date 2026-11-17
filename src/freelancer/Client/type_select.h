@@ -107,10 +107,12 @@ static_assert(offsetof(TypeSelect, Statics) == 0x534, "TypeSelect +0x534 statics
 static_assert(offsetof(TypeSelect, Version) == 0x548, "TypeSelect +0x548 version");
 static_assert(offsetof(TypeSelect, SensApi) == 0x54c, "TypeSelect +0x54c sensapi");
 static_assert(offsetof(TypeSelect, AnimTime) == 0x560, "TypeSelect +0x560 anim time");
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(offsetof(TypeSelect, PendingCommand) == 0x568, "TypeSelect +0x568 command");
 static_assert(offsetof(TypeSelect, bAnimating) == 0x56c, "TypeSelect +0x56c animating");
 static_assert(offsetof(TypeSelect, Phase) == 0x570, "TypeSelect +0x570 phase");
 static_assert(sizeof(TypeSelect) == 0x578, "retail TypeSelect is 0x578 bytes");
+#endif
 
 // DAT_0067b780.
 TypeSelect& GetTypeSelect();

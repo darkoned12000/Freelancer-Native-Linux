@@ -296,16 +296,14 @@ Treat it as a multi-stage siege. Sub-phases M8.0–M8.6 are tracked below.
     - [ ] DACOM and required core components initialize through upstream code paths; `DACOM.INI`/`freelancer.ini`/`DATA/` load and key checks succeed through upstream DALib/Common/client paths
     - [ ] `roadmap.md` M8.2 promoted from `[~]` to `[x]` with evidence/log references; M9 can begin on real client-linked foundations
 
-**Current blockers (M8.7):** full retail DALib subsystem/runtime init and DirectPlay/CDP networking remain blocked by unported components/backends and `dplay8`/COM/GUN dependencies. Minimal `system`/`EngBase`/`Common` early-init TU subset is now linked, but broader `Common`/`EngBase`/`system` coverage and `src/freelancer` init/bootstrap TUs still require extensive Win32/MSVC/COM/resource/ABI/packing/layout/shim work (resources, WndProc/message pump, DirectShow/media, CRT/toolchain differences, struct/layout parity) before upstream init paths can replace bring-up flow and close M8.2. Integration scaffolding/probes remain in place for incremental bring-up.
-
-**Risk hotspots:** hidden global constructors/static init order; remaining COM/QueryInterface usage assuming Windows apartment or vtable layouts; resource loading (.rc/string tables/cursors); code assuming HWND is a real window handle or classic Win32 message pump; float/math edge cases only under full client; 32-bit library availability.
+**Current blockers (M8.7):** full retail DALib subsystem/runtime init and DirectPlay/CDP networking remain blocked by unported components/backends and `dplay8`/COM/GUN dependencies. Minimal `system`/`EngBase`/`Common` early-init TU subset is now linked, but broader `Common`/`EngBase`/`system` coverage and `src/freelancer` init/bootstrap TUs still require extensive Win32/MSVC/COM/resource/ABI/packing/layout/shim work (resources, WndProc/message pump, DirectShow/media, CRT/toolchain differences, struct/layout parity) before upstream init paths can replace bring-up flow and close M8.2. Integration scaffolding/probes remain in place for incremental bring-up. Progress: `fl_upstream_client_init_tu` now compiles; `shlobj.h`/`direct.h` shims expanded; `fl_m87_common_misc_probe` compiles; `InitializeEngine` wired into `freelancer_linux_client` via a weak stub (overridden once `fl_upstream_client_init_tu` link closure lands) and validated by smoke; M8.8 shim expansion substantially complete (~240/246 client TUs compile via probes); remaining blocker is DirectPlay/CDP link closure.**Risk hotspots:** hidden global constructors/static init order; remaining COM/QueryInterface usage assuming Windows apartment or vtable layouts; resource loading (.rc/string tables/cursors); code assuming HWND is a real window handle or classic Win32 message pump; float/math edge cases only under full client; 32-bit library availability.
 
 **Artifacts to produce:** `linux/docs/m8-client-integration.md` (living doc), `freelancer_linux_client` CMake target as single source of truth, smoke-test script, known-stubs/deviations list.
 
  
 ## M8.8 — Win32/COM/Resource shim expansion (prerequisite for M8.7/M11)
 
-**Status:** In progress. Win32 user/message pump, LoadLibrary/GetProcAddress/FreeLibrary, CoCreateInstance/CoInitialize, resource, IME, DirectShow, DirectPlay shims implemented (stubs). CRT/MSVC specifics partially addressed. COM adapter wiring improved (CLSID matching, QueryInterface). Struct packing audit ongoing.
+**Status:** In progress. Win32 user/message pump, LoadLibrary/GetProcAddress/FreeLibrary, CoCreateInstance/CoInitialize, resource, IME, DirectShow, DirectPlay shims implemented (stubs). CRT/MSVC specifics substantially addressed (GDI/DirectX/CRT helpers). COM adapter wiring improved (CLSID matching, QueryInterface). Struct packing audit largely guarded via FL_LINUX_PORT_LAYOUT_RELAXED. ~240/246 client TUs compile via probes.
 
 **Acceptance target:** Upstream `src/freelancer/Client/main.cpp` and `engine_init.cpp` compile and link on Linux 32-bit, replacing bring-up simulation with real upstream init calls.
 
@@ -339,7 +337,7 @@ Treat it as a multi-stage siege. Sub-phases M8.0–M8.6 are tracked below.
   - [~] Struct packing/alignment audit — `FL_LINUX_PORT_LAYOUT_RELAXED` guards in selected headers. Probe builds exercise additional headers. Full audit ongoing.
   - [x] x87 FPU precision (already addressed in `x86math`)
   - [x] `_control87`/`_clearfp`/`SetUnhandledExceptionFilter`/`CreateProcessA`/`ReleaseMutex`/`GetStockObject`/`MultiByteToWideChar` — stubs in win32_compat.h
-- [~] **Acceptance:** `src/freelancer/Client/main.cpp` and `engine_init.cpp` compile (EXCLUDE_FROM_ALL probe) on Linux 32-bit — link and runtime integration pending
+- [~] **Acceptance:** `src/freelancer/Client/main.cpp` and `engine_init.cpp` compile (EXCLUDE_FROM_ALL probe) on Linux 32-bit — link (DirectPlay/CDP) and runtime integration pending. All client TUs except `login_mgr.cpp` (DirectPlay/CDP-dependent, deferred to multiplayer milestone) now compile.
 
 ---
 

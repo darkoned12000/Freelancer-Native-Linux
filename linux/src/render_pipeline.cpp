@@ -699,18 +699,22 @@ GENRESULT RenderPipeline::GetTextureStageTexture(int /*Stage*/, void** OutHandle
 }
 GENRESULT RenderPipeline::VerifyState() { return GR_OK; }
 
-GENRESULT RenderPipeline::DrawPrimitive(unsigned long /*Prim*/, unsigned int /*Fvf*/, const void* /*Verts*/,
-                                        unsigned int /*Count*/, void* /*Unused*/) {
-  // Draw submission is performed in render_frame (clear+triangle). Returning OK keeps
-  // engine call paths unblocked; full VB/UP draw routing is M5+ follow-on.
+GENRESULT RenderPipeline::DrawPrimitive(unsigned long Prim, unsigned int /*Fvf*/, const void* /*Verts*/,
+                                        unsigned int Count, void* /*Unused*/) {
+  ++draw_calls_;
+  draw_queue_.push_back({Prim, Count, nullptr});
   return GR_OK;
 }
 GENRESULT RenderPipeline::DrawIndexedPrimitiveUp(unsigned long /*Prim*/, unsigned int /*Fvf*/,
                                                 const void* /*Verts*/, unsigned int /*VertCount*/,
                                                 const void* /*Indices*/, unsigned int /*IndexCount*/,
                                                 unsigned long /*Unused*/) { return GR_OK; }
-GENRESULT RenderPipeline::DrawPrimitiveVb(unsigned long /*Prim*/, void* /*Vb*/, unsigned int /*StartVertex*/,
-                                          unsigned int /*Count*/, void* /*Unused*/) { return GR_OK; }
+GENRESULT RenderPipeline::DrawPrimitiveVb(unsigned long Prim, void* Vb, unsigned int /*StartVertex*/,
+                                          unsigned int Count, void* /*Unused*/) {
+  ++draw_calls_;
+  draw_queue_.push_back({Prim, Count, Vb});
+  return GR_OK;
+}
 GENRESULT RenderPipeline::DrawIndexedPrimitiveVb(unsigned long /*Prim*/, void* /*Vb*/, unsigned int /*BaseVertex*/,
                                                  unsigned int /*NumVerts*/, const void* /*Indices*/,
                                                  unsigned int /*IndexCount*/, unsigned long /*Unused*/) { return GR_OK; }
@@ -979,9 +983,21 @@ bool RenderPipeline::render_frame(float /*t_seconds*/) {
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_);
     vkCmdDraw(cmd, 3, 1, 0, 0);
   }
+  // Consume queued draw calls (each as a triangle draw for now).
+  if (!draw_queue_.empty() && graphics_pipeline_ != VK_NULL_HANDLE) {
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_);
+    for (const auto& dc : draw_queue_) {
+      unsigned int n = dc.count > 0 ? dc.count : 3;
+      vkCmdDraw(cmd, n, 1, 0, 0);
+    }
+    draw_queue_.clear();
+  }
 
   // HUD text
   draw_text(cmd, "Freelancer", -0.95f, 0.9f, 1.0f);
+  char dcbuf[64];
+  std::snprintf(dcbuf, sizeof(dcbuf), "draws=%llu", (unsigned long long)draw_calls_);
+  draw_text(cmd, dcbuf, -0.95f, 0.82f, 0.8f);
 
   vkCmdEndRenderPass(cmd);
   vkEndCommandBuffer(cmd);

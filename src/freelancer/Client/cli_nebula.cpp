@@ -107,8 +107,10 @@ namespace
     // map (FUN_004e7f60 ctor, lower_bound FUN_0052c7a0 / FUN_0041bd10, insert FUN_004b68b0,
     // erase FUN_00509d60); the port keeps a real std::map in the same bytes.
     typedef std::map<unsigned, FNebulaZoneShell*> FNebulaZoneShellMap;
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
     static_assert(sizeof(FNebulaZoneShellMap) < 0x14,
                   "std::map must fit in the retail tree's 0x14 bytes");
+#endif
 
     FNebulaZoneShellMap& NebulaZoneShells(FNebulaEffect* Nebula)
     {

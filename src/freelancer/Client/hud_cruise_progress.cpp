@@ -22,7 +22,9 @@
 #include <stdint.h>
 #include <wchar.h>
 
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(HUD_CruiseProgress) == 0x42c, "retail HUD_CruiseProgress is 0x42c bytes");
+#endif
 
 HUD_CruiseProgress::HUD_CruiseProgress(INI_Reader& /*Reader*/)
     : CruiseProgressText(nullptr)

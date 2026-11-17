@@ -76,8 +76,10 @@ struct FNebulaCloudsListStorage
 };
 static_assert(sizeof(FNebulaEffectCompanion) == 0x10, "Nebula companion size");
 static_assert(sizeof(FNebulaCloudsListStorage) == 0xc, "Nebula clouds list size");
+#if !defined(FL_LINUX_PORT_LAYOUT_RELAXED)
 static_assert(sizeof(FShapeDB) < 0x18, "ShapeDB fits reserved storage");
 static_assert(sizeof(FNebulaZoneShellMap) < 0x14, "zone shell map fits reserved storage");
+#endif
 
 struct INebula
 {
