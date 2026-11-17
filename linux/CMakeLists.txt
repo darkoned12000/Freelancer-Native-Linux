@@ -418,9 +418,26 @@ if(FL_LINUX_BUILD_TOOLS)
         "${FL_SRC_ROOT}/zlib/vendor"
       )
 
+      add_library(fl_upstream_client_init_tu OBJECT
+        "${FL_SRC_ROOT}/freelancer/Client/engine_init.cpp"
+        "${FL_SRC_ROOT}/freelancer/Client/main.cpp"
+      )
+      target_link_libraries(fl_upstream_client_init_tu PRIVATE fl_linux_port_platform fl_upstream_tu_iface)
+      target_compile_definitions(fl_upstream_client_init_tu PRIVATE FL_LINUX_PORT_UPSTREAM_TU=1 FL_LINUX_PORT_LAYOUT_RELAXED=1 FREELANCER_EXPORTS COMMON_EXPORTS DALIB_EXPORTS WIN32 _WINDOWS)
+      target_include_directories(fl_upstream_client_init_tu PRIVATE
+        "${FL_SRC_ROOT}/freelancer/Client"
+        "${FL_SRC_ROOT}/Content"
+        "${FL_SRC_ROOT}/imeui"
+      )
+      target_compile_options(fl_upstream_client_init_tu PRIVATE -fms-extensions -w)
+      if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        target_compile_options(fl_upstream_client_init_tu PRIVATE -fdeclspec)
+      endif()
+
       add_executable(freelancer_linux_client
         src/linux_client_main.cpp
         src/linux_client_stubs.cpp
+        src/cdp_stubs.cpp
         src/m87_upstream_bootstrap.cpp
         $<TARGET_OBJECTS:fl_dalib_core_bringup>
         $<TARGET_OBJECTS:fl_upstream_dacom_tu>

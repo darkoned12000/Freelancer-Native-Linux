@@ -987,6 +987,8 @@ int main(int argc, char** argv) {
     }
     fl_port::log_message(fl_port::LogLevel::Info,
                          "M8.3/M8.5: render pipeline initialized and connected to client window");
+    // Register render pipeline for COM adapter (CoCreateInstance).
+    g_render_pipeline_instance = &rp;
 
     int key_events = 0;
     int mouse_events = 0;
@@ -1000,6 +1002,7 @@ int main(int argc, char** argv) {
     auto cleanup_all = [&](int code) -> int {
       boot_checkpoint(BootPhase::Shutdown, std::string("cleanup (code=") + std::to_string(code) + ")");
       rp.shutdown();
+      g_render_pipeline_instance = nullptr;
       window.destroy();
       audio.shutdown();
       return code;

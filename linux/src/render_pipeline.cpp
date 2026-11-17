@@ -737,7 +737,8 @@ GENRESULT RenderPipeline::CreateInstance(AGGDESC* Desc, void** Instance) {
 GENRESULT RenderPipeline::QueryInterface(const char* iid, void** Out) {
   if (!Out) return GR_INVALID_PARMS;
   if (!iid || std::strcmp(iid, "RenderPipeline") == 0 ||
-      std::strcmp(iid, "DirectX8") == 0) {
+      std::strcmp(iid, "DirectX8") == 0 ||
+      std::strcmp(iid, "1.11_IRenderPipeline8B") == 0) {
     *Out = static_cast<RenderPipeline*>(this);
     AddRef();
     return GR_OK;

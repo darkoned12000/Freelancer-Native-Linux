@@ -305,34 +305,41 @@ Treat it as a multi-stage siege. Sub-phases M8.0–M8.6 are tracked below.
  
 ## M8.8 — Win32/COM/Resource shim expansion (prerequisite for M8.7/M11)
 
+**Status:** In progress. Win32 user/message pump, LoadLibrary/GetProcAddress/FreeLibrary, CoCreateInstance/CoInitialize, resource, IME, DirectShow, DirectPlay shims implemented (stubs). CRT/MSVC specifics partially addressed. COM adapter wiring improved (CLSID matching, QueryInterface). Struct packing audit ongoing.
+
 **Acceptance target:** Upstream `src/freelancer/Client/main.cpp` and `engine_init.cpp` compile and link on Linux 32-bit, replacing bring-up simulation with real upstream init calls.
 
-**Status:** Not started. This is the critical path blocker for M8.7 completion and M11 game flow. The engine's client TUs require Win32/COM/resource/DirectX shims that are not yet implemented.
-
-- [ ] **Win32 window/message pump shims**
-  - [ ] `RegisterClassEx`/`CreateWindowEx`/`DefWindowProc`/`GetMessage`/`DispatchMessage` — map to SDL3 event loop (or bypass for headless bring-up)
-  - [ ] `HWND`/`HINSTANCE`/`HMENU`/`HACCEL`/`HICON`/`HBITMAP` — opaque handle layer (currently `fl_port::Window` uses adapter handle)
-  - [ ] `LoadLibrary`/`GetProcAddress`/`FreeLibrary` — map to dlopen/dlsym/dlclose with `.dll`→`.so` candidate resolution
-- [ ] **Resource string table / dialog shims**
-  - [ ] Extract string tables from `.rc` files into a Linux-readable format (or generate C arrays at build time)
-  - [ ] `LoadString`/`LoadIcon`/`LoadCursor`/`LoadBitmap` — return shimmed handles
-  - [ ] Dialog template loading (`DialogBoxParam`, `CreateDialogParam`) — stub or map to SDL3 UI
-- [ ] **COM interface shims for IRenderPipeline**
-  - [ ] `CoCreateInstance`/`QueryInterface` for `IRenderPipeline` — wire to `fl_port::RenderPipeline` adapter
-  - [ ] `IRenderPipeline` vtable adapter satisfying all 80+ methods (currently standalone class with matching names)
-  - [ ] D3D8 types: `D3DLIGHT8`, `D3DMATERIAL8`, `D3DRENDERSTATETYPE` — already in `d3d8.h` shim; behavior stubbed
-- [ ] **DirectShow / media shims**
-  - [ ] `IGraphBuilder`/`IMediaControl`/`IMediaEvent` — stub as no-op (movies already bypassed)
-  - [ ] WMV/ASF/Bink playback — stub or FFmpeg integration
-- [ ] **IME shims**
-  - [ ] `ImmGetContext`/`ImmSetCompositionString`/`WM_IME_*` — stub as no-op (basic stubs exist)
-- [ ] **DirectPlay shims (multiplayer only)**
-  - [ ] `IDirectPlay8Peer`/`IDirectPlay8Server`/`IDirectPlay8Client` — stub for single-player bring-up
-  - [ ] `CDPClient`/`CDPServer`/`CDPNetCodec` — blocked on DirectPlay COM interfaces
-- [ ] **CRT/MSVC specifics**
-  - [ ] Struct packing/alignment audit (`#pragma pack`, `__declspec(align)`) under `FL_LINUX_PORT_LAYOUT_RELAXED`
-  - [ ] x87 FPU precision (already addressed in `x86math`)
-- [ ] **Acceptance:** `src/freelancer/Client/main.cpp` and `engine_init.cpp` compile and link in `freelancer_linux_client` (32-bit)
+- [x] **Win32 window/message pump shims** (implemented)
+  - [x] `RegisterClassEx`/`RegisterClass`/`CreateWindowEx`/`CreateWindow`/`DefWindowProc` — stubs returning fake handles (`linux/include/linux_port/win32_user.h`, `linux/src/win32_user.cpp`)
+  - [x] `DestroyWindow`/`ShowWindow`/`IsWindow`/`IsWindowVisible` — stubs
+  - [x] `LoadCursor`/`SetCursor`/`LoadIcon`/`LoadMenu`/`GetMenu`/`LoadAccelerators`/`LoadString`/`GetSystemMetrics` — stubs
+  - [x] `GetMessage`/`PeekMessage`/`TranslateMessage`/`DispatchMessage` — already in win32_compat.h (return no messages)
+  - [x] `HWND`/`HINSTANCE`/`HMENU`/`HACCEL`/`HICON`/`HBITMAP` — opaque handle types defined as void*; stubs return fake handles. Full SDL3 window mapping deferred (handles used opaquely by upstream code; adapter layer ready for wiring).
+  - [x] `LoadLibrary`/`GetProcAddress`/`FreeLibrary` — mapped to dlopen/dlsym/dlclose with `.dll`→`.so` candidate resolution (win32_compat.h)
+- [x] **Resource string table / dialog shims**
+  - [x] `LoadString`/`LoadIcon`/`LoadCursor`/`LoadBitmap` — stubs returning nullptr (win32_compat.h)
+  - [x] Dialog template loading (`DialogBoxParam`, `CreateDialogParam`) — stubs in win32_compat.h
+  - [x] Extract string tables from `.rc` files into a Linux-readable format — `linux/tools/extract_rc_strings.py` parses STRINGTABLE entries from .rc files and generates C headers with ID→string mappings
+- [~] **COM interface shims for IRenderPipeline**
+  - [x] `CoCreateInstance`/`CoInitialize`/`CoUninitialize` — stubs (return E_NOINTERFACE/S_OK, with global instance pointer for adapter wiring)
+  - [x] Global `g_render_pipeline_instance` registered during client init (linux_client_main.cpp) for COM adapter
+  - [x] `CoCreateInstance` for `IRenderPipeline` — CLSID matching (IsRenderPipelineCLSID) + zero-GUID fallback. QueryInterface handles "1.11_IRenderPipeline8B". Full COM interface parity pending.
+  - [x] `IRenderPipeline` vtable adapter — RenderPipeline inherits IRenderPipeline (all 76+ virtual methods implemented). QueryInterface handles "1.11_IRenderPipeline8B", "RenderPipeline", "DirectX8", "IComponentFactory". AddRef/Release return 1 (bring-up).
+  - [x] D3D8 types: `D3DLIGHT8`, `D3DMATERIAL8`, `D3DRENDERSTATETYPE` — already in `d3d8.h` shim; behavior stubbed
+- [x] **DirectShow / media shims**
+  - [x] Movie playback bypassed as no-op (linux_client_stubs.cpp) — `play_movie`/`stop_movie` stubs
+  - [~] WMV/ASF/Bink playback — FFmpeg scaffold (linux/include/linux_port/movie_backend.h, linux/src/movie_backend_ffmpeg.cpp). Full decode/render integration pending.
+- [x] **IME shims**
+  - [x] `ImmGetContext`/`ImmReleaseContext`/`ImmSetCompositionStringW`/`ImmGetCompositionStringW` — stubs in win32_compat.h
+  - [x] IME enable/focus/context hooks — no-op stubs in linux_client_stubs.cpp
+- [x] **DirectPlay shims (multiplayer only)**
+  - [x] `IDirectPlay8Peer`/`IDirectPlay8Server`/`IDirectPlay8Client` — typedef stubs in win32_compat.h
+  - [~] `CDPClient`/`CDPServer`/`CDPNetCodec` — static methods stubbed (linux/src/cdp_stubs.cpp) for single-player. Full DirectPlay COM interface porting deferred (multiplayer only).
+- [~] **CRT/MSVC specifics**
+  - [~] Struct packing/alignment audit — `FL_LINUX_PORT_LAYOUT_RELAXED` guards in selected headers. Probe builds exercise additional headers. Full audit ongoing.
+  - [x] x87 FPU precision (already addressed in `x86math`)
+  - [x] `_control87`/`_clearfp`/`SetUnhandledExceptionFilter`/`CreateProcessA`/`ReleaseMutex`/`GetStockObject`/`MultiByteToWideChar` — stubs in win32_compat.h
+- [~] **Acceptance:** `src/freelancer/Client/main.cpp` and `engine_init.cpp` compile (EXCLUDE_FROM_ALL probe) on Linux 32-bit — link and runtime integration pending
 
 ---
 
