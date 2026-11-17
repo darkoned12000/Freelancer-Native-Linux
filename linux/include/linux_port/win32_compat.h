@@ -128,6 +128,7 @@ using HMODULE = void*;
 using HINSTANCE = void*;
 using HWND = void*; // Opaque placeholder; engine-facing adapters must provide required behavior, not just an integer handle.
 using LPVOID = void*;
+using FOURCC = unsigned long;
 using HKEY = void*;
 using LPDWORD = DWORD*;
 using COLORREF = DWORD;
@@ -932,6 +933,14 @@ typedef struct tagBITMAPINFO {
 } BITMAPINFO, *PBITMAPINFO, *LPBITMAPINFO;
 
 #define BI_RGB 0
+// DirectSound speaker config
+#define DSSPEAKER_MONO 0x00000001
+#define DSSPEAKER_HEADPHONE 0x00000002
+#define DSSPEAKER_STEREO 0x00000003
+#define DSSPEAKER_QUAD 0x00000004
+#define DSSPEAKER_SURROUND 0x00000005
+#define DSSPEAKER_5POINT1 0x00000006
+#define DSSPEAKER_COMBINED(c, g) ((DWORD)(((BYTE)(c)) | ((DWORD)((BYTE)(g)) << 16)))
 #define MAPVK_VK_TO_VSC 0
 #ifndef KEY_READ
 #define KEY_READ 0x20019

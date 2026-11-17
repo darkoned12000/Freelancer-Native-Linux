@@ -3190,6 +3190,25 @@ if(FL_LINUX_BUILD_TOOLS)
         target_compile_options(fl_m87_client_core121_probe PRIVATE -fdeclspec)
       endif()
 
+      # Probe: upstream SoundManager
+      add_library(fl_m87_soundmanager_probe OBJECT EXCLUDE_FROM_ALL
+        "${FL_SRC_ROOT}/SoundManager/SoundManager.cpp"
+      )
+      target_link_libraries(fl_m87_soundmanager_probe PRIVATE fl_linux_port_platform fl_upstream_tu_iface)
+      target_compile_definitions(fl_m87_soundmanager_probe PRIVATE
+        FL_LINUX_PORT_UPSTREAM_TU=1 FL_LINUX_PORT_LAYOUT_RELAXED=1 FREELANCER_EXPORTS COMMON_EXPORTS DALIB_EXPORTS WIN32 _WINDOWS
+      )
+      target_include_directories(fl_m87_soundmanager_probe PRIVATE
+        "${FL_SRC_ROOT}/freelancer/Client"
+        "${FL_SRC_ROOT}/Content"
+        "${FL_SRC_ROOT}/imeui"
+        "${FL_SRC_ROOT}/SoundManager"
+      )
+      target_compile_options(fl_m87_soundmanager_probe PRIVATE -fms-extensions -w)
+      if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        target_compile_options(fl_m87_soundmanager_probe PRIVATE -fdeclspec)
+      endif()
+
       # M8.7 path A/B probes: incremental upstream Common init/data TU triage (below client UI layer)
       add_library(fl_m87_common_timing_probe OBJECT EXCLUDE_FROM_ALL
         "${FL_SRC_ROOT}/Common/common_timing.cpp"

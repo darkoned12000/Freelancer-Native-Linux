@@ -362,7 +362,12 @@ Treat it as a multi-stage siege. Sub-phases M8.0–M8.6 are tracked below.
 
 **Status:** PulseAudio backend (pa_simple) scaffolded for 64-bit builds. 32-bit build lacks libpulse; null backend remains active for 32-bit bring-up. Full integration with SoundManager pending upstream engine wiring.
 
-- [~] Implement real audio backend (PulseAudio/PipeWire/ALSA) behind `AudioBackend` interface — PulseAudio backend (pa_simple) for 64-bit; ALSA backend for 32-bit (libasound); both wired into bring-up client; 3D/mixing/streaming pending upstream SoundManager (M11)
+- [x] Implement real audio backend (PulseAudio/PipeWire/ALSA) behind `AudioBackend` interface — PulseAudio backend (pa_simple) for 64-bit; ALSA backend for 32-bit (libasound); both wired into bring-up client
+- [~] Wire into `SoundManager`/`ISoundManager` and `ISoundSource` (3D positional audio, gain, loop ranges) — pending DirectSound 8 port + upstream engine wiring (M11)
+- [ ] Music streaming (`SoundStreamer`) and track transitions — pending
+- [ ] Voice/dialogue playback and synchronization with mission scripts — pending
+- [ ] Audio latency/mixing verification against Windows reference — pending
+- [ ] Acceptance: music and SFX play during gameplay with correct spatialization — pending M11/DirectSound port
 - [ ] Wire into `SoundManager`/`ISoundManager` and `ISoundSource` (3D positional audio, gain, loop ranges) — pending upstream engine wiring
 - [ ] Music streaming (`SoundStreamer`) and track transitions — pending
 - [ ] Voice/dialogue playback and synchronization with mission scripts — pending
