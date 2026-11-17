@@ -21,6 +21,9 @@
 #include <sys/stat.h>
 
 #include "linux_port/audio_backend.h"
+#if !defined(FL_LINUX_32BIT)
+#include "linux_port/pulse_audio_backend.h"
+#endif
 #include "linux_port/xdg_config.h"
 
 #if defined(FL_HAS_SDL3)
@@ -805,7 +808,11 @@ int main(int argc, char** argv) {
   boot_checkpoint(BootPhase::AudioUnblock, "initializing null audio backend and exercising boot/menu calls");
 
   // Null audio backend: satisfy boot/menu audio calls in bring-up path
+#if !defined(FL_LINUX_32BIT)
+  fl_port::PulseAudioBackend audio;
+#else
   fl_port::NullAudioBackend audio;
+#endif
   {
     fl_port::AudioConfig acfg;
     acfg.null_backend = true;
