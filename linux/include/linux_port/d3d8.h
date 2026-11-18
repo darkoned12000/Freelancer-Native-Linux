@@ -70,8 +70,14 @@
 
 #include <cstddef>
 
+#ifndef FL_PORT_D3DVECTOR_DEFINED
+#define FL_PORT_D3DVECTOR_DEFINED
 struct D3DVECTOR { float x, y, z; };
+#endif
+#ifndef FL_PORT_D3DCOLORVALUE_DEFINED
+#define FL_PORT_D3DCOLORVALUE_DEFINED
 struct D3DCOLORVALUE { float r, g, b, a; };
+#endif
 
 typedef enum _D3DLIGHTTYPE {
   D3DLIGHT_POINT = 1,

@@ -962,6 +962,7 @@ bool InitializeEngine(const FClientCommandLine* CommandLine)
 // 0xC-byte descriptor {size 0xC, "3DMathEngine", 0} on the stack and calls
 // DACOM_Acquire()->CreateInstance (vtable +0x0C). No cache here: retail's callers keep their
 // own DAT_ statics. No null check on the manager, as retail.
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
 I3DMathEngine* __cdecl Acquire3DMathEngine()
 {
     struct FMathEngineDesc
@@ -980,6 +981,7 @@ I3DMathEngine* __cdecl Acquire3DMathEngine()
     DACOM_Acquire()->CreateInstance(reinterpret_cast<AGGDESC*>(&Desc), &Instance);
     return static_cast<I3DMathEngine*>(Instance);
 }
+#endif
 
 // freelancer.exe's own port helper (Common.dll's former twin of it, declared in the dissolved
 // common_stubs.h, no longer exists; retail Common exports no such function). Same logic as Common's:

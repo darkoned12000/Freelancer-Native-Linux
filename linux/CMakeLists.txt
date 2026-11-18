@@ -147,11 +147,37 @@ if(FL_LINUX_BUILD_TOOLS)
   add_executable(directplay_compat_tests tests/directplay_compat_tests.cpp)
   target_link_libraries(directplay_compat_tests PRIVATE fl_linux_port_gameplay)
   target_include_directories(directplay_compat_tests PRIVATE ${FL_LINUX_INCLUDE_DIR})
+
+  add_executable(cdp_runtime_tests
+    tests/cdp_runtime_tests.cpp
+    "${FL_SRC_ROOT}/DALib/CDPServer.cpp"
+    "${FL_SRC_ROOT}/DALib/CDPClient.cpp"
+    "${FL_SRC_ROOT}/DALib/CDPClientProxy.cpp"
+    "${FL_SRC_ROOT}/DALib/CDPMsgList.cpp"
+    "${FL_SRC_ROOT}/DALib/CDPNetCodec.cpp"
+  )
+  target_link_libraries(cdp_runtime_tests PRIVATE fl_linux_port_platform fl_linux_port_gameplay fl_upstream_tu_iface fl_upstream_zlib)
+  target_compile_definitions(cdp_runtime_tests PRIVATE
+    FL_LINUX_PORT_UPSTREAM_TU=1 FL_LINUX_PORT_DALIB_PORTABLE=1 FL_LINUX_PORT_LAYOUT_RELAXED=1
+    DALIB_EXPORTS COMMON_EXPORTS FREELANCER_EXPORTS WIN32 _WINDOWS
+  )
+  target_include_directories(cdp_runtime_tests BEFORE PRIVATE
+    ${FL_LINUX_INCLUDE_DIR}
+    "${FL_SRC_ROOT}/include"
+    "${FL_SRC_ROOT}/DALib"
+    "${FL_SRC_ROOT}/zlib/vendor"
+  )
+  target_compile_options(cdp_runtime_tests PRIVATE -fms-extensions -w -DZEXPORT= -DZEXPORTVA=)
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    target_compile_options(cdp_runtime_tests PRIVATE -fdeclspec)
+  endif()
+
   if(BUILD_TESTING)
     add_test(NAME audio_mixer_tests COMMAND audio_mixer_tests)
     add_test(NAME audio_wav_tests COMMAND audio_wav_tests)
     add_test(NAME directsound_compat_tests COMMAND directsound_compat_tests)
     add_test(NAME directplay_compat_tests COMMAND directplay_compat_tests)
+    add_test(NAME cdp_runtime_tests COMMAND cdp_runtime_tests)
   endif()
 
   # M5 graphics bring-up (scoped Vulkan backend behind IRenderPipeline).
@@ -441,6 +467,11 @@ if(FL_LINUX_BUILD_TOOLS)
       add_library(fl_upstream_client_init_tu OBJECT
         "${FL_SRC_ROOT}/freelancer/Client/engine_init.cpp"
         "${FL_SRC_ROOT}/freelancer/Client/main.cpp"
+        "${FL_SRC_ROOT}/freelancer/Client/ids_strings.cpp"
+        "${FL_SRC_ROOT}/freelancer/Client/startup_config.cpp"
+        "${FL_SRC_ROOT}/freelancer/Client/game_options.cpp"
+        "${FL_SRC_ROOT}/Common/common_async.cpp"
+        "${FL_SRC_ROOT}/Common/common_errorhandler.cpp"
       )
       target_link_libraries(fl_upstream_client_init_tu PRIVATE fl_linux_port_platform fl_upstream_tu_iface)
       target_compile_definitions(fl_upstream_client_init_tu PRIVATE FL_LINUX_PORT_UPSTREAM_TU=1 FL_LINUX_PORT_LAYOUT_RELAXED=1 FREELANCER_EXPORTS COMMON_EXPORTS DALIB_EXPORTS WIN32 _WINDOWS)
@@ -459,6 +490,7 @@ if(FL_LINUX_BUILD_TOOLS)
         src/linux_client_stubs.cpp
         src/cdp_stubs.cpp
         src/m87_upstream_bootstrap.cpp
+        src/m87_symbol_stubs.cpp
         $<TARGET_OBJECTS:fl_dalib_core_bringup>
         $<TARGET_OBJECTS:fl_upstream_dacom_tu>
         $<TARGET_OBJECTS:fl_upstream_readfile_tu>
@@ -468,6 +500,8 @@ if(FL_LINUX_BUILD_TOOLS)
         $<TARGET_OBJECTS:fl_upstream_common_ini_tu>
         $<TARGET_OBJECTS:fl_upstream_common_timing_tu>
         $<TARGET_OBJECTS:fl_m87_soundmanager_probe>
+        $<TARGET_OBJECTS:fl_upstream_client_init_tu>
+        $<TARGET_OBJECTS:fl_m87_client_window_probe>
       )
       target_link_libraries(freelancer_linux_client PRIVATE fl_linux_port_platform fl_linux_port_path fl_linux_port_gameplay fl_upstream_tu_iface fl_upstream_zlib)
       if(FL_LINUX_32BIT)

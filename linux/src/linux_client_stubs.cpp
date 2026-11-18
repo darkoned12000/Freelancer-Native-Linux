@@ -222,5 +222,4 @@ __attribute__((weak)) File::File() {}
 __attribute__((weak)) void File::get_info() {}
 __attribute__((weak)) unsigned GetPlayerBaseIdRetail() { return 0; }
 __attribute__((weak)) bool MenuMpSessionIsReady(FServerInfo const* Server) { (void)Server; return false; }
-// g_display global (DisplaySettings) if not linked
-DisplaySettings g_display = {};
+// g_display provided by upstream window/client TU when linked.

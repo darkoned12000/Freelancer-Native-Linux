@@ -134,6 +134,8 @@ bool CDPClient::ProcessConnectAttempt()
 // Host is a full DirectPlay URL; Port is retained for the API and is unused here.
 bool CDPClient::ConnectToServer(const wchar_t* Host, const wchar_t* /*Port*/)
 {
+    if (Client == nullptr || Host == nullptr)
+        return false;
     m_dwPingSendTime = timeGetTime();
     m_dwPingReceiveTime = 0;
     m_dwPingSendCount = 0;
@@ -295,8 +297,15 @@ bool CDPClient::EnumerateHost(const wchar_t* HostAddress, unsigned long Port, un
 }
 
 // Retail .text:065c2bc0: MOV EAX,[m_dwLastMsgReceivedTime]; RET.
+// Linux port (single-player-safe): when no active client/session is connected,
+// keep timestamp fresh so offline/non-networked timing paths don't observe a
+// spurious stale-link condition.
 unsigned long CDPClient::GetLastMsgTimestamp()
 {
+#if defined(FL_LINUX_PORT_DALIB_PORTABLE) || defined(FL_LINUX_PORT_UPSTREAM_TU)
+    if (GActiveClient == nullptr || GActiveClient->Client == nullptr || !GActiveClient->bConnected)
+        return timeGetTime();
+#endif
     return m_dwLastMsgReceivedTime;
 }
 
