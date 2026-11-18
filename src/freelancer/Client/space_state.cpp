@@ -5,6 +5,99 @@
 // Author: Giperion.
 
 #include "space_state.h"
+
+#if defined(FL_LINUX_PORT_UPSTREAM_TU)
+
+// Linux bring-up (M8.7/M8.8 Task 1/2): provide a real, linkable Space state singleton and
+// guarded stubs for space-state APIs without pulling in the full camera/physics/render/scene/
+// HUD/audio/object-db dependency graph. Real EnterClientState cases (2/3/4/5/7/8) can
+// transition into this state object; Init/Update/Destroy remain inert/safe in the controlled
+// SDL/Vulkan bring-up loop until space subsystems are incrementally integrated.
+
+#include "client_environment.h"
+
+namespace
+{
+    struct LinuxBringupSpaceState final : public IEnvironment
+    {
+        bool Slot00(unsigned, unsigned, unsigned, unsigned) override { return false; }
+        bool Slot01(unsigned, unsigned, unsigned) override { return false; }
+        bool Slot02(unsigned, unsigned, unsigned long) override { return false; }
+        bool Slot03(unsigned, unsigned, unsigned, unsigned long) override { return false; }
+        bool Slot04(unsigned, unsigned, unsigned) override { return false; }
+        void Slot05() override {}
+        void Slot06(unsigned) override {}
+        int GetEnvironmentType() override { return 0; } // SpaceApp
+        void PreInit() override {}
+        void Shutdown() override {}
+        void Slot10() override {}
+        void Resize(int, int) override {}
+        bool Init(int) override
+        {
+            // Accept entry; real space scene/camera/ship/HUD/physics init not yet integrated.
+            bInited = true;
+            return true;
+        }
+        void Destroy() override { bInited = false; }
+        int Update(float) override
+        {
+            // Stay in space state; real frame/tick/render/sim flow not yet integrated.
+            (void)bInited;
+            return 0;
+        }
+
+        bool bInited = false;
+    };
+
+    LinuxBringupSpaceState& GetLinuxBringupSpaceState()
+    {
+        static LinuxBringupSpaceState State;
+        return State;
+    }
+} // namespace
+
+IEnvironment* GetSpaceState()
+{
+    return &GetLinuxBringupSpaceState();
+}
+
+bool InitSpaceState(SpaceApp*, int)
+{
+    GetLinuxBringupSpaceState().Init(0);
+    return true;
+}
+
+int UpdateSpaceState(SpaceApp*, float DeltaSeconds)
+{
+    return GetLinuxBringupSpaceState().Update(DeltaSeconds);
+}
+
+void DestroySpaceState(SpaceApp*)
+{
+    GetLinuxBringupSpaceState().Destroy();
+}
+
+void ShutdownSpaceState(SpaceApp*)
+{
+    GetLinuxBringupSpaceState().Shutdown();
+}
+
+void SetPendingLandBase(unsigned const*) {}
+void SetPendingJumpSystem(unsigned const*, bool) {}
+void EnterBaseFromDock(unsigned const*) {}
+void SpaceAppLoadCamerasIni(SpaceApp*) {}
+void SpaceAppArmDeathCamera() {}
+void SetStaticCameraTransform(const float*) {}
+
+#else // !FL_LINUX_PORT_UPSTREAM_TU
+
+// Freelancer Decomp: a reimplementation of the Freelancer (2003) game client and engine,
+// faithful to the behaviour of the original game.
+// This file was reconstructed by reverse engineering the binaries of Freelancer 1.1,
+// developed by Digital Anvil.
+// Author: Giperion.
+
+#include "space_state.h"
 #include "space_app.h"
 
 #include "character_info.h"         // ResetCharacterScripts (FUN_00435630)
@@ -1337,3 +1430,5 @@ void ShutdownSpaceState(SpaceApp* State)
     // 0x0054ab36: JMP FUN_0051fbc0 -- the ZItem heaps and draw queues released.
     SpaceDrawQueueRelease();
 }
+
+#endif // FL_LINUX_PORT_UPSTREAM_TU

@@ -470,6 +470,8 @@ if(FL_LINUX_BUILD_TOOLS)
         "${FL_SRC_ROOT}/freelancer/Client/ids_strings.cpp"
         "${FL_SRC_ROOT}/freelancer/Client/startup_config.cpp"
         "${FL_SRC_ROOT}/freelancer/Client/game_options.cpp"
+        "${FL_SRC_ROOT}/freelancer/Client/dataconfig_progress.cpp"
+        "${FL_SRC_ROOT}/freelancer/Client/perf_options.cpp"
         "${FL_SRC_ROOT}/Common/common_async.cpp"
         "${FL_SRC_ROOT}/Common/common_errorhandler.cpp"
         "${FL_SRC_ROOT}/Common/common_id.cpp"
@@ -512,7 +514,12 @@ if(FL_LINUX_BUILD_TOOLS)
         "${FL_SRC_ROOT}/Common/common_hierarchy.cpp"
         "${FL_SRC_ROOT}/Common/common_roomdata.cpp"
         "${FL_SRC_ROOT}/Common/common_basedata.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/m87_cliobj_factory_bridge.cpp"
+        "${FL_SRC_ROOT}/freelancer/Client/client_cliobj.cpp"
+        "${FL_SRC_ROOT}/freelancer/Client/intro_connect.cpp"
+        "${FL_SRC_ROOT}/freelancer/Client/client_state.cpp"
+        "${FL_SRC_ROOT}/freelancer/Client/gameflow.cpp"
+        "${FL_SRC_ROOT}/freelancer/Client/mission_briefing.cpp"
+        "${FL_SRC_ROOT}/freelancer/Client/space_state.cpp"
 
       )
       target_link_libraries(fl_upstream_client_init_tu PRIVATE fl_linux_port_platform fl_upstream_tu_iface)

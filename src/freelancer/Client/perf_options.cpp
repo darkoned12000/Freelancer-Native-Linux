@@ -142,6 +142,29 @@ namespace
 
         // 00510c16..00510c53: every star of the list DAT_00675180 (StarSphereList): its sun body
         // (+0x14) gets +0x2b8 = ftol(int +0x2b4 * (1.0f - Q) + 0.5f). No null tests.
+#if defined(FL_LINUX_PORT_UPSTREAM_TU)
+        try
+        {
+            double const Keep = 1.0 - Q; // FSUBR float 1.0
+            FStarSphereList* const Stars = StarSphereList();
+            if (!Stars || !Stars->Sentinel)
+                return;
+            FStarSphereListNode* const Sentinel = Stars->Sentinel;
+            for (FStarSphereListNode* Node = Sentinel->Next; Node && Node != Sentinel; Node = Node->Next)
+            {
+                if (!Node->Sphere || !Node->Sphere->SunBody || !Node->Sphere->SunBody->Raw)
+                    continue;
+                unsigned char* const Body = Node->Sphere->SunBody->Raw;
+                int const Full = *reinterpret_cast<int const*>(Body + 0x2b4);
+                *reinterpret_cast<int*>(Body + 0x2b8) =
+                    static_cast<int>(static_cast<double>(Full) * Keep + 0.5);
+            }
+        }
+        catch (...)
+        {
+            // Linux bring-up: star sphere state may be unavailable.
+        }
+#else
         double const Keep = 1.0 - Q; // FSUBR float 1.0
         FStarSphereListNode* const Sentinel = StarSphereList()->Sentinel;
         for (FStarSphereListNode* Node = Sentinel->Next; Node != Sentinel; Node = Node->Next)
@@ -151,6 +174,7 @@ namespace
             *reinterpret_cast<int*>(Body + 0x2b8) =
                 static_cast<int>(static_cast<double>(Full) * Keep + 0.5);
         }
+#endif
     }
 
     // LAB_005b42a0 - apply shared by AtmosphereMaterialConfig (option +0x20 = 1, set at
@@ -174,6 +198,10 @@ namespace
     // IBehaviorManager::set_turn_sensitivity(Value).
     void ApplyTurnSensitivity(float Value)
     {
+#if defined(FL_LINUX_PORT_UPSTREAM_TU)
+        (void)Value;
+        // Linux bring-up: player/behavior objects are not initialized in fast-path init.
+#else
         CShip* const Ship = HudShipOfObjRw(static_cast<IObjRW*>(GetPlayerObjRW()));
         if (Ship == nullptr)
             return;
@@ -181,6 +209,7 @@ namespace
         if (Behavior == nullptr)
             return;
         Behavior->set_turn_sensitivity(Value);
+#endif
     }
 
     void ApplyAtmosphereMaterialConfig(float Value) { ApplyMaterialRecordOption(1, Value); }
@@ -210,6 +239,15 @@ namespace
         unsigned long VidMem = 0;
         int bLowVidMem = 0;
         IRenderPipeline* Pipe = DALib::Pipeline;
+#if defined(FL_LINUX_PORT_UPSTREAM_TU)
+        if (Pipe == nullptr)
+        {
+            // Linux bring-up: preserve slot/value state without requiring render pipeline/device abilities.
+            const bool bHighDetail = static_cast<double>(Value) > 0.6;
+            G_Slots[1] = bHighDetail ? 1.f : 0.f;
+            return;
+        }
+#endif
         if (Pipe->QueryDeviceAbility(3, &VidMem) >= 0)
             bLowVidMem = ((VidMem & 0xfff00000u) < 0x01100000u) ? 1 : 0;
 
@@ -245,8 +283,13 @@ namespace
     {
         bool Enumerate(Archetype::Root* Record) override
         {
+#if defined(FL_LINUX_PORT_UPSTREAM_TU)
+            // Linux bring-up: client LOD recompute depends on real client_cliobj/runtime integration.
+            (void)Record;
+#else
             if (Record->Companion != nullptr)
                 Archetype::CliObjRecomputeLodPick(Record->Companion, nullptr);
+#endif
             return true;
         }
     };
@@ -272,6 +315,18 @@ namespace
             Scale = (static_cast<double>(Value) - 0.75) * 4.0 + 1.0;
         G_LevelOfDetailScale = static_cast<float>(Scale);
 
+#if defined(FL_LINUX_PORT_UPSTREAM_TU)
+        try
+        {
+            // Linux bring-up: archetype/client LOD and solar sphere subsystems may be incomplete.
+            // Keep computed scale/state but skip cross-subsystem propagation during early init.
+            (void)bLow;
+        }
+        catch (...)
+        {
+            // Linux bring-up: LOD/scene subsystems may be incomplete.
+        }
+#else
         // 005b45b2..005b45b7: FUN_004022b0(AL, [+0x24]).
         Archetype::CliObjSetArchLodGlobals(bLow ? 1 : 0, G_LevelOfDetailScale);
 
@@ -284,6 +339,7 @@ namespace
 
         // 005b45db..005b45df: FUN_005488a0([+0x24]).
         SolarSpheresApplyDetail(G_LevelOfDetailScale);
+#endif
     }
 
     // ------------------------------------------------------------------
@@ -466,7 +522,20 @@ void ApplyChangedPerfOptions()
             continue;
         Option.Applied = Option.Value;
         if (Option.Apply != nullptr)
+        {
+#if defined(FL_LINUX_PORT_UPSTREAM_TU)
+            try
+            {
+                Option.Apply(Option.Value);
+            }
+            catch (...)
+            {
+                // Linux bring-up: perf apply callbacks may touch incomplete render/audio/game subsystems.
+            }
+#else
             Option.Apply(Option.Value);
+#endif
+        }
     }
 }
 

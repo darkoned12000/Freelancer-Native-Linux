@@ -180,6 +180,9 @@ FIntroConfigState const* GetIntroConfigState()
     return &GIntroConfigState;
 }
 
+#if defined(FL_LINUX_PORT_UPSTREAM_TU) && (defined(__GNUC__) || defined(__clang__))
+__attribute__((visibility("default")))
+#endif
 bool LoadClientIniData(char const* IniPath)
 {
     // FUN_005b0c30 (.text:005b0c30-005b12f8). 0x005b0c6b calls FUN_004b6c50 (MOV AL,1 / RET)

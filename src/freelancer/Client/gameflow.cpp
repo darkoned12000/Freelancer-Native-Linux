@@ -100,6 +100,7 @@ namespace
     // (2), the new one bHovered = 1 and an enter (1), both with Point.
     void MoveHotspotHover(int const* Point)
     {
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
         FHotspot* Hit = nullptr;
         FindHotspotAt(Point, &Hit);
         if (Hit == G_HoveredHotspot)
@@ -115,6 +116,9 @@ namespace
             Hit->bHovered = 1;
             G_HoveredHotspot->SendEvent(1, Point);
         }
+#else
+        (void)Point;
+#endif
     }
 
     // FUN_00558d80 (thiscall on an 8-byte point, RET 4): a packed mouse lParam into
@@ -149,6 +153,7 @@ namespace
         G_HotspotLastCursor[0] = Point[0];
         G_HotspotLastCursor[1] = Point[1];
         MoveHotspotHover(Point);
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
         int Event = -1;
         if (Message == 0x201)
             Event = 3;
@@ -156,6 +161,10 @@ namespace
             return false;
         G_HoveredHotspot->SendEvent(Event, Point);
         return true;
+#else
+        (void)Message;
+        return false;
+#endif
     }
 
     // FUN_00558f80 (cdecl) -- once a frame from FUN_00558ac0: while tracking and not locked,
@@ -203,6 +212,7 @@ namespace
         // 0x005591a7..0x00559279 (USER_MOVE).
         bool OnMove(int const* Point)
         {
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
             bool bHovering = false;
             if (G_HotspotInputLock == 0)
             {
@@ -225,11 +235,16 @@ namespace
             }
             G_HoveredHotspot = nullptr;
             return bHovering;
+#else
+            (void)Point;
+            return false;
+#endif
         }
 
         // 0x005590e8..0x005591a4 (USER_BUTTON0).
         bool OnButton(int const* Point)
         {
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
             // 0x005590e8..0x005590fb: only a button-down record (+0x18), and not while locked.
             if (HudCommandRecord()->Byte18 == 0)
                 return false;
@@ -259,6 +274,10 @@ namespace
                 return false;
             G_HoveredHotspot->SendEvent(3, Point);
             return true;
+#else
+            (void)Point;
+            return false;
+#endif
         }
     };
 
@@ -267,6 +286,7 @@ namespace
     // FUN_00558ac0 (cdecl, double) -- the base's world tick.
     void TickGameflow(double DeltaSeconds)
     {
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
         // 0x00558ac7..0x00558afa: DAT_006799e0 + Dt, split into whole milliseconds (floor of
         // the sum * 1000.0) and the rest (the sum rounded to float, less ms * 0.001).
         double const Sum = static_cast<double>(G_GameflowMsRemainder) + DeltaSeconds;
@@ -331,11 +351,17 @@ namespace
             return;
 #endif
         SetClientMouseCursorDrawFlag(1);
+#else
+        // Linux bring-up: skip room/location/script/camera/fade/hotspot tick deps.
+        (void)DeltaSeconds;
+        G_GameflowMsRemainder = 0.0f;
+#endif
     }
 
     // FUN_00558c10 (cdecl) -- the base frame: tick, draw, sound, and the next state code.
     int UpdateGameflowBaseFrame()
     {
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
         // 0x00558c19..0x00558c47: the capped frame time, zeroed while the frame counter has not
         // passed DAT_006799e8 (CMP / JA keeps it only when count > hold, unsigned).
         double Dt = GetClientFrameTimeCapped();
@@ -388,6 +414,14 @@ namespace
             Result = 5;
         }
         return Result;
+#else
+        // Linux bring-up: real GF base frame (room/location/render/audio/camera/script/UI) deps
+        // not yet integrated in controlled SDL/Vulkan loop. Stay in GF state without side effects.
+        (void)G_bGameflowMissionBriefing;
+        (void)G_bGameflowQuit;
+        if (G_bGameflowStateFive) G_bGameflowStateFive = false;
+        return 0;
+#endif
     }
 
     // --------------------------------------------------------------------------------------
@@ -434,10 +468,12 @@ namespace
         (void)Message;
         (void)B;
         (void)C;
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
         if (Win3DFindByName("CTID") != nullptr) // FUN_0059da10
             return true;
         GetKeyState(VK_SHIFT);
         GetKeyState(VK_CONTROL);
+#endif
         return true;
     }
 
@@ -505,7 +541,11 @@ namespace
     void GF::PreInit()
     {
         // LAB_00437270: FUN_00558850(DAT_0067eca0), then +0x04 = +0x05 = 0.
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
         InitGameflowData();
+#else
+        // Linux bring-up: skip location/character/script preload deps.
+#endif
         bFirstFramePending = 0;
         bBaseEntered = 0;
     }
@@ -513,7 +553,11 @@ namespace
     void GF::Shutdown()
     {
         // LAB_00437290: JMP FUN_00558870.
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
         ShutdownGameflow();
+#else
+        // Linux bring-up: skip GF teardown deps.
+#endif
     }
 
     // Slot 10 (+0x28, 0x00401e90) -- a bare RET. Code 4 of the state machine calls it.
@@ -526,7 +570,11 @@ namespace
     {
         (void)Width;
         (void)Height;
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
         ResetGameflowRoomLetterbox();
+#else
+        // Linux bring-up: skip room camera/letterbox deps.
+#endif
     }
 
     bool GF::Init(int Param)
@@ -543,9 +591,13 @@ namespace
     void GF::Destroy()
     {
         // FUN_004372c0: FUN_00558a50, FUN_0045a140, +0x04 = 0.
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
         LeaveGameflowBase();
         // 0x004372c8: FUN_0045a140 -- the NN system teardown.
         NnSystemShutdown();
+#else
+        // Linux bring-up: skip base leave/NN teardown deps.
+#endif
         bFirstFramePending = 0;
     }
 
@@ -554,6 +606,7 @@ namespace
         // LAB_004372e0 (RET 4). The argument is not read.
         (void)DeltaSeconds;
         GF* const State = this;
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
         if (State->bFirstFramePending == 1)
         {
             // 0x004372ee..0x00437389: the first frame enters the base.
@@ -602,6 +655,16 @@ namespace
         // 0x004373e8: FUN_00579190 -- the loading screen's timer reset.
         LoadingScreenReset();
         return 0;
+#else
+        // Linux bring-up: GF state object is real/active for Task 1/2 integration, but base
+        // enter/render/NN/location/script/UI/frame flow is not yet integrated in controlled
+        // SDL/Vulkan bring-up loop. Consume pending first-frame flag and stay in state.
+        if (State->bFirstFramePending == 1) {
+            State->bFirstFramePending = 0;
+            State->bBaseEntered = 1; // placeholder: mark entered to keep transition semantics simple
+        }
+        return 0;
+#endif
     }
 
     // DAT_006686a0. Its static initializer LAB_00437140 only stamps the vptr 0x005cae24.
@@ -635,11 +698,13 @@ namespace
         // (0x004348e2); the handle goes to IEngine slot 15 without a -1 test.
         void Reset()
         {
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
             for (int Index = 0; Index < Count; ++Index)
             {
                 Archetype::ReleaseMaterialEntrySlot(&Entries[Index]); // FUN_0041b030
                 DALib::Engine->ReleaseHandle(Handles[Index]);         // vt+0x3c
             }
+#endif
             for (int Index = 0; Index < 0x100; ++Index)
             {
                 Handles[Index] = G_InvalidEngineHandle;
@@ -670,14 +735,19 @@ IEnvironment* GetGameflowState()
 
 void InitGameflowData()
 {
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
     // FUN_00558850. 0x00558850: IDPMsgHandler::OnDisconnect (ICF-folded bare RET) -- nothing.
     BuildClientLocationMaps();   // FUN_004393b0 on DAT_00668708
     LoadCharacterInfo();         // FUN_004354e0
     PreloadCharacterScripts();   // JMP FUN_004355e0
+#else
+    // Linux bring-up: skip location/character/script preload deps.
+#endif
 }
 
 bool ShutdownGameflow()
 {
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
     // FUN_00558870.
     ShutdownCharacterInfo();     // FUN_00435500
     ClearClientLocationMaps();   // FUN_00439260 on DAT_00668708
@@ -687,10 +757,15 @@ bool ShutdownGameflow()
     // every slot reset).
     ResetEngineInstanceCache();
     return ReportLeakedHotspots(); // JMP FUN_00556200
+#else
+    // Linux bring-up: skip GF shutdown deps.
+    return false;
+#endif
 }
 
 bool EnterGameflowBase(unsigned BaseId, unsigned LocationId, bool bFromIntro)
 {
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
     // FUN_005588a0.
     // 0x005588a6: FUN_00579290 -- the loading screen update (FUN_00578f70(-1.0f) on
     // DAT_0067c3b8, DAT_0067c3e0 = 1).
@@ -759,17 +834,31 @@ bool EnterGameflowBase(unsigned BaseId, unsigned LocationId, bool bFromIntro)
     RefreshLoadingProgress();
     SetClientFpsCap(RtcSlider::get_fps_cap()); // DAT_00610a0c
     return true;
+#else
+    // Linux bring-up: skip base/location/script/audio/fade/camera/UI setup deps.
+    (void)BaseId; (void)LocationId; (void)bFromIntro;
+    G_GameflowArrivalDelayMs = 0;
+    G_GameflowMsRemainder = 0.0f;
+    G_bGameflowMissionBriefing = false;
+    G_bGameflowStateFive = false;
+    G_bGameflowQuit = false;
+    SetGameflowLocationBase(BaseId);
+    return true;
+#endif
 }
 
 void RequestGameflowMissionBriefing()
 {
     // FUN_00558a30.
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
     SetFadeImmediate(1.0f);
+#endif
     G_bGameflowMissionBriefing = true;
 }
 
 void LeaveGameflowBase()
 {
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
 #ifdef FREELANCER_WALK_MODE
     BaseWalkLeaveBase();
 #endif
@@ -791,6 +880,9 @@ void LeaveGameflowBase()
     ResetEngineInstanceCache();               // 0x00558a8f: FUN_004348b0 on DAT_00667e50
     SetPlayerBaseIdRetail(0);                 // FUN_004c4910(&0)
     SetPlayerFactionScratchRetail(0);         // FUN_004c4a10(0)
+#else
+    // Linux bring-up: skip location/script/audio/character/fps teardown deps.
+#endif
 }
 
 void SetGameflowArrivalDelayMs(unsigned DelayMs)
@@ -801,7 +893,11 @@ void SetGameflowArrivalDelayMs(unsigned DelayMs)
 void HoldGameflowTime()
 {
     // FUN_00558bf0.
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
     G_GameflowHoldUntilFrame = GetClientFrameCount() + 2;
+#else
+    G_GameflowHoldUntilFrame = 0;
+#endif
 }
 
 void RequestGameflowStateFive()
@@ -839,6 +935,7 @@ void RequestMissionBriefingContinue()
 
 void ResetGameflowRoomLetterbox()
 {
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
     // FUN_00558d60.
     void* const Camera = GetClientRoomCamera();
     if (Camera == nullptr)
@@ -846,6 +943,9 @@ void ResetGameflowRoomLetterbox()
     ForgetLetterboxCamera(); // FUN_0041a3d0
     // 0x00558d71..0x00558d74: FUN_0041a140(Camera, 0) -- PUSH 0 is the float 0.0f.
     UpdateRoomLetterbox(static_cast<FRoomCamera*>(static_cast<ICamera*>(Camera)), 0.0f);
+#else
+    // Linux bring-up: skip room camera/letterbox deps.
+#endif
 }
 
 void ResetHotspotTracking()
@@ -873,12 +973,14 @@ void ReleaseHoveredHotspot()
 {
     // FUN_00558e90.
     G_bHotspotTracking = false;
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
     if (G_HoveredHotspot != nullptr)
     {
         int const Zero[2] = {0, 0};
         G_HoveredHotspot->bHovered = 0;
         G_HoveredHotspot->SendEvent(2, Zero);
     }
+#endif
     G_HoveredHotspot = nullptr;
 }
 

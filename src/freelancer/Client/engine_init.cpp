@@ -15,8 +15,10 @@
 #include "common_csys.h" // Acquire3DMathEngine (this module's own copy, defined below)
 #include "common_id.h"
 #include "common_ini.h"
+#include "common_archetype.h"  // Archetype DB size diagnostics (Linux bring-up)
 #include "common_async.h"      // Async::Startup
 #include "common_dataconfig.h" // DataConfig::startup, DataConfig::ProgressCB
+#include "common_goods.h"      // GoodList/BaseDataList runtime-consumer diagnostics (Linux bring-up)
 #include "common_misc.h"       // GetFileSysPath, DAEngine_create_filesystem
 #include "common_timing.h"     // Timing::init
 #include "dacom.h"
@@ -764,37 +766,11 @@ bool InitializeEngine(const FClientCommandLine* CommandLine)
     Timing::init();
 
 #if defined(FL_LINUX_PORT_UPSTREAM_TU)
-    // Linux bring-up: skip render pipeline/device-mode/dialog/splash/UI-heavy init that
-    // requires unavailable subsystems and can crash. Focus on config/data bootstrap path.
-    FL_INIT_LOG("Linux bring-up path: skipping render/dialog/splash-heavy init");
+    // Linux bring-up (M8.7): evolved guarded init flow integrated into upstream sequence.
+    // Render/dialog/splash/UI-heavy subsystems are skipped where unavailable, but the
+    // fast-path bypass has been retired in favor of a unified control flow with guards.
+    FL_INIT_LOG("Linux bring-up path: unified guarded init flow (render/dialog/splash-heavy steps skipped)");
     (void)CommandLine;
-    srand(timeGetTime());
-    if (CreateID("Freelancer") == 0) {
-        FL_INIT_WARN("CreateID(\"Freelancer\") failed (continuing)");
-    }
-
-    FL_INIT_LOG("running DataConfig::startup");
-    DataConfigPump Pump;
-    // Linux bring-up: use compatible GCliObjFactory bridge (archetype loaders are still
-    // ABI-guarded in DataConfig on Linux, so the factory is not invoked yet).
-    const int ConfigResult = DataConfig::startup(g_display.ini_path.c_str(),
-                                                 &Archetype::GCliObjFactory, &Pump);
-    if (ConfigResult == 1) {
-        FL_INIT_WARN("DataConfig::startup aborted by progress callback");
-        return false;
-    }
-    if (ConfigResult != 0) {
-        FDUMP(0x100001, "%s(%d) : *** ERROR: %s", kMainCppPath, 0x3e1,
-              "Config::startup() failed.\n");
-        FL_INIT_WARN("DataConfig::startup failed");
-        return false;
-    }
-    FL_INIT_LOG("DataConfig::startup completed");
-
-    // Best-effort lightweight follow-up init; guarded for bring-up stability.
-    try { LoadClientIniData(g_display.ini_path.c_str()); } catch (...) { FL_INIT_WARN("LoadClientIniData threw"); }
-    FL_INIT_LOG("completed Linux bring-up init subset");
-    return true;
 #else
     FL_INIT_LOG("starting render pipeline");
     if (!StartupRenderPipeline())
@@ -881,7 +857,8 @@ bool InitializeEngine(const FClientCommandLine* CommandLine)
     }
     // 0x005b1885: FUN_005b3ec0 writes [Display] from the options object (DAT_00679bc8..bd4).
     SavePerfOptions("PerfOptions.ini");
-    DALib::Alchemy->CreateVertexBuffer(); // +0x34, no null check (retail)
+    if (DALib::Alchemy != nullptr)
+        DALib::Alchemy->CreateVertexBuffer(); // +0x34, no null check (retail)
 
     if (!PlayStartupMovies())
         return false;
@@ -914,41 +891,51 @@ bool InitializeEngine(const FClientCommandLine* CommandLine)
     // 0x005b1a16..0x005b1ab9: a stack Image (vptr 0x005e2718, +0x14 = 0) shows the picture for
     // two frames, then drops its BigImage. The object itself lives to the end of the function
     // (dtor FUN_00565010 at 0x005b1c07 / 0x005b1fd1).
-    Image Splash;
-    Win3DSetViewport(nullptr, kMainCppPath, 0x3a4);   // FUN_00422610(0, main.cpp, 0x3a4)
-    Win3DSetPipelineClearColor(0.0f, 0.0f, 0.0f, 1.0f); // FUN_004214d0
-    if (Splash.Load(SplashPath))                        // FUN_00565430
     {
-        if (BeginClientRenderFrame()) // FUN_00424f30
+        Image Splash;
+        Win3DSetViewport(nullptr, kMainCppPath, 0x3a4);   // FUN_00422610(0, main.cpp, 0x3a4)
+        Win3DSetPipelineClearColor(0.0f, 0.0f, 0.0f, 1.0f); // FUN_004214d0
+        if (Splash.Load(SplashPath))                        // FUN_00565430
         {
-            ClearWin3DBuffers(0x4100); // FUN_004215e0
-            Splash.Draw();             // FUN_00565a10
-            EndClientRenderScene();    // FUN_00425080
-            PresentClientRenderFrame(); // FUN_00425140
+            if (BeginClientRenderFrame()) // FUN_00424f30
+            {
+                ClearWin3DBuffers(0x4100); // FUN_004215e0
+                Splash.Draw();             // FUN_00565a10
+                EndClientRenderScene();    // FUN_00425080
+                PresentClientRenderFrame(); // FUN_00425140
+            }
+            if (BeginClientRenderFrame())
+            {
+                ClearWin3DBuffers(0x4100);
+                Splash.Draw();
+                EndClientRenderScene();
+                PresentClientRenderFrame();
+            }
         }
-        if (BeginClientRenderFrame())
-        {
-            ClearWin3DBuffers(0x4100);
-            Splash.Draw();
-            EndClientRenderScene();
-            PresentClientRenderFrame();
-        }
+        Splash.Release(); // FUN_005650d0
     }
-    Splash.Release(); // FUN_005650d0
 
     RefreshLoadingProgress();
     if (!PumpInitMessages())
         return false;
     RefreshLoadingProgress();
+#endif
+
     srand(timeGetTime());
     if (CreateID("Freelancer") == 0)
     {
+#if defined(FL_LINUX_PORT_UPSTREAM_TU)
+        FL_INIT_WARN("CreateID(\"Freelancer\") failed (continuing)");
+#else
         FDUMP(0x100001, "%s(%d) : *** ERROR: %s", kMainCppPath, 0x3d1,
               "Failed to initialize global ID maker instance.\n");
         return false;
+#endif
     }
 
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
     RefreshLoadingProgress();
+#endif
     // 0x005b1baa..0x005b1bc1: a stack DataConfigPump (vptr 0x005e6ab8 stored at [ESP+0x2c])
     // pumps messages for every [Data] value DataConfig::startup reads.
     FL_INIT_LOG("running DataConfig::startup");
@@ -968,6 +955,204 @@ bool InitializeEngine(const FClientCommandLine* CommandLine)
     }
     FL_INIT_LOG("DataConfig::startup completed");
 
+#if defined(FL_LINUX_PORT_UPSTREAM_TU)
+    // Diagnostic: validate archetype/runtime-population results in Linux bring-up.
+    {
+        char Msg[256];
+        std::snprintf(Msg, sizeof(Msg),
+                      "Archetype DB sizes: equipment=%u solar=%u ships=%u asteroids=%u simples=%u dynamic_asteroids=%u",
+                      Archetype::GEquipmentDb.Size(),
+                      Archetype::GSolarDb.Size(),
+                      Archetype::GShipDb.Size(),
+                      Archetype::GAsteroidDb.Size(),
+                      Archetype::GSimpleDb.Size(),
+                      Archetype::GDynamicAsteroidDb.Size());
+        ::fl_port::log_message(::fl_port::LogLevel::Info, Msg);
+    }
+
+    // Diagnostic: downstream runtime-consumer population/cross-ref probes after DataConfig.
+    try {
+        char Msg[384];
+        unsigned GoodCount = 0;
+        unsigned BaseCount = 0;
+        unsigned RoomCount = 0;
+        unsigned GoodLookupOk = 0;
+        unsigned BaseLookupOk = 0;
+        unsigned LoadoutProbeHits = 0;
+        unsigned GoodArchXrefOk = 0;
+        unsigned GoodArchXrefChecked = 0;
+        unsigned UniverseSystemCount = 0;
+        unsigned UniverseSystemIdLookupOk = 0;
+
+        if (GoodInfoList* Goods = ::GoodList_get())
+        {
+            if (const std::list<GoodInfo*>* List = Goods->get_list())
+            {
+                GoodCount = static_cast<unsigned>(List->size());
+                if (!List->empty() && List->front())
+                {
+                    const GoodInfo* Probe = List->front();
+                    const GoodInfo* ById = Goods->find_by_id(Probe->Id);
+                    if (ById == Probe && ::Good2Arch(Probe->Id) == Probe->ArchId)
+                        GoodLookupOk = 1;
+                }
+                // Sample goods->arch->good cross-reference consistency.
+                unsigned Checked = 0;
+                for (std::list<GoodInfo*>::const_iterator It = List->begin();
+                     It != List->end() && Checked < 32; ++It, ++Checked)
+                {
+                    const GoodInfo* Gi = *It;
+                    if (!Gi || Gi->Id == 0) continue;
+                    ++GoodArchXrefChecked;
+                    const unsigned Arch = ::Good2Arch(Gi->Id);
+                    if (Arch == Gi->ArchId && (Arch == 0 || ::Arch2Good(Arch) == Gi->Id))
+                        ++GoodArchXrefOk;
+                }
+            }
+        }
+
+        if (BaseDataList* Bases = ::BaseDataList_get())
+        {
+            if (const std::list<BaseData*>* List = Bases->get_const_base_data_list())
+            {
+                BaseCount = static_cast<unsigned>(List->size());
+                for (std::list<BaseData*>::const_iterator It = List->begin(); It != List->end(); ++It)
+                {
+                    if (!*It)
+                        continue;
+                    RoomCount += static_cast<unsigned>((*It)->Rooms.size());
+                }
+                if (!List->empty() && List->front())
+                {
+                    BaseData* ProbeBase = List->front();
+                    if (ProbeBase && Bases->get_base_data(ProbeBase->get_base_id()) == ProbeBase)
+                        BaseLookupOk = 1;
+                }
+            }
+        }
+
+        // Safe loadout lookups (no warnings on miss): probe known vanilla/stock loadout nicknames.
+        {
+            static const char* const kLoadoutProbes[] = {
+                "msn_playerloadout",
+                "co_ge_fighter_loadout01",
+                "li_p_li_fighter_loadout01",
+                "br_p_br_fighter_loadout01",
+                "li_n_li_cruiser",
+                "docking_ring",
+            };
+            for (unsigned i = 0; i < (unsigned)(sizeof(kLoadoutProbes) / sizeof(kLoadoutProbes[0])); ++i)
+            {
+                const unsigned Id = ::Loadout::GetID(kLoadoutProbes[i]);
+                if (Id != 0 && ::Loadout::Get(Id) != nullptr)
+                    ++LoadoutProbeHits;
+            }
+        }
+
+        // Universe/system runtime consumer probes (safe iteration/counts).
+        try
+        {
+            for (Universe::ISystem* Sys = Universe::GetFirstSystem();
+                 Sys != nullptr && UniverseSystemCount < 4096;
+                 Sys = Universe::GetNextSystem())
+            {
+                ++UniverseSystemCount;
+                if (UniverseSystemCount == 1)
+                {
+                    // ISystem interface layout varies; avoid calling virtuals here in bring-up.
+                    UniverseSystemIdLookupOk = 1;
+                }
+            }
+        }
+        catch (...) {}
+
+        std::snprintf(Msg, sizeof(Msg),
+                      "Runtime consumer data: goods=%u(good_lookup=%u,xref=%u/%u) bases=%u(base_lookup=%u) base_rooms=%u loadout_probe_hits=%u universe_systems=%u(sys_iter=%u)",
+                      GoodCount, GoodLookupOk, GoodArchXrefOk, GoodArchXrefChecked,
+                      BaseCount, BaseLookupOk, RoomCount, LoadoutProbeHits,
+                      UniverseSystemCount, UniverseSystemIdLookupOk);
+        ::fl_port::log_message(::fl_port::LogLevel::Info, Msg);
+    } catch (...) {
+        FL_INIT_WARN("runtime consumer diagnostics threw");
+    }
+
+    // Best-effort lightweight follow-up init; guarded for bring-up stability.
+    try { LoadClientIniData(g_display.ini_path.c_str()); } catch (...) { FL_INIT_WARN("LoadClientIniData threw"); }
+
+    // Linux bring-up: integrate real perf_options load/apply/save flow safely.
+    // Full render/display seeding and dialog flows are skipped above; here we only
+    // load/persist perf state with guarded apply callbacks and incomplete-runtime stubs.
+    try
+    {
+        FPerfDisplaySettings PerfDisplay{};
+        const bool bPerfOptionsCurrent =
+            LoadPerfOptions("PerfOptions.ini", &PerfDisplay);
+        if (!bPerfOptionsCurrent)
+        {
+            try { NnPreferences::SeedGraphicsDefaults(); } catch (...) {}
+            try { ApplyChangedPerfOptions(); } catch (...) {}
+            FL_INIT_LOG("perf_options: defaults/seeded apply path used (Linux bring-up)");
+        }
+        else
+        {
+            FL_INIT_LOG("perf_options: loaded from PerfOptions.ini");
+        }
+        try { SavePerfOptions("PerfOptions.ini"); } catch (...) {}
+    }
+    catch (...)
+    {
+        FL_INIT_WARN("perf_options init/load/apply/save threw");
+    }
+
+    // Task 2 (M8.7): continue upstream init progression with guarded steps instead of
+    // an early Linux return. Render/dialog/pump-heavy prerequisites are incomplete, so
+    // each step is isolated and failures are non-fatal for bring-up stability.
+    try { ChatRegisterTextStyles(); } catch (...) { FL_INIT_WARN("ChatRegisterTextStyles threw"); }
+
+    try {
+        Win3DStartupManager(g_display.width, g_display.height);
+        FL_INIT_LOG("Win3DStartupManager completed (Linux guarded)");
+    } catch (...) { FL_INIT_WARN("Win3DStartupManager threw"); }
+
+    try { InitUiSoundTable(); } catch (...) { FL_INIT_WARN("InitUiSoundTable threw"); }
+
+    try {
+        G_WinDebugRoot = WinFactoryCreate("WinDebug", "WinDebug", nullptr, nullptr);
+    } catch (...) { FL_INIT_WARN("WinDebug WinFactoryCreate threw"); }
+
+    // State PreInit hooks (slot 8) - guarded; upstream does message pumps between them.
+    try { if (IEnvironment* s = GetIntroFocusState()) s->PreInit(); } catch (...) { FL_INIT_WARN("IntroFocus PreInit threw"); }
+    try { if (IEnvironment* s = GetSpaceState()) s->PreInit(); } catch (...) { FL_INIT_WARN("SpaceState PreInit threw"); }
+    try { if (IEnvironment* s = GetGameflowState()) s->PreInit(); } catch (...) { FL_INIT_WARN("GameflowState PreInit threw"); }
+    try { if (IEnvironment* s = GetMissionBriefingState()) s->PreInit(); } catch (...) { FL_INIT_WARN("MissionBriefingState PreInit threw"); }
+
+    try { EnsureClientIMEFocus(); } catch (...) { FL_INIT_WARN("EnsureClientIMEFocus threw"); }
+
+    try {
+        // Upstream uses G_RenderSurfaceHeight (DAT_00610854); fall back to display height in bring-up.
+        const int rich_h = (G_RenderSurfaceHeight != 0) ? static_cast<int>(G_RenderSurfaceHeight)
+                                                        : g_display.height;
+        InitializeRichText(rich_h > 0 ? rich_h : 480);
+    } catch (...) { FL_INIT_WARN("InitializeRichText threw"); }
+
+    try { ReinitializeRichTextFonts(); } catch (...) { FL_INIT_WARN("ReinitializeRichTextFonts threw"); }
+
+    try {
+        if (g_display.data_path.Text && g_display.data_path.Text[0] != '\0')
+            DeviceTRC::set_image_root(g_display.data_path.Text);
+    } catch (...) { FL_INIT_WARN("DeviceTRC::set_image_root threw"); }
+
+    try { ChatInit(); } catch (...) { FL_INIT_WARN("ChatInit threw"); }
+    try { MenuUiInitToolTipAndRollover(); } catch (...) { FL_INIT_WARN("MenuUiInitToolTipAndRollover threw"); }
+
+    try { WarmUpEffectShapes(); } catch (...) { FL_INIT_WARN("WarmUpEffectShapes threw"); }
+
+    try { TickClientFrameTimer(); } catch (...) { FL_INIT_WARN("TickClientFrameTimer threw"); }
+    try { LoadingScreenReset(); } catch (...) { FL_INIT_WARN("LoadingScreenReset threw"); }
+
+    FL_INIT_LOG("completed Linux bring-up init (unified guarded flow, early-return bypass retired)");
+    return true;
+#else
     RefreshLoadingProgress();
     if (!PumpInitMessages())
         return false;

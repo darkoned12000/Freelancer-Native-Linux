@@ -24,6 +24,12 @@ int ComputeInitialEnvironment()
     // -spquickstart prefix that used to run here is gone: the retail [Login] auto-login below is
     // the same quick start (it needs [Login] char just as the shortcut did).
     int Result = 6;
+#if defined(FL_LINUX_PORT_UPSTREAM_TU)
+    // Linux bring-up: skip [Login] auto-login path that depends on real CLoginMgr layout/state,
+    // server/connect/session readiness, and single-player flow integration. Default to menu state.
+    (void)Result;
+    return 6;
+#else
     // 0x005b20a5..0x005b20ce: the [Login] auto-login is on when the login name (+0x188, the
     // copy FUN_005a96b0 returns) is not empty and the character name (DAT_0067e9a0, +0x1e8) is
     // not empty. CLoginMgr::LoadConfig (FUN_005a82d0, main.cpp) fills both from [Login].
@@ -53,4 +59,5 @@ int ComputeInitialEnvironment()
         }
     }
     return Result;
+#endif
 }

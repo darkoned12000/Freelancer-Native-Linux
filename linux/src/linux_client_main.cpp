@@ -8,6 +8,8 @@
 #include <common_ini.h>
 #include <common_timing.h>
 #include "../../src/freelancer/Client/globals.h"
+
+extern void TickClientFrame(double DeltaSeconds);
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
@@ -1073,8 +1075,25 @@ int main(int argc, char** argv) {
     (void)audio.play_sound("ui/menu_ready", 0.8f, false);
     audio.update();
 
-    window.run_loop([&](std::uint64_t frame_index, double /*dt_ms*/) {
+    window.run_loop([&](std::uint64_t frame_index, double dt_ms) {
       if (close_requested || render_error) return false;
+
+      // Task 2/3 (M8.7/M8.8): drive upstream timing/frame/state consumers each frame alongside
+      // SDL event/render/audio bring-up path. TickClientFrame performs upstream state Update and
+      // state-transition handling against g_client.current_state.
+      const double dt_sec = (dt_ms > 0.0 && dt_ms < 250.0) ? (dt_ms / 1000.0) : (1.0 / 60.0);
+      try { TickClientFrameTimer(); } catch (...) {}
+      try { UpdateClientTiming(); } catch (...) {}
+      try { TickClientFrame(dt_sec); } catch (...) {}
+
+      // Respect upstream/client quit requests if surfaced through state machine (best-effort).
+      try {
+        if (g_client.current_state == nullptr) {
+          fl_port::log_message(fl_port::LogLevel::Info,
+                               "M8.7/M8.8: upstream/client state requested quit (current_state null)");
+          close_requested = true;
+        }
+      } catch (...) {}
 
       // Controlled-state visuals (clear-only renderer): transition clear color once on menu reach
       const bool in_menu = frame_index >= static_cast<std::uint64_t>(boot_frames);

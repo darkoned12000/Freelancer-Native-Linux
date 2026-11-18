@@ -71,6 +71,7 @@ namespace
     // FUN_0059e300, FUN_00425080, FUN_00425140.
     void DrawBriefingFrame(float DeltaSeconds)
     {
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
         TickClientSoundMixer(nullptr, DeltaSeconds);
         if (!BeginClientRenderFrame())
             return;
@@ -79,6 +80,9 @@ namespace
         Win3DDrawAll();
         EndClientRenderScene();
         PresentClientRenderFrame();
+#else
+        (void)DeltaSeconds;
+#endif
     }
 
     // The exit both LAB_0043d300 and LAB_0043d360 take (0x0043d312..0x0043d337 /
@@ -89,9 +93,14 @@ namespace
         State->bIdle = 1;
         State->bFirstFramePending = 1;
         G_bMissionBriefingContinue = 0;
-        State->ParentWindow->Flags = static_cast<unsigned char>(State->ParentWindow->Flags & 0xfc);
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
+        if (State->ParentWindow)
+            State->ParentWindow->Flags = static_cast<unsigned char>(State->ParentWindow->Flags & 0xfc);
         SetPlayerBaseIdRetail(0);
         NnSystemShutdown();
+#else
+        (void)State;
+#endif
     }
 
     // Slot 0 (LAB_0043d130, RET 0x10) -- a key message (A, Message, B, C). Unless the chat
@@ -103,11 +112,13 @@ namespace
         (void)Message;
         (void)B;
         (void)C;
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
         if (!ChatIsInputOpen())
         {
             GetKeyState(VK_SHIFT);
             GetKeyState(VK_CONTROL);
         }
+#endif
         return true;
     }
 
@@ -177,6 +188,7 @@ namespace
         G_bMissionBriefingContinue = 0;
         SetGameflowLocationBase(0);
         State->bIdle = 1;
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
         // 0x0043d19b..0x0043d1a8: +0x08 = FUN_0059db20("BriefingParentWindow", "StaticControl",
         // 0, 0); null skips the rest (JZ 0x0043d253).
         State->ParentWindow = WinFactoryCreate("BriefingParentWindow", "StaticControl", nullptr,
@@ -198,6 +210,10 @@ namespace
         State->ParentWindow->SetPosition(Position);
         // 0x0043d24f: hidden until the first frame.
         State->ParentWindow->Flags = static_cast<unsigned char>(State->ParentWindow->Flags & 0xfc);
+#else
+        // Linux bring-up: skip UI window/navmap setup deps.
+        State->ParentWindow = nullptr;
+#endif
     }
 
     // Slot 9 (LAB_0043d260) -- FUN_0043d2a0's body on the window (children first, next sibling
@@ -206,7 +222,9 @@ namespace
     {
         if (ParentWindow == nullptr)
             return;
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
         Win3DDeleteTree(ParentWindow);
+#endif
         ParentWindow = nullptr;
     }
 
@@ -229,6 +247,7 @@ namespace
     void MissionBriefing::Destroy()
     {
         MissionBriefing* const State = this;
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
         // 0x0043d304..0x0043d310: only while the briefing is up (first frame done) and the
         // window exists.
         if (State->bFirstFramePending != 0 || State->ParentWindow == nullptr)
@@ -242,13 +261,17 @@ namespace
         Win3D* const NavMap = State->ParentWindow->GetChildHead();
         if (NavMap != nullptr)
             NavMap->Slot23(0xef02, 0, 0);
+#else
+        // Linux bring-up: skip briefing UI/navmap/NN teardown deps.
+        (void)State;
+#endif
     }
 
     // Slot 14 (LAB_0043d360, RET 4). EBX = 0, EBP = DeltaSeconds throughout.
     int MissionBriefing::Update(float DeltaSeconds)
     {
         MissionBriefing* const State = this;
-
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
         // 0x0043d360..0x0043d37f: FCOMP 0.0, TEST AH,0x44, JNP -- the jump (to the frame) is
         // taken only when DeltaSeconds equals 0 (C3 alone; unordered sets C3 and C2 and falls
         // through). Otherwise the frame is drawn only with the continue request set.
@@ -328,6 +351,13 @@ namespace
         LeaveBriefing(State);
         StoryStarReset(); // FUN_004b9bb0
         return 2;
+#else
+        // Linux bring-up: skip briefing UI/navmap/render/NN/best-path/music deps.
+        (void)DeltaSeconds;
+        (void)State;
+        State->bFirstFramePending = 0;
+        return 0;
+#endif
     }
 
     // DAT_00668774. Its static initializer LAB_0043d120 only stamps the vptr 0x005cb094; the

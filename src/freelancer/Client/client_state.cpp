@@ -155,6 +155,7 @@ namespace
         {
             // FUN_00573860 (RET 4). Param is not read.
             (void)Param;
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
             ShutdownServerConnection();      // FUN_005a8260
             ResetMissionOfferAnswerRetail(); // FUN_004c55b0 (0x00573869)
             G_LoginMgr.Reset();              // FUN_005a9300
@@ -220,11 +221,23 @@ namespace
                 EnterClientLocationBase(BaseId); // FUN_0043b290(BaseId) (0x005739ab)
                 NavBarDestroy();                 // FUN_00442130 (0x005739b0)
             }
+#else
+            // Linux bring-up: minimal real IntroFocus init without menu/login/location/script/UI deps.
+            // Real state object is active (Task 1/2 integration), but menu flow and subsystems are
+            // not yet fully wired in the controlled SDL/Vulkan bring-up loop.
+            Nav.Flag20c = 0;
+            Nav.PrevState = 0;
+            Nav.CurrentState = 1;
+            Nav.ActivePage = nullptr;
+            Nav.Flag22c = 0;
+            Nav.Field230 = 0.0f;
+#endif
             return true;
         }
 
         void Destroy() override
         {
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
             // FUN_00573c00.
             MenuEnterStateReleaseActivePage(&Nav); // +0x228 slot 10, +0x228 = 0
             // 0x00573c22..0x00573ce3: TypeSelect::Destroy (FUN_00566ab0) inlined.
@@ -243,6 +256,10 @@ namespace
             // 0x00573e90..0x00573ea2: FUN_005650d0 inlined on the logo Image -- its BigImage
             // (+0x224) released (slot 2) and cleared.
             Nav.LogoImage.Release();
+#else
+            // Linux bring-up: menu page/UI teardown not fully integrated in controlled flow.
+            (void)Nav;
+#endif
         }
 
         int Update(float DeltaSeconds) override
@@ -250,7 +267,13 @@ namespace
             // FUN_00573eb0 -- the whole IntroFocus frame, the scene step and the draw included.
             // The column's mouse input arrives through the Win3D manager (FUN_0059d140 /
             // FUN_0059e080), not through this slot.
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
             return MenuStateDriverUpdate(&Nav, DeltaSeconds);
+#else
+            // Linux bring-up: menu/UI driver not fully integrated in controlled SDL/Vulkan loop.
+            (void)DeltaSeconds;
+            return 0;
+#endif
         }
     };
 
@@ -385,6 +408,7 @@ namespace
         // 0x005b2a6d..0x005b2a93: FUN_005a8260, FUN_005a8960(&DAT_00679d04), FUN_005aa680. A
         // failure leaves through caseD_8, which returns the previous state (ESI).
         ShutdownServerConnection();
+#if !defined(FL_LINUX_PORT_UPSTREAM_TU)
         if (!ConnectAndLogin(g_display.ini_path.Text))
             return PreviousState;
         if (G_LoginMgr.RequestCharacterInfo() == 0)
@@ -400,6 +424,14 @@ namespace
             SetClientQuitRequested(true);
             return PreviousState;
         }
+#else
+        // Linux bring-up: real login/connect/character-selection path not fully integrated yet.
+        // Case 7 (load game) is not exercised by default menu bring-up; fail safely.
+        (void)PreviousState;
+        (void)G_LoadGameCharacterId;
+        SetClientQuitRequested(true);
+        return PreviousState;
+#endif
 
         // 0x005b2ade..0x005b2b07: FUN_004c4810 (the player's base is set) -> GF->slot 12 Init(1)
         // (true -> GF, false -> 0).

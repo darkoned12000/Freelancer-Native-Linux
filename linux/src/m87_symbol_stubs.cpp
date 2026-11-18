@@ -13,11 +13,12 @@
 #include "common_csys.h"
 #include "common_id.h"
 #include "common_ini.h"
+#include "freelancer/Client/client_environment.h"
+#include "linux_port/platform.h"
 
 // M8.7 temporary stubs for upstream init/link closure (single-player-safe).
 // Replace with real implementations as dependencies are linked.
 
-struct IEnvironment;
 struct FClientCommandLine;
 struct DisplaySettings;
 struct Win3D;
@@ -233,11 +234,47 @@ bool GetUserLocalDataPath(char* const dest) {
 }
 
 // --- Client init/bootstrap hooks ---
-int ComputeInitialEnvironment() { return 0; }
-IEnvironment* EnterClientState(int, IEnvironment*) { return nullptr; }
+// ComputeInitialEnvironment: provided by real src/freelancer/Client/intro_connect.cpp (Linux-guarded)
+// EnterClientState/GetIntroFocusState: attempting real client_state.cpp integration (Task 1/2)
+extern "C++" {
+// placeholders for other state singletons until their real TUs are linked
+}
+namespace {
+struct FlLinuxDummyEnvironment final : IEnvironment {
+  int type = 0;
+  explicit FlLinuxDummyEnvironment(int t = 0) : type(t) {}
+  bool Slot00(unsigned, unsigned, unsigned, unsigned) override { return false; }
+  bool Slot01(unsigned, unsigned, unsigned) override { return false; }
+  bool Slot02(unsigned, unsigned, unsigned long) override { return false; }
+  bool Slot03(unsigned, unsigned, unsigned, unsigned long) override { return false; }
+  bool Slot04(unsigned, unsigned, unsigned) override { return false; }
+  void Slot05() override {}
+  void Slot06(unsigned) override {}
+  int  GetEnvironmentType() override { return type; }
+  void PreInit() override {}
+  void Shutdown() override {}
+  void Slot10() override {}
+  void Resize(int, int) override {}
+  bool Init(int) override { return true; }
+  void Destroy() override {}
+  int  Update(float) override { return 0; }
+};
+FlLinuxDummyEnvironment g_fl_dummy_space{0};
+FlLinuxDummyEnvironment g_fl_dummy_gf{1};
+FlLinuxDummyEnvironment g_fl_dummy_briefing{3};
+}
 // LoadStartupConfig/ApplyDisplayCmdlineOverrides provided by upstream startup_config.cpp when linked.
+#if !defined(_MSC_VER) && !defined(_WIN32)
+__attribute__((weak))
+#endif
 void ApplyChangedPerfOptions() {}
+#if !defined(_MSC_VER) && !defined(_WIN32)
+__attribute__((weak))
+#endif
 void LoadPerfOptions(char const*, FPerfDisplaySettings*) {}
+#if !defined(_MSC_VER) && !defined(_WIN32)
+__attribute__((weak))
+#endif
 void SavePerfOptions(char const*) {}
 // ClientNoteEngineReady/ClientPresentAllowed provided by window.cpp when linked.
 void BeginClientRenderFrame() {}
@@ -277,6 +314,14 @@ void WideTextReserve(FHudWideText*, unsigned int) {}
 void UiScrollClearShapes() {}
 void LoadingScreenRegister() {}
 void LoadingScreenReset() {}
+
+// Stubs for real client_state.cpp integration (Linux bring-up, Task 1/2)
+bool G_bNnScreenUp = false;
+void LoadingScreenSetClear(unsigned char) {}
+// ResetGameflowRoomLetterbox: provided by real src/freelancer/Client/gameflow.cpp (Linux bring-up guarded)
+void SetClientQuitRequested(bool) {}
+struct Win3D;
+Win3D* Win3DFindByName(char const*) { return nullptr; }
 void LoadingScreenSetImage(char const*) {}
 void LoadingScreenShutdown() {}
 void LoadingScreenStart() {}
@@ -307,11 +352,17 @@ void ClearWin3DBuffers(unsigned int) {}
 void ShutdownCharacterInfo() {}
 void ShutdownServerConnection() {}
 void* GetNnToolTipSingleton() { return nullptr; }
-void* GetIntroFocusState() { return nullptr; }
-void* GetGameflowState() { return nullptr; }
-void* GetSpaceState() { return nullptr; }
-void* GetMissionBriefingState() { return nullptr; }
+// GetIntroFocusState/EnterClientState: provided by real src/freelancer/Client/client_state.cpp (when linked)
+// GetGameflowState: provided by real src/freelancer/Client/gameflow.cpp (Linux bring-up guarded)
+// GetSpaceState: provided by real src/freelancer/Client/space_state.cpp (Linux bring-up guarded)
+// GetMissionBriefingState: provided by real src/freelancer/Client/mission_briefing.cpp (Linux bring-up guarded)
+#if !defined(_MSC_VER) && !defined(_WIN32)
+__attribute__((weak))
+#endif
 bool GetSkipMachineWarnings() { return true; }
+#if !defined(_MSC_VER) && !defined(_WIN32)
+__attribute__((weak))
+#endif
 void SetSkipMachineWarnings(bool) {}
 
 // C++ class/namespace stubs
@@ -334,9 +385,36 @@ bool __cdecl IsMPServer() { return false; }
 // PetalDB_*, FuseDB::*, WeaponModDB_* provided by upstream common_fuses.cpp (linked).
 // Loadout::Load/Free provided by upstream common_loadout.cpp when linked.
 // Reputation::Vibe::Count provided by upstream common_vibe.cpp when linked.
-namespace Archetype { int FlushMaterialCache() { return 0; } }
+namespace Archetype {
+#if !defined(_MSC_VER) && !defined(_WIN32)
+__attribute__((weak))
+#endif
+int FlushMaterialCache() { return 0; }
+}
 namespace CGunWrapper { void Shutdown() {} }
 namespace NnPreferences { void SeedGraphicsDefaults() {} }
+
+#if !defined(_MSC_VER) && !defined(_WIN32)
+__attribute__((weak))
+#endif
+bool GetUserDataPath(char* const dest) {
+  if (!dest) return false;
+  const char* xdg = std::getenv("XDG_DATA_HOME");
+  if (xdg && *xdg) {
+    std::snprintf(dest, 260, "%s/freelancer", xdg);
+  } else {
+    const char* home = std::getenv("HOME");
+    if (home && *home) std::snprintf(dest, 260, "%s/.local/share/freelancer", home);
+    else std::snprintf(dest, 260, ".freelancer");
+  }
+  char tmp[260];
+  std::snprintf(tmp, sizeof(tmp), "%s", dest);
+  for (char* p = tmp + 1; *p; ++p) {
+    if (*p == '/') { *p = '\0'; ::mkdir(tmp, 0755); *p = '/'; }
+  }
+  ::mkdir(tmp, 0755);
+  return true;
+}
 
 struct Image { Image(); ~Image(); void Load(char const*); void Release(); void Draw(); };
 Image::Image() {} Image::~Image() {} void Image::Load(char const*) {} void Image::Release() {} void Image::Draw() {}
@@ -373,53 +451,95 @@ void CLoginMgr::Cleanup() {}
 // Minimal Win32 message stub needed by upstream engine_init low-spec dialog path.
 extern "C" LRESULT WINAPI SendMessageA(HWND, UINT, WPARAM, LPARAM) { return 0; }
 
-// Bring-up init helper stub (real TU has heavy client-resource deps).
-// Linux bring-up: partial LoadClientIniData implementation (parses [Data]/[Resources]/audio SoundCFG
-// flow similar to src/freelancer/Client/dataconfig_progress.cpp, but skips subsystem loaders that
-// are not yet linked/ported). Replaced by real TU when dependencies are feasible.
-bool LoadClientIniData(char const* IniPath)
-{
-  if (!IniPath || !*IniPath)
-    return true;
+// Bring-up weak stubs for client data/config loaders not yet linked on Linux.
+// These allow the real upstream dataconfig_progress.cpp LoadClientIniData path to link
+// incrementally; when real loader TUs are integrated they should replace these stubs.
+#if !defined(_MSC_VER) && !defined(_WIN32)
+__attribute__((weak)) int LoadFonts(char const*, IFileSystem*) { return 0; }
+__attribute__((weak)) void LoadRichFontsFromIni(char const*, IFileSystem*) {}
+__attribute__((weak)) int LoadClientSoundArchIni(char const*, bool) { return 0; }
+__attribute__((weak)) int LoadClientVoicesIni(char const*) { return 0; }
+__attribute__((weak)) int EffectArchLoadIni(char const*, bool) { return 0; }
+__attribute__((weak)) void AddEffectShapesFile(char const*) {}
+__attribute__((weak)) int LoadDebrisArchFile(char const*, bool) { return 0; }
+__attribute__((weak)) void SetHudIniPath(char const*) {}
+__attribute__((weak)) int GraphLibraryLoad(char const*) { return 0; }
+__attribute__((weak)) void LoadClientSoundCfgIni(char const*) {}
+#endif
 
-  INI_Reader Reader;
-  if (Reader.open(IniPath, false))
-  {
-    while (Reader.read_header())
-    {
-      if (Reader.is_header("Data"))
-      {
-        if (Reader.read_value())
-        {
-          do
-          {
-            // Parse and resolve known data keys (loaders not yet linked on Linux bring-up).
-            const char* const Value = Reader.get_value_string();
-            char Path[MAX_PATH];
-            if (Value && *Value)
-              GetFileSysPath(Path, Value, nullptr);
-          } while (Reader.read_value());
-        }
-      }
-      else if (Reader.is_header("Resources"))
-      {
-        if (Reader.read_value())
-        {
-          do
-          {
-            // Skip DLL resource loading on Linux bring-up.
-            (void)Reader.get_value_string();
-          } while (Reader.read_value());
-        }
-      }
-    }
 
-    char SoundCfgPath[MAX_PATH];
-    GetFileSysPath(SoundCfgPath, "audio\\SoundCFG.ini", nullptr);
-    (void)SoundCfgPath;
-  }
-  return true;
+
+// --- Weak stubs for client_cliobj.cpp dependency closure ---
+struct FEffectArch;
+#if !defined(_MSC_VER) && !defined(_WIN32)
+__attribute__((weak))
+#endif
+FEffectArch* FindEffectArch(unsigned int const*) { return nullptr; }
+#if !defined(_MSC_VER) && !defined(_WIN32)
+__attribute__((weak))
+#endif
+void EffectArchAddRef(FEffectArch*, unsigned int) {}
+#if !defined(_MSC_VER) && !defined(_WIN32)
+__attribute__((weak))
+#endif
+void EffectArchRelease(FEffectArch*) {}
+#if !defined(_MSC_VER) && !defined(_WIN32)
+__attribute__((weak))
+#endif
+float ShipCameraClampTurnAngle(float Degrees) {
+  if (Degrees < 0.0f) return 0.0f;
+  if (Degrees > 90.0f) return 90.0f;
+  return Degrees;
 }
+
+// --- Weak stubs for perf_options.cpp / Linux bring-up dependency closure ---
+// These satisfy symbols referenced by src/freelancer/Client/perf_options.cpp when linked
+// into the upstream init TU, without pulling heavy runtime subsystems. Real TUs override.
+
+#if !defined(_MSC_VER) && !defined(_WIN32)
+#define FL_M87_WEAK __attribute__((weak))
+#else
+#define FL_M87_WEAK
+#endif
+
+FL_M87_WEAK float G_SunEffectQuality = 0.0f;
+
+FL_M87_WEAK bool GfScriptSequenceSkipLatch() { return false; }
+FL_M87_WEAK void GfScriptSequenceSetSkipOption(float) {}
+
+FL_M87_WEAK void SetClientSoundLod(int) {}
+FL_M87_WEAK void SetClientAudioMusicVolume(float) {}
+FL_M87_WEAK void SetClientAudioAmbientVolume(float) {}
+FL_M87_WEAK void SetClientAudioSfxVolume(float) {}
+FL_M87_WEAK void SetClientAudioInterfaceVolume(float) {}
+FL_M87_WEAK void SetClientAudioVoiceVolume(float) {}
+
+FL_M87_WEAK void ApplyMouseSpeedOption(float) {}
+FL_M87_WEAK void NebulaApplyGlobalDetail(float) {}
+FL_M87_WEAK void CliAsteroidApplyGlobalDetail(float) {}
+FL_M87_WEAK void StarSphereApplyDetail(float) {}
+FL_M87_WEAK void SolarSpheresApplyDetail(float) {}
+
+struct FStarSphereList;
+FL_M87_WEAK FStarSphereList* StarSphereList() { return nullptr; }
+
+class IObjRW;
+class CShip;
+FL_M87_WEAK void* GetPlayerObjRW() { return nullptr; }
+FL_M87_WEAK CShip* HudShipOfObjRw(IObjRW*) { return nullptr; }
+
+namespace Archetype {
+struct ICliObj;
+FL_M87_WEAK void CliObjSetArchLodGlobals(unsigned char, float) {}
+FL_M87_WEAK void CliObjRecomputeLodPick(ICliObj*, float const*) {}
+}
+
+#undef FL_M87_WEAK
+
+// LoadClientIniData is provided by upstream src/freelancer/Client/dataconfig_progress.cpp
+// (linked in fl_upstream_client_init_tu for Linux bring-up). Weak client-loader stubs above
+// satisfy missing subsystem dependencies incrementally. If this TU is ever unlinked, restore
+// a weak fallback implementation here.
 
 // IVP memory helpers (bring-up stubs; real IVP runtime not linked).
 void* ivp_malloc_aligned(unsigned int size, unsigned int alignment) {
