@@ -204,8 +204,11 @@ void __cdecl Reputation::Save(ISave* Writer)
             FGroup const* Other = FindGroupConst(FeelIt->first);
             char const* OtherNick = (Other != nullptr) ? Other->Nickname.Data : "";
             char Buffer[260];
-            _snprintf_s(Buffer, sizeof(Buffer), _TRUNCATE, "%g, %s",
-                        (double)FeelIt->second, OtherNick);
+#if defined(_MSC_VER)
+            std::snprintf(Buffer, sizeof(Buffer), "%g, %s", (double)FeelIt->second, OtherNick)
+#else
+            std::snprintf(Buffer, sizeof(Buffer), "%g, %s", (double)FeelIt->second, OtherNick);
+#endif
             Writer->WriteString("rep", Buffer);
         }
     }

@@ -668,6 +668,13 @@ namespace Archetype
         if (BEAM_ARCH_INDEX != -1)
             return;
 
+#if defined(FL_LINUX_PORT_UPSTREAM_TU)
+        // Linux bring-up may run data loading without an initialized engine; treat the
+        // beam archetype handle as unavailable instead of crashing on a null DALib::Engine.
+        if (DALib::Engine == nullptr)
+            return;
+#endif
+
         FEngineArchetypeName Name;
         Name.Text = "BEAM_ARCH";
         Name.Crc = DACOM_CRC::GetCRC32("BEAM_ARCH");
@@ -679,7 +686,12 @@ namespace Archetype
         // 062fab7f: not -1 -> IEngine slot 15 (+0x3c, ReleaseHandle), then -1. No engine test.
         if (BEAM_ARCH_INDEX == -1)
             return;
-        DALib::Engine->ReleaseHandle((void*)BEAM_ARCH_INDEX);
+#if defined(FL_LINUX_PORT_UPSTREAM_TU)
+        if (DALib::Engine != nullptr)
+#endif
+        {
+            DALib::Engine->ReleaseHandle((void*)BEAM_ARCH_INDEX);
+        }
         BEAM_ARCH_INDEX = -1;
     }
 
@@ -691,7 +703,12 @@ namespace Archetype
         if (DaArchetype.Value[0] == '\0')
         {
             EngineIndex = BEAM_ARCH_INDEX;
-            DALib::Engine->AddRefHandle((void*)EngineIndex);
+#if defined(FL_LINUX_PORT_UPSTREAM_TU)
+            if (DALib::Engine != nullptr)
+#endif
+            {
+                DALib::Engine->AddRefHandle((void*)EngineIndex);
+            }
             LoadCount += 1;
             return true;
         }
@@ -707,7 +724,12 @@ namespace Archetype
         {
             if (EngineIndex != -1)
             {
-                DALib::Engine->ReleaseHandle((void*)EngineIndex);
+#if defined(FL_LINUX_PORT_UPSTREAM_TU)
+                if (DALib::Engine != nullptr)
+#endif
+                {
+                    DALib::Engine->ReleaseHandle((void*)EngineIndex);
+                }
                 EngineIndex = -1;
             }
             CliObjFreeResources(Companion);

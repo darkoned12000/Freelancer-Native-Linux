@@ -732,6 +732,9 @@ void __cdecl DALib_Engine_set_csys(long Handle, Csys const& InCsys)
 //
 // TODO: if the per-TU statics ever matter (e.g. if CreateInstance stops returning a shared
 // instance), move the cache back out to the call sites and restore this body to retail's.
+#if !defined(_MSC_VER) && !defined(_WIN32)
+__attribute__((weak))
+#endif
 I3DMathEngine* __cdecl Acquire3DMathEngine()
 {
     static I3DMathEngine* CachedEngine = nullptr;

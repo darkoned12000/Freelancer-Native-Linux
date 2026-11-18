@@ -43,12 +43,19 @@ namespace
     // code address of its own INI_Reader::get_name the same way.
     char const* IniReaderGetNameCode()
     {
+#if defined(_MSC_VER)
         char const* (INI_Reader::*Method)() const = &INI_Reader::get_name;
         static_assert(sizeof(Method) == sizeof(char const*),
                       "INI_Reader member pointer is a plain code address");
         char const* Code = nullptr;
         std::memcpy(&Code, &Method, sizeof(Code));
         return Code;
+#else
+        // Linux/Itanium ABI: member function pointers are not plain code pointers.
+        // Retail passed INI_Reader::get_name's code address as %s (garbage text);
+        // use a stable descriptive string for bring-up diagnostics.
+        return "INI_Reader::get_name";
+#endif
     }
 
     // Shared body of RoomData::read_FlashLightSet_block (0x06276c00) and

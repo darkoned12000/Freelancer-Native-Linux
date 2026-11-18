@@ -143,7 +143,11 @@ unsigned long bodypart::get_name_crc() const
 char const* bodypart::get_name() const
 {
     // 0x062ff140: _ultoa([this], buffer, 10); return buffer.
+#if defined(_MSC_VER)
     _ultoa(Id, GCostumeNameBuffer, 10);
+#else
+    std::snprintf(GCostumeNameBuffer, sizeof(GCostumeNameBuffer), "%lu", static_cast<unsigned long>(Id));
+#endif
     return GCostumeNameBuffer;
 }
 
@@ -201,7 +205,11 @@ unsigned long accessory::get_name_crc() const
 char const* accessory::get_name() const
 {
     // 0x062ff140 (the same body as bodypart::get_name).
+#if defined(_MSC_VER)
     _ultoa(Id, GCostumeNameBuffer, 10);
+#else
+    std::snprintf(GCostumeNameBuffer, sizeof(GCostumeNameBuffer), "%lu", static_cast<unsigned long>(Id));
+#endif
     return GCostumeNameBuffer;
 }
 

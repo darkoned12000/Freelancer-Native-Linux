@@ -715,7 +715,7 @@ bool ClampPointToBoxSurface(unsigned char* Box, Vector const* Src, Vector* Dst)
         Overshoot[Axis] = std::fabs(In[Axis]) - HalfExtent[Axis];
         if (Overshoot[Axis] >= 0.0f)
         {
-            OutAxis[Axis] = static_cast<float>(_copysign(HalfExtent[Axis], In[Axis]));
+            OutAxis[Axis] = static_cast<float>(std::copysign(HalfExtent[Axis], In[Axis]));
             bWasOutside = true;
         }
         else
@@ -736,7 +736,7 @@ bool ClampPointToBoxSurface(unsigned char* Box, Vector const* Src, Vector* Dst)
         {
             NearestAxis = 1;
         }
-        OutAxis[NearestAxis] = static_cast<float>(_copysign(HalfExtent[NearestAxis], In[NearestAxis]));
+        OutAxis[NearestAxis] = static_cast<float>(std::copysign(HalfExtent[NearestAxis], In[NearestAxis]));
     }
 
     return bWasOutside;

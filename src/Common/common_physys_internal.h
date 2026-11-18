@@ -142,7 +142,18 @@ namespace CmnPhySys
     // Shutdown, BuildPartIVP_Real 0628929e, FindRayCollisions 06289c5b) keep using find().
     inline PhysicalSystem& PhySys_FindSystem(unsigned SystemId)
     {
-        return G_PhysicalSystems.find(SystemId)._Ptr->_Myval.second;
+        auto It = G_PhysicalSystems.find(SystemId);
+#if defined(_MSC_VER)
+        return It._Ptr->_Myval.second;
+#else
+        // MSVC retail behavior intentionally reads head-node storage on miss (unportable/unsafe).
+        // On non-MSVC builds, return the found entry when present; otherwise return a stable
+        // fallback object to avoid UB while preserving bring-up link/runtime viability.
+        if (It != G_PhysicalSystems.end())
+            return It->second;
+        static PhysicalSystem FallbackSystem(0);
+        return FallbackSystem;
+#endif
     }
 
     // IEngine (engine/engbase.h) types its instance parameters and results as void*, but

@@ -412,10 +412,83 @@ namespace Archetype
         long EngineIndex;                   // +0x40  -1 = not loaded
         int AnimIndex;                      // +0x44  -1
         // +0x48: the surfaces map PhyArch::LoadSurfaces fills (retail's export takes it as
-        // std::map<unsigned int, PhyArch::Part>&). A modern std::map is smaller than retail's
-        // 0x14-byte span here, so the pad keeps every derived archetype's offsets unchanged.
+        // std::map<unsigned int, PhyArch::Part>&). VC6's std::map occupied 0x14 bytes here;
+        // modern libstdc++'s 32-bit std::map is larger, so on the relaxed Linux port layout we
+        // keep the same 0x14-byte footprint (preserving Root==0x5C and all derived offsets) by
+        // storing the map indirectly behind a map-like wrapper.
+#if defined(FL_LINUX_PORT_LAYOUT_RELAXED)
+        struct PhyPartsStorage
+        {
+            typedef std::map<unsigned int, PhyArch::Part> MapType;
+            MapType* Ptr;
+            unsigned char Pad[0x14 - sizeof(MapType*)];
+
+            PhyPartsStorage() : Ptr(nullptr) { memset(Pad, 0, sizeof(Pad)); }
+            ~PhyPartsStorage() { delete Ptr; Ptr = nullptr; }
+
+            PhyPartsStorage(PhyPartsStorage const& Other) : Ptr(nullptr)
+            {
+                memset(Pad, 0, sizeof(Pad));
+                if (Other.Ptr != nullptr)
+                    Ptr = new MapType(*Other.Ptr);
+            }
+
+            PhyPartsStorage& operator=(PhyPartsStorage const& Other)
+            {
+                if (this == &Other)
+                    return *this;
+                if (Other.Ptr == nullptr)
+                {
+                    if (Ptr != nullptr)
+                        Ptr->clear();
+                }
+                else
+                {
+                    Ensure().operator=(*Other.Ptr);
+                }
+                return *this;
+            }
+
+            MapType& Ensure()
+            {
+                if (Ptr == nullptr)
+                    Ptr = new MapType();
+                return *Ptr;
+            }
+
+            MapType const& View() const
+            {
+                if (Ptr == nullptr)
+                {
+                    static MapType const kEmpty;
+                    return kEmpty;
+                }
+                return *Ptr;
+            }
+
+            operator MapType&() { return Ensure(); }
+            operator MapType const&() const { return View(); }
+
+            void clear()
+            {
+                if (Ptr != nullptr)
+                    Ptr->clear();
+            }
+
+            MapType::iterator begin() { return Ensure().begin(); }
+            MapType::iterator end() { return Ensure().end(); }
+            MapType::const_iterator begin() const { return View().begin(); }
+            MapType::const_iterator end() const { return View().end(); }
+            MapType::iterator find(unsigned int Key) { return Ensure().find(Key); }
+            MapType::const_iterator find(unsigned int Key) const { return View().find(Key); }
+            bool empty() const { return Ptr == nullptr || Ptr->empty(); }
+            MapType::size_type size() const { return Ptr == nullptr ? 0 : Ptr->size(); }
+        } PhyParts;
+        static_assert(sizeof(PhyPartsStorage) == 0x14, "Root::PhyPartsStorage sizeof 0x14");
+#else
         std::map<unsigned int, PhyArch::Part> PhyParts;
         unsigned char PhyPartsPad[0x14 - sizeof(std::map<unsigned int, PhyArch::Part>)];
+#endif
 
     protected:
         // Retail 0x90be0: distinct from load() -- returns false if not yet loaded (does NOT

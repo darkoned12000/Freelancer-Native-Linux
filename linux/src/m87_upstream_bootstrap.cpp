@@ -10,7 +10,7 @@
 #include <cstring>
 #include <string>
 
-struct FClientCommandLine;
+#include "freelancer/Client/globals.h"
 
 #if defined(__GNUC__) || defined(__clang__)
 #define FL_M87_EXPORT __attribute__((visibility("default")))
@@ -30,12 +30,6 @@ struct FPortableSystemContainerAggDesc {
   unsigned long Reserved10;
   unsigned long Reserved14;
   unsigned long Reserved18;
-};
-
-struct FClientCommandLineShim {
-  unsigned Count = 0;
-  char Buffer[1024] = {};
-  char* Argv[64] = {};
 };
 }
 
@@ -82,14 +76,32 @@ extern "C" FL_M87_EXPORT int fl_m87_try_invoke_upstream_bootstrap(void* /*native
                          std::to_string((int)gr_sys));
   }
 
+  // Prepare upstream globals expected by InitializeEngine (config/data paths, options).
+  FClientCommandLine cmd;
+  cmd.Count = 0;
+  std::memset(cmd.Argv, 0, sizeof(cmd.Argv));
+  std::memset(cmd.Buffer, 0, sizeof(cmd.Buffer));
+  try {
+    LoadStartupConfig(&g_display, &cmd);
+    if (ini_path_or_null && *ini_path_or_null) {
+      // Prefer resolved freelancer.ini path from bring-up flow when provided.
+      g_display.ini_path.Length = CopyBoundedString(g_display.ini_path.Text, 0x104, ini_path_or_null);
+    }
+    fl_port::log_message(fl_port::LogLevel::Info,
+                         std::string("M8.7 bootstrap hook: startup config ini='") + g_display.ini_path.Text +
+                         "' data='" + g_display.data_path.Text + "'");
+  } catch (...) {
+    fl_port::log_message(fl_port::LogLevel::Warning,
+                         "M8.7 bootstrap hook: LoadStartupConfig threw (continuing)");
+  }
+
   // Invoke linked upstream InitializeEngine in a guarded single-player-safe mode.
   // Many dependencies are currently stubbed; treat failure as non-fatal for bring-up fallback.
   fl_port::log_message(fl_port::LogLevel::Info,
                        "M8.7 bootstrap hook: invoking upstream InitializeEngine (guarded)");
   bool init_ok = false;
   try {
-    FClientCommandLineShim cmd{};
-    init_ok = InitializeEngine(reinterpret_cast<const FClientCommandLine*>(&cmd));
+    init_ok = InitializeEngine(&cmd);
   } catch (...) {
     fl_port::log_message(fl_port::LogLevel::Error,
                          "M8.7 bootstrap hook: upstream InitializeEngine threw (caught)");
@@ -107,3 +119,5 @@ extern "C" FL_M87_EXPORT int fl_m87_try_invoke_upstream_bootstrap(void* /*native
   // Partial progress: upstream init TU invoked; full WinMain/state loop integration still pending.
   return (init_ok || exercised_any) ? 1 : 0;
 }
+
+

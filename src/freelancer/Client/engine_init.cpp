@@ -671,22 +671,47 @@ void ShutdownRenderMgr(bool bRestoreWindowedMode)
     G_bRenderMgrShuttingDown = false;
 }
 
+#if defined(FL_LINUX_PORT_UPSTREAM_TU)
+#include "linux_port/platform.h"
+#define FL_INIT_LOG(msg) do { ::fl_port::log_message(::fl_port::LogLevel::Info, "M8.7 InitializeEngine: " msg); } while(0)
+#define FL_INIT_WARN(msg) do { ::fl_port::log_message(::fl_port::LogLevel::Warning, "M8.7 InitializeEngine: " msg); } while(0)
+#else
+#define FL_INIT_LOG(msg) do {} while(0)
+#define FL_INIT_WARN(msg) do {} while(0)
+#endif
+
 // FUN_005b1300 -- Client/main.cpp InitializeEngine, cdecl(FClientCommandLine*).
 bool InitializeEngine(const FClientCommandLine* CommandLine)
 {
-    if (!DALib::Startup(g_client.window, nullptr))
+    FL_INIT_LOG("begin");
+    if (!DALib::Startup(g_client.window, nullptr)) {
+        FL_INIT_WARN("DALib::Startup failed");
         return false;
+    }
     DALib::OpenData(g_display.data_path.c_str());
-    if (!PumpInitMessages())
+    if (!PumpInitMessages()) {
+        FL_INIT_WARN("PumpInitMessages failed (early)");
         return false;
+    }
 
     // 0x005b13e4..0x005b152d.
     if (DALib::Data == nullptr)
     {
         FDUMP(0x100001, "%s(%d) : *** ERROR: could not find DATA directory (%s)\n", kMainCppPath,
               0x2f8, g_display.data_path.Text);
+        FL_INIT_WARN("missing DALib::Data");
         return false;
     }
+#if defined(FL_LINUX_PORT_UPSTREAM_TU)
+    // Linux bring-up: tolerate missing upstream engine/render components and continue
+    // with guarded/fallback initialization where possible.
+    if (DALib::Hardpoint == nullptr) FL_INIT_WARN("missing DA component Hardpoint (tolerated)");
+    if (DALib::Renderer == nullptr) FL_INIT_WARN("missing DA component Renderer (tolerated)");
+    if (DALib::TextureLib == nullptr) FL_INIT_WARN("missing DA component TextureLib (tolerated)");
+    if (DALib::MaterialLib == nullptr) FL_INIT_WARN("missing DA component MaterialLib (tolerated)");
+    if (DALib::VertexBuffer == nullptr) FL_INIT_WARN("missing DA component VertexBuffer (tolerated)");
+    if (DALib::MaterialBatcher == nullptr) FL_INIT_WARN("missing DA component MaterialBatcher (tolerated)");
+#else
     if (DALib::Hardpoint == nullptr)
     {
         FDUMP(0x100001, "%s(%d) : *** ERROR: missing DA component (%s)\n", kMainCppPath, 0x2fd,
@@ -717,23 +742,61 @@ bool InitializeEngine(const FClientCommandLine* CommandLine)
               "IVertexBufferManager");
         return false;
     }
-    if (DALib::Alchemy == nullptr)
-    {
-        // Reported, not fatal.
-        FDUMP(0x100001, "%s(%d) : *** ERROR: missing DA component (%s)\n", kMainCppPath, 0x316,
-              "IAlchemy");
-    }
     if (DALib::MaterialBatcher == nullptr)
     {
         FDUMP(0x100001, "%s(%d) : *** ERROR: missing DA component (%s)\n", kMainCppPath, 0x31b,
               Iids::MaterialBatcher2);
         return false;
     }
-    if (!PumpInitMessages())
+#endif
+    if (DALib::Alchemy == nullptr)
+    {
+        // Reported, not fatal.
+        FDUMP(0x100001, "%s(%d) : *** ERROR: missing DA component (%s)\n", kMainCppPath, 0x316,
+              "IAlchemy");
+    }
+    if (!PumpInitMessages()) {
+        FL_INIT_WARN("PumpInitMessages failed (post-components)");
         return false;
+    }
 
     Async::Startup();
     Timing::init();
+
+#if defined(FL_LINUX_PORT_UPSTREAM_TU)
+    // Linux bring-up: skip render pipeline/device-mode/dialog/splash/UI-heavy init that
+    // requires unavailable subsystems and can crash. Focus on config/data bootstrap path.
+    FL_INIT_LOG("Linux bring-up path: skipping render/dialog/splash-heavy init");
+    (void)CommandLine;
+    srand(timeGetTime());
+    if (CreateID("Freelancer") == 0) {
+        FL_INIT_WARN("CreateID(\"Freelancer\") failed (continuing)");
+    }
+
+    FL_INIT_LOG("running DataConfig::startup");
+    DataConfigPump Pump;
+    // Linux bring-up: use compatible GCliObjFactory bridge (archetype loaders are still
+    // ABI-guarded in DataConfig on Linux, so the factory is not invoked yet).
+    const int ConfigResult = DataConfig::startup(g_display.ini_path.c_str(),
+                                                 &Archetype::GCliObjFactory, &Pump);
+    if (ConfigResult == 1) {
+        FL_INIT_WARN("DataConfig::startup aborted by progress callback");
+        return false;
+    }
+    if (ConfigResult != 0) {
+        FDUMP(0x100001, "%s(%d) : *** ERROR: %s", kMainCppPath, 0x3e1,
+              "Config::startup() failed.\n");
+        FL_INIT_WARN("DataConfig::startup failed");
+        return false;
+    }
+    FL_INIT_LOG("DataConfig::startup completed");
+
+    // Best-effort lightweight follow-up init; guarded for bring-up stability.
+    try { LoadClientIniData(g_display.ini_path.c_str()); } catch (...) { FL_INIT_WARN("LoadClientIniData threw"); }
+    FL_INIT_LOG("completed Linux bring-up init subset");
+    return true;
+#else
+    FL_INIT_LOG("starting render pipeline");
     if (!StartupRenderPipeline())
         ShowEngineFatalError(0xd7);
 #ifdef FREELANCER_RP9
@@ -888,17 +951,22 @@ bool InitializeEngine(const FClientCommandLine* CommandLine)
     RefreshLoadingProgress();
     // 0x005b1baa..0x005b1bc1: a stack DataConfigPump (vptr 0x005e6ab8 stored at [ESP+0x2c])
     // pumps messages for every [Data] value DataConfig::startup reads.
+    FL_INIT_LOG("running DataConfig::startup");
     DataConfigPump Pump;
     const int ConfigResult = DataConfig::startup(g_display.ini_path.c_str(),
                                                  &Archetype::GCliObjFactory, &Pump);
-    if (ConfigResult == 1)
+    if (ConfigResult == 1) {
+        FL_INIT_WARN("DataConfig::startup aborted by progress callback");
         return false;
+    }
     if (ConfigResult != 0)
     {
         FDUMP(0x100001, "%s(%d) : *** ERROR: %s", kMainCppPath, 0x3e1,
               "Config::startup() failed.\n");
+        FL_INIT_WARN("DataConfig::startup failed");
         return false;
     }
+    FL_INIT_LOG("DataConfig::startup completed");
 
     RefreshLoadingProgress();
     if (!PumpInitMessages())
@@ -954,6 +1022,7 @@ bool InitializeEngine(const FClientCommandLine* CommandLine)
     LoadingScreenReset(); // 0x005b1fbd: FUN_00579190
 
     return true;
+#endif
 }
 
 // freelancer.exe FUN_005b73e0 (.text:005b73e0-005b7418), 21 callers. The exe's own copy of the

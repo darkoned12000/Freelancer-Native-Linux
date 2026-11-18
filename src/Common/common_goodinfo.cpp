@@ -518,6 +518,10 @@ void GoodInfoList::read_Good_block(INI_Reader* Reader, GoodInfo* Info)
     {
         Info->ArchId = EquipmentArch;
         Archetype::Equipment* const Equip = Archetype::GetEquipment(EquipmentArch);
+#if defined(FL_LINUX_PORT_UPSTREAM_TU)
+        // Linux bring-up: archetype loaders may be skipped/unavailable; tolerate missing equipment.
+        if (Equip != nullptr) {
+#endif
         if (Info->IdsName == 0)
             Info->IdsName = Equip->IdsName;
         if (Info->IdsInfo == 0)
@@ -530,6 +534,9 @@ void GoodInfoList::read_Good_block(INI_Reader* Reader, GoodInfo* Info)
             if (Info->HpChild.Value[0] == '\0' && Attached->HpChild.Value[0] != '\0')
                 Info->HpChild = Attached->HpChild;
         }
+#if defined(FL_LINUX_PORT_UPSTREAM_TU)
+        }
+#endif
     }
     else
     {

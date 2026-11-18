@@ -10,6 +10,7 @@
 #include "dacom.h"
 
 #include <new>
+#include <cstdio>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -337,7 +338,11 @@ char const* ID_String::get_string() const
     char* Slot = GIdStringHexScratch + SlotOffset;
     Slot[0] = '0';
     Slot[1] = 'x';
+#if defined(_MSC_VER)
     _itoa((int)Id, Slot + 2, 16);
+#else
+    std::snprintf(Slot + 2, IdStringHexSlotBytes - 2, "%x", (unsigned int)Id);
+#endif
     return Slot;
 }
 

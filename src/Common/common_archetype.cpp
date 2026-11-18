@@ -635,6 +635,14 @@ namespace Archetype
 
         if (EngineIndex != nullptr)
         {
+#if defined(FL_LINUX_PORT_UPSTREAM_TU)
+            if (DALib::Engine == nullptr)
+            {
+                if (*EngineIndex == -1)
+                    *EngineIndex = -1;
+                return true;
+            }
+#endif
             // .text:062efdbf..062efe03: the file system's own path (+0x84, 0x100 chars) named
             // with its CRC, IEngine slot 17 (+0x44) FindArchetype.
             char PathBuf[0x100];
@@ -660,6 +668,10 @@ namespace Archetype
         // Retail 0x062efe40. No test of Path.
         if (EngineIndex != nullptr && AnimIndex == nullptr)
         {
+#if defined(FL_LINUX_PORT_UPSTREAM_TU)
+            if (DALib::Engine == nullptr)
+                return true;
+#endif
             // .text:062efe6d..062efe93: an engine-only request first tries the already-loaded
             // archetype by its path (IEngine slot 17, +0x44).
             FEngineArchetypeName Name;
@@ -669,6 +681,11 @@ namespace Archetype
             if (*EngineIndex != -1)
                 return true;
         }
+
+#if defined(FL_LINUX_PORT_UPSTREAM_TU)
+        if (DALib::Data == nullptr)
+            return true;
+#endif
 
         // .text:062efea2..062eff02: a 0x34-byte "FileSystem" descriptor with no implementation
         // name (desc+8 zeroed by REP STOSD), the path, GENERIC_READ, FILE_SHARE_READ,
@@ -801,6 +818,10 @@ namespace Archetype
         // its result returned as is; no engine or handle test.
         if (EngineIndex != -1)
         {
+#if defined(FL_LINUX_PORT_UPSTREAM_TU)
+            if (DALib::Engine == nullptr)
+                return -1;
+#endif
             return (long)DALib::Engine->CreateInstance((void*)EngineIndex, EngineInstance);
         }
 
@@ -847,14 +868,26 @@ namespace Archetype
         // (+0x10, CloseScript) and the index reset; DALib::Anim itself is not tested.
         if (AnimIndex != -1)
         {
-            DALib::Anim->CloseScript((void*)(ptrdiff_t)AnimIndex);
+#if defined(FL_LINUX_PORT_UPSTREAM_TU)
+            if (DALib::Anim != nullptr)
+#endif
+            {
+                DALib::Anim->CloseScript((void*)(ptrdiff_t)AnimIndex);
+            }
             AnimIndex = -1;
         }
 
         // .text:062f0b13..062f0b27: a loaded mesh is released through DALib::Engine slot 15
         // (+0x3c, ReleaseHandle).
         if (EngineIndex != -1)
-            DALib::Engine->ReleaseHandle((void*)EngineIndex);
+        {
+#if defined(FL_LINUX_PORT_UPSTREAM_TU)
+            if (DALib::Engine != nullptr)
+#endif
+            {
+                DALib::Engine->ReleaseHandle((void*)EngineIndex);
+            }
+        }
 
         // .text:062f0b2a..062f0bb6: the surfaces map at +0x48 emptied (the inline erase(begin,
         // end) / clear of the VC6 tree).
